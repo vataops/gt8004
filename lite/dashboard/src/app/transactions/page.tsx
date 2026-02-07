@@ -6,7 +6,7 @@ export default function TransactionsPage() {
   const { events } = useEventStream();
 
   // Filter to tx_confirmed events only
-  const txEvents = events.filter((e) => e.event_type === "tx_confirmed");
+  const txEvents = events.filter((e) => e.type === "tx_confirmed");
 
   return (
     <div>
@@ -29,15 +29,15 @@ export default function TransactionsPage() {
             </tr>
           </thead>
           <tbody>
-            {txEvents.map((event) => {
+            {txEvents.map((event, i) => {
               const p = event.payload as Record<string, unknown>;
               return (
                 <tr
-                  key={event.id}
+                  key={`${event.timestamp}-${i}`}
                   className="border-b border-gray-800/50 hover:bg-gray-800/30"
                 >
                   <td className="p-3 text-gray-400 font-mono text-xs">
-                    {new Date(event.created_at).toLocaleTimeString()}
+                    {new Date(event.timestamp).toLocaleTimeString()}
                   </td>
                   <td className="p-3 font-mono text-xs text-gray-400">
                     {event.channel_id?.slice(0, 12) || "-"}
@@ -55,7 +55,9 @@ export default function TransactionsPage() {
                     {(p.memo as string) || "-"}
                   </td>
                   <td className="p-3 text-right text-gray-400">
-                    {p.latency_ms ? `${p.latency_ms}ms` : "-"}
+                    {p.latency_ms
+                      ? `${(p.latency_ms as number).toFixed(2)}ms`
+                      : "-"}
                   </td>
                 </tr>
               );

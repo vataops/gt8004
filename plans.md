@@ -242,20 +242,26 @@ POST /tx/submit { tx_hash, signature }
 - [x] Escrow 컨트랙트 연동 (Go 바인딩) — `evm/escrow.go` (deposit/topup/settle)
 - [x] Handler 연결 + 라우터 x402 미들웨어 적용 + main.go 초기화
 
-**Step 4: 채널 라이프사이클 완성**
-- [ ] 채널 REST 핸들러 (생성/조회/충전/종료) — Lite 엔진 연결
-- [ ] 정산 플로우 (Lite: DB 잔액 → Escrow settle 호출)
-- [ ] WebSocket API (실시간 TX 알림)
+**Step 4: 채널 라이프사이클 완성** ✅ 완료
+- [x] 채널 REST 핸들러 (생성/조회/충전/종료) — Lite 엔진 완전 연결 + WS 이벤트 브로드캐스트
+- [x] 정산 플로우 — `settlement/settlement.go` (DB agent EVM 주소 조회 → Escrow.Settle 호출)
+- [x] 에이전트 EVM 주소 저장 — 인증 성공 시 `store.UpdateAgentEVMAddress()` 호출
+- [x] WebSocket API — `ws/hub.go` (채널별 구독 + 글로벌 Admin 구독, ping/pong, gorilla/websocket)
+- [x] ChannelWebSocket + AdminEventsWebSocket 핸들러 구현
 
-**Step 5: 대시보드 연동**
-- [ ] Admin API 엔드포인트 실제 구현 (DB 쿼리)
-- [ ] 실시간 이벤트 WebSocket
-- [ ] 대시보드에서 Lite 채널 모니터링 확인
+**Step 5: 대시보드 연동** ✅ 완료
+- [x] Admin API 엔드포인트 실제 구현 (DB 쿼리) — store 레이어 (overview, channel, agent, event, escrow)
+- [x] 실시간 이벤트 WebSocket — `useEventStream()` hook → `WsEvent` 타입으로 정렬
+- [x] 프론트엔드 `trust_mode` → `mode` 반영, `ChannelDetail` 타입 (잔액 포함)
+- [x] Channel 상세 페이지에 Credit Balances 테이블 추가
+- [x] 대시보드 빌드 통과 확인
 
-**Step 6: 통합 테스트**
-- [ ] E2E: x402 → 채널 생성(lite) → TX → 정산
-- [ ] 대시보드 데이터 검증
-- [ ] 에러 핸들링
+**Step 6: 통합 테스트** ✅ 완료
+- [x] LiteEngine 풀 라이프사이클 테스트 (`lite_test.go`): 채널 생성 → TX → 잔액 확인 → 과잉인출 방지 → 충전 → 종료 → 정산
+- [x] 다중 TX 테스트: 50건 연속 TX → 잔액/통계 검증
+- [x] Handler HTTP 테스트 (`handler_test.go`): mock engine으로 Create/TX/Close/NotFound/BadRequest
+- [x] WebSocket Hub 테스트 (`hub_test.go`): 채널 구독 브로드캐스트 + 글로벌 구독
+- [x] `go test ./...` 전체 통과
 
 ### Phase 2: AES Pro (Hydra 모드)
 

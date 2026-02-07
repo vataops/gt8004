@@ -4,10 +4,16 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 
 	"github.com/AEL/aes-lite/internal/channel"
+	"github.com/AEL/aes-lite/internal/ws"
 )
+
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool { return true },
+}
 
 func (h *Handler) CreateTransaction(c *gin.Context) {
 	channelID := c.Param("id")
@@ -25,10 +31,33 @@ func (h *Handler) CreateTransaction(c *gin.Context) {
 		return
 	}
 
+	// Broadcast TX event to channel subscribers + admin
+	h.hub.Broadcast(ws.Event{
+		Type:      "tx_confirmed",
+		ChannelID: channelID,
+		Payload:   result,
+	})
+
 	c.JSON(http.StatusOK, result)
 }
 
+// ChannelWebSocket upgrades to WebSocket and streams channel events in real-time.
 func (h *Handler) ChannelWebSocket(c *gin.Context) {
-	// TODO: WebSocket upgrade for real-time channel events
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	channelID := c.Param("id")
+
+	// Verify channel exists
+	_, err := h.engine.GetChannel(c.Request.Context(), channelID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "channel not found"})
+		return
+	}
+
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		h.logger.Error("ws upgrade failed", zap.Error(err))
+		return
+	}
+
+	h.logger.Info("ws: client connected", zap.String("channel", channelID))
+	h.hub.Subscribe(channelID, conn) // blocks until client disconnects
 }

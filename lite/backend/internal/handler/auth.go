@@ -40,5 +40,12 @@ func (h *Handler) AuthVerify(c *gin.Context) {
 		return
 	}
 
+	// Persist verified EVM address to DB for settlement
+	if info.EVMAddress != "" {
+		if err := h.store.UpdateAgentEVMAddress(c.Request.Context(), req.AgentID, info.EVMAddress); err != nil {
+			h.logger.Warn("failed to save agent EVM address", zap.Error(err))
+		}
+	}
+
 	c.JSON(http.StatusOK, info)
 }

@@ -28,6 +28,14 @@ func (s *Store) GetAgent(ctx context.Context, agentID string) (*Agent, error) {
 	return a, nil
 }
 
+func (s *Store) UpdateAgentEVMAddress(ctx context.Context, agentID, evmAddress string) error {
+	_, err := s.pool.Exec(ctx, `
+		UPDATE agents SET evm_address = $1, verified_at = NOW(), updated_at = NOW()
+		WHERE agent_id = $2
+	`, evmAddress, agentID)
+	return err
+}
+
 func (s *Store) ListAgents(ctx context.Context) ([]Agent, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT id, agent_id, evm_address, reputation_score, verified_at, created_at

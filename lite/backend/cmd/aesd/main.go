@@ -18,7 +18,9 @@ import (
 	"github.com/AEL/aes-lite/internal/handler"
 	"github.com/AEL/aes-lite/internal/identity"
 	"github.com/AEL/aes-lite/internal/server"
+	"github.com/AEL/aes-lite/internal/settlement"
 	"github.com/AEL/aes-lite/internal/store"
+	"github.com/AEL/aes-lite/internal/ws"
 )
 
 func main() {
@@ -55,7 +57,13 @@ func main() {
 		logger.Warn("escrow client disabled", zap.Error(err))
 	}
 
-	h := handler.New(db, engine, escrow, idVerifier, logger)
+	// Settlement orchestrator
+	settler := settlement.New(db, escrow, logger)
+
+	// WebSocket hub for real-time events
+	hub := ws.NewHub(logger)
+
+	h := handler.New(db, engine, escrow, idVerifier, settler, hub, logger)
 	srv := server.New(cfg, h, logger)
 
 	// Metrics server

@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 func (h *Handler) AdminOverview(c *gin.Context) {
@@ -81,7 +82,14 @@ func (h *Handler) AdminListEvents(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"events": events})
 }
 
+// AdminEventsWebSocket upgrades to WebSocket and streams all system events in real-time.
 func (h *Handler) AdminEventsWebSocket(c *gin.Context) {
-	// TODO: upgrade to WebSocket, stream events in real-time
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		h.logger.Error("admin ws upgrade failed", zap.Error(err))
+		return
+	}
+
+	h.logger.Info("ws: admin client connected")
+	h.hub.SubscribeGlobal(conn) // blocks until client disconnects
 }

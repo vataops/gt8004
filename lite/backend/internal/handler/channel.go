@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/AEL/aes-lite/internal/channel"
+	"github.com/AEL/aes-lite/internal/ws"
 	"github.com/AEL/aes-lite/internal/x402"
 )
 
@@ -47,11 +48,17 @@ func (h *Handler) CreateChannel(c *gin.Context) {
 		txHash, err := h.escrow.Deposit(c.Request.Context(), ch.ChannelID, usdcWei)
 		if err != nil {
 			h.logger.Error("escrow deposit failed", zap.Error(err))
-			// Channel is created but escrow deposit failed — log but don't block
 		} else if txHash != "" {
 			h.logger.Info("escrow deposit sent", zap.String("tx_hash", txHash))
 		}
 	}
+
+	// Broadcast channel creation event
+	h.hub.Broadcast(ws.Event{
+		Type:      "channel_created",
+		ChannelID: ch.ChannelID,
+		Payload:   ch,
+	})
 
 	c.JSON(http.StatusCreated, ch)
 }
@@ -109,28 +116,55 @@ func (h *Handler) TopupChannel(c *gin.Context) {
 		}
 	}
 
+	// Broadcast topup event
+	h.hub.Broadcast(ws.Event{
+		Type:      "credits_topped_up",
+		ChannelID: id,
+		Payload: gin.H{
+			"agent_id":      req.AgentID,
+			"credits_added": req.Amount,
+		},
+	})
+
 	c.JSON(http.StatusOK, gin.H{"status": "topped_up", "channel_id": id, "credits_added": req.Amount})
 }
 
 func (h *Handler) CloseChannel(c *gin.Context) {
 	id := c.Param("id")
 
-	settlement, err := h.engine.CloseChannel(c.Request.Context(), id)
+	stl, err := h.engine.CloseChannel(c.Request.Context(), id)
 	if err != nil {
 		h.logger.Error("failed to close channel", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Escrow settle on-chain
-	if h.escrow != nil {
-		h.logger.Info("escrow settle: would distribute USDC based on final balances",
-			zap.String("channel", id),
-			zap.Float64("total_usdc", settlement.TotalUSDC),
-		)
-		// TODO: Build agents[] and creditBalances[] from settlement.Balances
-		// and call h.escrow.Settle() — requires agent EVM addresses
+	// Escrow settle on-chain via Settler
+	var settleTxHash string
+	if h.settler != nil {
+		txHash, err := h.settler.Settle(c.Request.Context(), stl)
+		if err != nil {
+			h.logger.Error("escrow settle failed", zap.Error(err),
+				zap.String("channel", id))
+		} else {
+			settleTxHash = txHash
+		}
 	}
 
-	c.JSON(http.StatusOK, settlement)
+	// Broadcast channel settled event
+	h.hub.Broadcast(ws.Event{
+		Type:      "channel_settled",
+		ChannelID: id,
+		Payload: gin.H{
+			"settlement":     stl,
+			"settle_tx_hash": settleTxHash,
+		},
+	})
+
+	resp := gin.H{"settlement": stl}
+	if settleTxHash != "" {
+		resp["settle_tx_hash"] = settleTxHash
+	}
+
+	c.JSON(http.StatusOK, resp)
 }

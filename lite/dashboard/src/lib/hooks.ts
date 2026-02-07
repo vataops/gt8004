@@ -2,14 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { api } from "./api";
-import type {
-  Overview,
-  Channel,
-  Agent,
-  EscrowOverview,
-  SystemEvent,
-  TransactionLog,
-} from "./api";
+import type { WsEvent } from "./api";
 
 function usePolling<T>(fetchFn: () => Promise<T>, intervalMs: number) {
   const [data, setData] = useState<T | null>(null);
@@ -76,7 +69,7 @@ export function useChannelTransactions(channelId: string) {
 }
 
 export function useEventStream() {
-  const [events, setEvents] = useState<SystemEvent[]>([]);
+  const [events, setEvents] = useState<WsEvent[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
@@ -87,7 +80,7 @@ export function useEventStream() {
 
     ws.onmessage = (msg) => {
       try {
-        const event = JSON.parse(msg.data) as SystemEvent;
+        const event = JSON.parse(msg.data) as WsEvent;
         setEvents((prev) => [event, ...prev].slice(0, 500));
       } catch {
         // ignore parse errors

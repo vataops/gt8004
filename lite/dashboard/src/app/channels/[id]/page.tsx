@@ -6,12 +6,14 @@ import { useChannel, useChannelTransactions } from "@/lib/hooks";
 export default function ChannelDetailPage() {
   const params = useParams();
   const id = params.id as string;
-  const { data: channel, loading } = useChannel(id);
+  const { data, loading } = useChannel(id);
   const { data: txData } = useChannelTransactions(id);
 
   if (loading) return <p className="text-gray-500">Loading...</p>;
-  if (!channel) return <p className="text-red-400">Channel not found</p>;
+  if (!data) return <p className="text-red-400">Channel not found</p>;
 
+  const channel = data.channel;
+  const balances = data.balances || [];
   const transactions = txData?.transactions || [];
 
   return (
@@ -28,9 +30,9 @@ export default function ChannelDetailPage() {
           <p className="text-lg font-bold mt-1 capitalize">{channel.status}</p>
         </div>
         <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-          <p className="text-xs text-gray-500">Type / Trust</p>
+          <p className="text-xs text-gray-500">Mode / Type</p>
           <p className="text-lg font-bold mt-1">
-            {channel.type} / {channel.trust_mode}
+            {channel.mode} / {channel.type}
           </p>
         </div>
         <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
@@ -43,11 +45,47 @@ export default function ChannelDetailPage() {
           <p className="text-xs text-gray-500">Avg Latency</p>
           <p className="text-lg font-bold mt-1">
             {channel.avg_latency_ms > 0
-              ? `${channel.avg_latency_ms.toFixed(0)}ms`
+              ? `${channel.avg_latency_ms.toFixed(2)}ms`
               : "-"}
           </p>
         </div>
       </div>
+
+      {/* Credit Balances */}
+      {balances.length > 0 && (
+        <>
+          <h3 className="text-lg font-semibold mb-3">Credit Balances</h3>
+          <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden mb-6">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-800 text-gray-500">
+                  <th className="text-left p-3">Agent</th>
+                  <th className="text-right p-3">Balance (CREDIT)</th>
+                  <th className="text-right p-3">USDC Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                {balances.map((b) => (
+                  <tr
+                    key={b.agent_id}
+                    className="border-b border-gray-800/50 hover:bg-gray-800/30"
+                  >
+                    <td className="p-3 font-mono text-xs text-gray-400">
+                      {b.agent_id}
+                    </td>
+                    <td className="p-3 text-right font-mono">
+                      {b.balance.toLocaleString()}
+                    </td>
+                    <td className="p-3 text-right font-mono text-gray-400">
+                      ${(b.balance / 1000).toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
 
       {/* Transaction history */}
       <h3 className="text-lg font-semibold mb-3">Transaction History</h3>
@@ -85,7 +123,7 @@ export default function ChannelDetailPage() {
                   {tx.memo || "-"}
                 </td>
                 <td className="p-3 text-right text-gray-400">
-                  {tx.latency_ms ? `${tx.latency_ms.toFixed(0)}ms` : "-"}
+                  {tx.latency_ms ? `${tx.latency_ms.toFixed(2)}ms` : "-"}
                 </td>
               </tr>
             ))}

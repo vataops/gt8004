@@ -24,7 +24,7 @@ export interface Channel {
   channel_id: string;
   type: string;
   status: string;
-  trust_mode: string;
+  mode: string;
   total_usdc_deposited: number;
   total_credits_minted: number;
   total_transactions: number;
@@ -34,6 +34,17 @@ export interface Channel {
   created_at: string;
   opened_at?: string;
   closed_at?: string;
+}
+
+export interface CreditBalance {
+  channel_id: string;
+  agent_id: string;
+  balance: number;
+}
+
+export interface ChannelDetail {
+  channel: Channel;
+  balances: CreditBalance[] | null;
 }
 
 export interface Agent {
@@ -65,6 +76,7 @@ export interface EscrowOverview {
   settled_channels: number;
 }
 
+// REST API events (from /v1/admin/events)
 export interface SystemEvent {
   id: number;
   event_type: string;
@@ -74,10 +86,19 @@ export interface SystemEvent {
   created_at: string;
 }
 
+// WebSocket events (from /v1/admin/events/ws)
+export interface WsEvent {
+  type: string;
+  channel_id?: string;
+  payload: Record<string, unknown>;
+  timestamp: number;
+}
+
 export const api = {
   getOverview: () => fetcher<Overview>("/v1/admin/overview"),
   getChannels: () => fetcher<{ channels: Channel[] }>("/v1/admin/channels"),
-  getChannel: (id: string) => fetcher<Channel>(`/v1/admin/channels/${id}`),
+  getChannel: (id: string) =>
+    fetcher<ChannelDetail>(`/v1/admin/channels/${id}`),
   getChannelTransactions: (id: string) =>
     fetcher<{ transactions: TransactionLog[] }>(
       `/v1/admin/channels/${id}/transactions`
