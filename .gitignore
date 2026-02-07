@@ -1,0 +1,53 @@
+# Binaries
+backend/aesd
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go
+backend/vendor/
+
+# Node / Next.js
+dashboard/node_modules/
+dashboard/.next/
+dashboard/out/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker volumes
+pgdata/
+cardano-data/
+hydra-data/
+
+# Foundry
+contracts/escrow/out/
+contracts/escrow/cache/
+contracts/escrow/broadcast/
+
+# Aiken
+contracts/credit/build/
+contracts/credit/artifacts/
+
+# Keys (never commit)
+*.sk
+*.skey
+*.vkey
+*.signing_key
+
+# Logs
+*.log
