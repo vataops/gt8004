@@ -1,11 +1,11 @@
 "use client";
 
 import { useAlerts, useAlertHistory } from "@/lib/hooks";
+import { useAuth } from "@/lib/auth";
+import { RequireAuth } from "@/components/RequireAuth";
 import { DataTable, type Column } from "@/components/DataTable";
 import { Badge } from "@/components/Badge";
 import type { AlertRule, AlertHistoryEntry } from "@/lib/api";
-
-const AGENT_ID = process.env.NEXT_PUBLIC_AGENT_ID || "default";
 
 const ruleColumns: Column<AlertRule>[] = [
   {
@@ -71,8 +71,17 @@ const historyColumns: Column<AlertHistoryEntry>[] = [
 ];
 
 export default function AlertsPage() {
-  const { data: alertsData, loading } = useAlerts(AGENT_ID);
-  const { data: historyData } = useAlertHistory(AGENT_ID);
+  return (
+    <RequireAuth>
+      <AlertsContent />
+    </RequireAuth>
+  );
+}
+
+function AlertsContent() {
+  const { agent, apiKey } = useAuth();
+  const { data: alertsData, loading } = useAlerts(agent!.agent_id, apiKey!);
+  const { data: historyData } = useAlertHistory(agent!.agent_id, apiKey!);
 
   if (loading) {
     return <p className="text-gray-500">Loading...</p>;

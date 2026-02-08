@@ -8,8 +8,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/AEL/aes-open/internal/config"
-	"github.com/AEL/aes-open/internal/handler"
+	"github.com/AEL/ael-open/internal/config"
+	"github.com/AEL/ael-open/internal/handler"
 )
 
 type Server struct {
@@ -35,7 +35,7 @@ func New(cfg *config.Config, h *handler.Handler, logger *zap.Logger) *Server {
 }
 
 func (s *Server) Start() error {
-	s.logger.Info("starting AES Open server", zap.Int("port", s.cfg.Port))
+	s.logger.Info("starting AEL Open server", zap.Int("port", s.cfg.Port))
 	return s.httpServer.ListenAndServe()
 }
 

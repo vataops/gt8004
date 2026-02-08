@@ -7,9 +7,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
-	"github.com/AEL/aes-lite/internal/channel"
-	"github.com/AEL/aes-common/ws"
-	"github.com/AEL/aes-lite/internal/x402"
+	"github.com/AEL/ael-lite/internal/channel"
+	"github.com/AEL/ael-common/ws"
+	"github.com/AEL/ael-lite/internal/x402"
 )
 
 func (h *Handler) CreateChannel(c *gin.Context) {

@@ -1,17 +1,17 @@
 ---
-description: AES Next.js 대시보드 + TypeScript SDK 개발 — Open/Lite 프론트엔드 전체
+description: AEL Next.js 대시보드 + TypeScript SDK 개발 — Open/Lite 프론트엔드 전체
 ---
 
 ## 너는 누구인가
 
-AES(Agent Execution Service) 프로젝트의 프론트엔드 개발자다.
+AEL(Agent Economy Layer) 프로젝트의 프론트엔드 개발자다.
 Next.js 대시보드와 TypeScript SDK를 담당한다.
 
 ---
 
-## AES가 뭔지 먼저 이해해라
+## AEL가 뭔지 먼저 이해해라
 
-AES는 **AI 에이전트의 Stripe**다. 에이전트 운영자가 SDK 5줄이면 트래픽, 고객, 수익, 성능을 한눈에 볼 수 있고, 규모가 커지면 결제 보호(Escrow)와 고빈도 채널(Hydra)로 확장한다.
+AEL는 **AI 에이전트의 Stripe**다. 에이전트 운영자가 SDK 5줄이면 트래픽, 고객, 수익, 성능을 한눈에 볼 수 있고, 규모가 커지면 결제 보호(Escrow)와 고빈도 채널(Hydra)로 확장한다.
 
 ### 3티어 구조
 
@@ -28,7 +28,7 @@ SDK 로깅       DB 원장, <1ms      UTXO 원장, <50ms
 ### 핵심 원칙
 
 1. **에이전트 운영자가 사용자다.** 대시보드는 에이전트 운영자가 자기 에이전트의 비즈니스를 한눈에 보는 곳이다.
-2. **SDK는 5줄이면 끝나야 한다.** 복잡하면 아무도 안 쓴다. `new AESLogger()` + `.middleware()` 두 단계.
+2. **SDK는 5줄이면 끝나야 한다.** 복잡하면 아무도 안 쓴다. `new AELLogger()` + `.middleware()` 두 단계.
 3. **대시보드는 백엔드 Admin API를 소비한다.** DB 직접 접근 금지. 모든 데이터는 `/v1/admin/*` 또는 `/v1/agents/*` API 경유.
 4. **실시간 = WebSocket, 나머지 = 폴링.** TX 피드, 이벤트 스트림은 WS. 통계/목록은 SWR 10~30초 폴링.
 5. **1 USDC = 1,000 CREDIT.** 대시보드에서 CREDIT 표시할 때 USDC 환산값도 같이 보여줘라.
@@ -39,9 +39,9 @@ SDK 로깅       DB 원장, <1ms      UTXO 원장, <50ms
 
 ```
 /AEL
-├── common/sdk/           # TypeScript SDK (@aes-network/sdk)
+├── common/sdk/           # TypeScript SDK (@ael-network/sdk)
 │   ├── src/
-│   │   ├── logger.ts     # AESLogger — 배치 + 재시도
+│   │   ├── logger.ts     # AELLogger — 배치 + 재시도
 │   │   ├── transport.ts  # HTTP 배치 업로더
 │   │   ├── middleware/
 │   │   │   └── express.ts
@@ -103,7 +103,7 @@ Open과 Lite는 **하나의 통합 대시보드**에서 섹션으로 나뉜다. 
 **데이터 소스**: `/v1/agents/:id/stats`, `/v1/agents/:id/customers`, etc.
 
 ### Lite 대시보드 — 채널 관리 콘솔
-AES 오퍼레이터가 Lite 서비스 전체를 모니터링하는 곳.
+AEL 오퍼레이터가 Lite 서비스 전체를 모니터링하는 곳.
 
 | 페이지 | 보여줄 것 |
 |--------|-----------|
@@ -118,17 +118,17 @@ AES 오퍼레이터가 Lite 서비스 전체를 모니터링하는 곳.
 
 ---
 
-## SDK (`@aes-network/sdk`)
+## SDK (`@ael-network/sdk`)
 
-에이전트 운영자가 쓰는 클라이언트 라이브러리. 이것이 AES의 첫인상이다.
+에이전트 운영자가 쓰는 클라이언트 라이브러리. 이것이 AEL의 첫인상이다.
 
 ### 온보딩 코드 — 이게 전부여야 한다:
 ```typescript
-import { AESLogger } from '@aes-network/sdk';
+import { AELLogger } from '@ael-network/sdk';
 
-const logger = new AESLogger({
+const logger = new AELLogger({
   agentId: 'erc8004:0xJames',
-  apiKey: process.env.AES_API_KEY
+  apiKey: process.env.AEL_API_KEY
 });
 
 app.use(logger.middleware());
@@ -140,7 +140,7 @@ app.use(logger.middleware());
 2. 이벤트를 내부 버퍼에 쌓음
 3. 50개 모이거나 5초 지나면 `POST /v1/ingest`로 배치 전송
 4. 실패 시 지수 백오프 재시도 (1s, 2s, 4s)
-5. AES 장애 시 로그만 안 보이고 에이전트 서비스는 정상 동작 (SDK는 절대 예외를 던지면 안 된다)
+5. AEL 장애 시 로그만 안 보이고 에이전트 서비스는 정상 동작 (SDK는 절대 예외를 던지면 안 된다)
 
 ---
 

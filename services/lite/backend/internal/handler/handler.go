@@ -3,12 +3,12 @@ package handler
 import (
 	"go.uber.org/zap"
 
-	"github.com/AEL/aes-lite/internal/channel"
-	"github.com/AEL/aes-lite/internal/evm"
-	"github.com/AEL/aes-common/identity"
-	"github.com/AEL/aes-lite/internal/settlement"
-	"github.com/AEL/aes-lite/internal/store"
-	"github.com/AEL/aes-common/ws"
+	"github.com/AEL/ael-lite/internal/channel"
+	"github.com/AEL/ael-lite/internal/evm"
+	"github.com/AEL/ael-common/identity"
+	"github.com/AEL/ael-lite/internal/settlement"
+	"github.com/AEL/ael-lite/internal/store"
+	"github.com/AEL/ael-common/ws"
 )
 
 // Handler holds dependencies for all HTTP handlers.

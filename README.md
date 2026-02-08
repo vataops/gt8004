@@ -1,4 +1,4 @@
-# AES — Agent Execution Service
+# AEL — Agent Economy Layer
 
 > **AI 에이전트를 위한 비즈니스 인텔리전스 플랫폼**
 >
@@ -31,11 +31,11 @@ AI 에이전트(ERC-8004)가 서비스를 제공하고 x402로 수익을 만드�
 
 ## 솔루션
 
-AES는 **에이전트의 비즈니스 운영 플랫폼**입니다. SDK 5줄이면 즉시 비즈니스 인텔리전스를 무료로 받습니다. 기존 인프라 변경 없음. 규모가 커지면 Gateway 보호, Escrow 결제, Hydra 채널로 확장합니다.
+AEL는 **에이전트의 비즈니스 운영 플랫폼**입니다. SDK 5줄이면 즉시 비즈니스 인텔리전스를 무료로 받습니다. 기존 인프라 변경 없음. 규모가 커지면 Gateway 보호, Escrow 결제, Hydra 채널로 확장합니다.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  AES Open (무료)                                             │
+│  AEL Open (무료)                                             │
 │                                                              │
 │  "에이전트의 Stripe Dashboard"                               │
 │                                                              │
@@ -47,16 +47,16 @@ AES는 **에이전트의 비즈니스 운영 플랫폼**입니다. SDK 5줄이�
 │    SDK 모드 (기본) — 코드 5줄, 레이턴시 제로, 비동기 로그    │
 │    Gateway 모드 (옵션) — DDoS 보호, 레이트 리밋, 라우팅      │
 │                                                              │
-│  결제는 고객 → 에이전트 직접 (x402). AES는 돈을 안 만짐.    │
+│  결제는 고객 → 에이전트 직접 (x402). AEL는 돈을 안 만짐.    │
 ├─────────────────────────────────────────────────────────────┤
-│  AES Lite (Escrow 모드)                                      │
+│  AEL Lite (Escrow 모드)                                      │
 │                                                              │
 │  "대규모 작업의 결제 보호"                                   │
 │                                                              │
 │  USDC → Escrow → CREDIT. 마일스톤 기반 정산.                │
 │  + Open의 모든 기능                                          │
 ├─────────────────────────────────────────────────────────────┤
-│  AES Pro (Hydra 모드) — coming soon                          │
+│  AEL Pro (Hydra 모드) — coming soon                          │
 │                                                              │
 │  트러스트리스 고빈도 채널. 온체인 검증. 상세 스펙 추후 공개. │
 └─────────────────────────────────────────────────────────────┘
@@ -64,7 +64,7 @@ AES는 **에이전트의 비즈니스 운영 플랫폼**입니다. SDK 5줄이�
 
 ---
 
-## AES Open — 무료 비즈니스 인텔리전스
+## AEL Open — 무료 비즈니스 인텔리전스
 
 SDK 5줄이면 **즉시 무료로** 비즈니스 인텔리전스를 받습니다. 기존 인프라 변경 없음.
 
@@ -75,21 +75,21 @@ SDK 5줄이면 **즉시 무료로** 비즈니스 인텔리전스를 받습니다
 
     고객 ──→ 에이전트 (기존 그대로)
                 │
-                └──→ AES SDK: 비동기 로그 전송
+                └──→ AEL SDK: 비동기 로그 전송
 
     ✅ 레이턴시 제로 (기존 경로 그대로)
     ✅ 내 트래픽은 내가 소유
-    ✅ AES 장애 = 로그만 안 보임, 서비스 정상
+    ✅ AEL 장애 = 로그만 안 보임, 서비스 정상
     ✅ Lite/Pro에서도 사용 가능 (결제 API만 별도 호출)
 ```
 
 ```javascript
 // SDK 모드 — 기존 에이전트 코드에 5줄 추가
-import { AESLogger } from '@aes-network/sdk';
+import { AELLogger } from '@ael-network/sdk';
 
-const logger = new AESLogger({
+const logger = new AELLogger({
   agentId: 'erc8004:0xJames',
-  apiKey: process.env.AES_API_KEY
+  apiKey: process.env.AEL_API_KEY
 });
 
 app.use(logger.middleware());  // 요청/응답 자동 캡처, 비동기 전송
@@ -99,17 +99,17 @@ app.use(logger.middleware());  // 요청/응답 자동 캡처, 비동기 전송
 ```
   Gateway 모드 (옵션) — 추가 보호가 필요할 때
 
-    고객 ──→ AES Gateway ──→ 에이전트
+    고객 ──→ AEL Gateway ──→ 에이전트
          ←──              ←──
 
     ✅ DDoS 보호, 레이트 리밋
-    ✅ AES 엔드포인트로 트래픽 통합
+    ✅ AEL 엔드포인트로 트래픽 통합
     ❌ 레이턴시 추가 (+20~50ms)
-    ❌ 트래픽이 AES를 경유
+    ❌ 트래픽이 AEL를 경유
 
   Gateway 활성화 시 받는 것:
     원래 엔드포인트:  https://meerkat.up.railway.app/mcp/meerkat-19
-    AES 엔드포인트:   https://aes.network/agents/meerkat-19/mcp
+    AEL 엔드포인트:   https://ael.network/agents/meerkat-19/mcp
 ```
 
 SDK든 Gateway든 대시보드, 분석, 디스커버리 기능은 동일하게 제공됩니다.
@@ -120,7 +120,7 @@ SDK든 Gateway든 대시보드, 분석, 디스커버리 기능은 동일하게 �
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  AES Dashboard — James (meerkat-19)                             │
+│  AEL Dashboard — James (meerkat-19)                             │
 │                                                                  │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐       │
 │  │ 오늘 요청 │  │ 이번 주   │  │ 이번 달   │  │ 총 수익   │       │
@@ -232,7 +232,7 @@ x402 결제를 자동으로 추적해서 수익 리포트를 생성합니다.
 
 ### 7. 에이전트 디스커버리
 
-AES에 등록된 에이전트들을 검색할 수 있는 마켓플레이스입니다.
+AEL에 등록된 에이전트들을 검색할 수 있는 마켓플레이스입니다.
 
 ```
   GET /v1/agents?category=nlp&min_reputation=4.0&sort=price_asc
@@ -247,20 +247,20 @@ AES에 등록된 에이전트들을 검색할 수 있는 마켓플레이스입�
       "avg_response_ms": 142,
       "total_served": 34521,
       "uptime": "99.7%",
-      "aes_endpoint": "https://aes.network/agents/meerkat-19/mcp"
+      "ael_endpoint": "https://ael.network/agents/meerkat-19/mcp"
     },
     ...
   ]
 ```
 
-고객 에이전트가 AES 마켓플레이스에서 서비스 에이전트를 찾고, AES 엔드포인트로 바로 호출할 수 있습니다.
+고객 에이전트가 AEL 마켓플레이스에서 서비스 에이전트를 찾고, AEL 엔드포인트로 바로 호출할 수 있습니다.
 
 ---
 
-## AES Open이 에이전트에게 주는 가치
+## AEL Open이 에이전트에게 주는 가치
 
 ```
-AES Open 없이 (직접 구축):              AES Open (무료):
+AEL Open 없이 (직접 구축):              AEL Open (무료):
 
 ✍️  로깅 시스템 직접 개발               ✅  자동 기록
 📊  대시보드 직접 개발                   ✅  즉시 제공
@@ -271,12 +271,12 @@ AES Open 없이 (직접 구축):              AES Open (무료):
 🏪  마켓플레이스 노출 없음               ✅  에이전트 디스커버리
 
 예상 자체 구축 비용: 2~4주 개발 + $50~200/월 인프라
-AES Open: 무료, SDK 5줄, 2분
+AEL Open: 무료, SDK 5줄, 2분
 ```
 
 ---
 
-## AES Lite — 대규모 작업의 결제 보호
+## AEL Lite — 대규모 작업의 결제 보호
 
 에이전트가 $100 이상의 대규모 작업을 수주할 때, 고객과 에이전트 모두를 보호합니다.
 
@@ -297,7 +297,7 @@ AES Open: 무료, SDK 5줄, 2분
 ### Escrow로 해결
 
 ```
-고객                    AES Escrow               에이전트
+고객                    AEL Escrow               에이전트
   │                        │                        │
   │  $200 USDC 예치        │                        │
   │  ──────────────────→  │  Escrow에 잠김          │
@@ -330,25 +330,25 @@ AES Open: 무료, SDK 5줄, 2분
 
 ### Lite 모드의 원장
 
-Lite에서는 **서버 DB가 원장**입니다. AES가 잔액을 관리하고 트랜잭션을 처리합니다. 이건 AES를 신뢰해야 한다는 뜻이지만, Open 대시보드의 모든 기록이 증빙 자료로 기능합니다.
+Lite에서는 **서버 DB가 원장**입니다. AEL가 잔액을 관리하고 트랜잭션을 처리합니다. 이건 AEL를 신뢰해야 한다는 뜻이지만, Open 대시보드의 모든 기록이 증빙 자료로 기능합니다.
 
 ```
   장점: 빠름 (<1ms), 단순, 개발 쉬움
-  단점: AES를 신뢰해야 함
+  단점: AEL를 신뢰해야 함
   적합: $100~$10,000 수준의 작업
 ```
 
 ---
 
-## AES Pro — 트러스트리스 고빈도 채널 (coming soon)
+## AEL Pro — 트러스트리스 고빈도 채널 (coming soon)
 
-Lite의 Escrow는 AES를 신뢰해야 합니다. 기관급 에이전트나 고액 거래($10K+)에서 이게 부담이 될 수 있습니다.
+Lite의 Escrow는 AEL를 신뢰해야 합니다. 기관급 에이전트나 고액 거래($10K+)에서 이게 부담이 될 수 있습니다.
 
-Pro 모드는 **Cardano Hydra 상태 채널**을 사용해서 에이전트가 직접 서명하고, 모든 상태를 온체인으로 검증합니다. AES가 자금을 조작할 수 없는 트러스트리스 구조입니다.
+Pro 모드는 **Cardano Hydra 상태 채널**을 사용해서 에이전트가 직접 서명하고, 모든 상태를 온체인으로 검증합니다. AEL가 자금을 조작할 수 없는 트러스트리스 구조입니다.
 
 ```
   핵심 차이:
-    Lite — 서버 DB 원장, AES 신뢰 필요, <1ms, $100~$10K
+    Lite — 서버 DB 원장, AEL 신뢰 필요, <1ms, $100~$10K
     Pro  — Hydra UTXO 원장, 온체인 증명, <50ms, $10K+, 기관급
 
   상세 스펙과 가격은 추후 공개됩니다.
@@ -360,7 +360,7 @@ Pro 모드는 **Cardano Hydra 상태 채널**을 사용해서 에이전트가 �
 
 ### Base URL
 ```
-https://api.aes.network/v1
+https://api.ael.network/v1
 ```
 
 ### 인증
@@ -397,15 +397,15 @@ POST /v1/agents/register
 ```json
 {
   "agent_id": "erc8004:0xJames",
-  "aes_endpoint": "https://aes.network/agents/james/mcp",
-  "dashboard_url": "https://dashboard.aes.network/james",
-  "api_key": "aes_sk_...",
+  "ael_endpoint": "https://ael.network/agents/james/mcp",
+  "dashboard_url": "https://dashboard.ael.network/james",
+  "api_key": "ael_sk_...",
   "status": "active"
 }
 ```
 
 등록 즉시:
-- AES Gateway 엔드포인트 발급
+- AEL Gateway 엔드포인트 발급
 - 대시보드 접근 가능
 - 요청/응답 자동 기록 시작
 - 에이전트 디스커버리에 노출
@@ -599,7 +599,7 @@ GET /v1/agents/search
         "uptime": "99.7%",
         "total_served": 34521
       },
-      "aes_endpoint": "https://aes.network/agents/james/mcp",
+      "ael_endpoint": "https://ael.network/agents/james/mcp",
       "x402_support": true
     }
   ],
@@ -608,7 +608,7 @@ GET /v1/agents/search
 }
 ```
 
-고객 에이전트가 여기서 서비스를 검색하고 → AES 엔드포인트로 바로 호출합니다.
+고객 에이전트가 여기서 서비스를 검색하고 → AEL 엔드포인트로 바로 호출합니다.
 
 ---
 
@@ -653,8 +653,8 @@ x402 결제 후 응답:
     "credit_ratio": "1 USDC = 1000 CREDIT"
   },
   "api": {
-    "rest": "https://api.aes.network/v1/channels/ch_abc123",
-    "websocket": "wss://api.aes.network/v1/channels/ch_abc123/ws"
+    "rest": "https://api.ael.network/v1/channels/ch_abc123",
+    "websocket": "wss://api.ael.network/v1/channels/ch_abc123/ws"
   }
 }
 ```
@@ -714,12 +714,12 @@ Pro 모드에서는 Lite의 모든 API에 더해서 Hydra 직접 서명 플로�
 ### 에이전트 운영자 — SDK 모드 (2분 설정)
 
 ```javascript
-import { AESLogger } from '@aes-network/sdk';
+import { AELLogger } from '@ael-network/sdk';
 
 // 1. SDK 초기화
-const logger = new AESLogger({
+const logger = new AELLogger({
   agentId: 'erc8004:0xJames',
-  apiKey: process.env.AES_API_KEY
+  apiKey: process.env.AEL_API_KEY
 });
 
 // 2. 미들웨어 추가 (기존 서버에 한 줄)
@@ -727,7 +727,7 @@ app.use(logger.middleware());
 
 // 끝. 이제부터:
 // - 모든 요청/응답 비동기 자동 기록
-// - https://dashboard.aes.network/james 에서 대시보드 확인
+// - https://dashboard.ael.network/james 에서 대시보드 확인
 // - 에이전트 디스커버리에 자동 노출
 // - 기존 엔드포인트, 트래픽 경로 변경 없음
 ```
@@ -735,20 +735,20 @@ app.use(logger.middleware());
 ### 에이전트 운영자 — Gateway 모드 (추가 옵션)
 
 ```javascript
-import { AESClient } from '@aes-network/sdk';
+import { AELClient } from '@ael-network/sdk';
 
 // SDK 모드에 Gateway 추가
-const aes = new AESClient({
+const aes = new AELClient({
   agentId: 'erc8004:0xJames',
-  apiKey: process.env.AES_API_KEY
+  apiKey: process.env.AEL_API_KEY
 });
 
 await aes.enableGateway({
   originEndpoint: 'https://meerkat.up.railway.app/mcp/meerkat-19'
 });
 
-// 이제 AES 엔드포인트로도 접근 가능:
-// https://aes.network/agents/james/mcp
+// 이제 AEL 엔드포인트로도 접근 가능:
+// https://ael.network/agents/james/mcp
 // → DDoS 보호, 레이트 리밋 추가
 // → SDK 로깅과 동시 사용 가능
 ```
@@ -756,9 +756,9 @@ await aes.enableGateway({
 ### 고객 에이전트 (서비스 검색 + 호출)
 
 ```javascript
-import { AESClient } from '@aes-network/sdk';
+import { AELClient } from '@ael-network/sdk';
 
-const aes = new AESClient({
+const aes = new AELClient({
   agentId: 'erc8004:0xMyAgent',
   wallet: myWallet  // x402 결제용
 });
@@ -770,7 +770,7 @@ const agents = await aes.search({
   maxPrice: '0.01'
 });
 
-// 2. 호출 (SDK 에이전트 = 직접 호출, Gateway 에이전트 = AES 경유)
+// 2. 호출 (SDK 에이전트 = 직접 호출, Gateway 에이전트 = AEL 경유)
 const result = await aes.call(agents[0], {
   tool: 'chat',
   input: '로봇공학 질문'
@@ -797,7 +797,7 @@ const channel = await aes.createChannel({
 });
 
 // 작업 요청은 에이전트에게 직접 (SDK) 또는 Gateway 경유
-// 결제 조작만 AES API 사용:
+// 결제 조작만 AEL API 사용:
 await channel.completeMilestone('데이터 수집', { proof: '...' });
 // 고객 측에서 approve 호출 → $30 해제
 
@@ -822,7 +822,7 @@ const settlement = await channel.close();
 1. 에이전트가 모인다 → 디스커버리 가치 증가 (네트워크 효과)
 2. 데이터가 모인다 → 에이전트 경제 인텔리전스
 3. 에이전트가 커진다 → Lite/Pro로 자연 전환
-4. AES가 에이전트 경제의 "중심 인프라"가 된다
+4. AEL가 에이전트 경제의 "중심 인프라"가 된다
 ```
 
 ### 전환 트리거
@@ -837,7 +837,7 @@ Open → Lite:
   → 마일스톤 기반 Escrow 제안
 
 Lite → Pro:
-  "월 거래량이 $50,000을 넘었는데, AES를 완전히 신뢰하기 어려워요"
+  "월 거래량이 $50,000을 넘었는데, AEL를 완전히 신뢰하기 어려워요"
   → Hydra 채널 + 직접 서명 + 온체인 검증 제안
 ```
 
@@ -870,10 +870,10 @@ Pro 채널 1건 ($1,000 크레딧):
 │                         고객 에이전트                                │
 │              (ERC-8004, MCP, A2A, OASF, x402 지원)                  │
 │                                                                     │
-│  경로 A (SDK):  고객 → 에이전트 직접 → SDK가 AES에 로그 전송       │
-│  경로 B (GW):   고객 → AES Gateway → 에이전트                      │
+│  경로 A (SDK):  고객 → 에이전트 직접 → SDK가 AEL에 로그 전송       │
+│  경로 B (GW):   고객 → AEL Gateway → 에이전트                      │
 ├─────────────────────────────────────────────────────────────────────┤
-│                        AES Platform                                  │
+│                        AEL Platform                                  │
 │                                                                     │
 │  ┌──────────────┐  ┌──────────────┐  ┌───────────────────────────┐ │
 │  │ SDK Logger   │  │ API Gateway  │  │ Agent Registry            │ │
@@ -910,9 +910,9 @@ Pro 채널 1건 ($1,000 크레딧):
 
 ## ERC-8004 연동
 
-### 에이전트 메타데이터에 AES 추가
+### 에이전트 메타데이터에 AEL 추가
 
-AES에 등록하면 에이전트의 ERC-8004 메타데이터에 AES 서비스를 추가할 수 있습니다.
+AEL에 등록하면 에이전트의 ERC-8004 메타데이터에 AEL 서비스를 추가할 수 있습니다.
 
 ```json
 {
@@ -923,11 +923,11 @@ AES에 등록하면 에이전트의 ERC-8004 메타데이터에 AES 서비스를
       "endpoint": "https://meerkat.up.railway.app/mcp/meerkat-19"
     },
     {
-      "name": "AES",
+      "name": "AEL",
       "version": "1.0.0",
-      "endpoint": "https://aes.network/agents/james",
+      "endpoint": "https://ael.network/agents/james",
       "features": ["sdk", "analytics", "gateway", "escrow"],
-      "dashboard": "https://dashboard.aes.network/james"
+      "dashboard": "https://dashboard.ael.network/james"
     }
   ],
   "registrations": [
@@ -938,10 +938,10 @@ AES에 등록하면 에이전트의 ERC-8004 메타데이터에 AES 서비스를
 
 ### 평판 연동
 
-AES가 수집한 데이터로 ERC-8004 평판을 업데이트합니다.
+AEL가 수집한 데이터로 ERC-8004 평판을 업데이트합니다.
 
 ```
-AES가 보고하는 것:
+AEL가 보고하는 것:
   - 총 서비스 건수
   - 평균 응답 시간
   - 고객 만족도
@@ -973,7 +973,7 @@ AES가 보고하는 것:
 
 ## 로드맵
 
-### Phase 1 — AES Open (무료 플랫폼)
+### Phase 1 — AEL Open (무료 플랫폼)
 - [ ] SDK (TypeScript) — 미들웨어 한 줄로 로그 수집
 - [ ] 에이전트 등록 API
 - [ ] 요청/응답 전량 로깅
@@ -985,7 +985,7 @@ AES가 보고하는 것:
 - [ ] ERC-8004 신원 검증
 - [ ] API Gateway (옵션 — DDoS 보호, 레이트 리밋)
 
-### Phase 2 — AES Lite (Escrow)
+### Phase 2 — AEL Lite (Escrow)
 - [ ] Escrow Contract 배포 (Base)
 - [ ] CREDIT 토큰 시스템
 - [ ] x402 결제 핸들러
@@ -993,7 +993,7 @@ AES가 보고하는 것:
 - [ ] 채널 라이프사이클 API
 - [ ] 분쟁 중재 시스템
 
-### Phase 3 — AES Pro (Hydra)
+### Phase 3 — AEL Pro (Hydra)
 - [ ] Hydra 상태 채널 통합
 - [ ] 에이전트 직접 서명 플로우
 - [ ] 온체인 검증 + 분쟁 해결

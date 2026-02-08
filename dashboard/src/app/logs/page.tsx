@@ -1,11 +1,11 @@
 "use client";
 
 import { useLogs } from "@/lib/hooks";
+import { useAuth } from "@/lib/auth";
+import { RequireAuth } from "@/components/RequireAuth";
 import { DataTable, type Column } from "@/components/DataTable";
 import { Badge } from "@/components/Badge";
 import type { RequestLog } from "@/lib/api";
-
-const AGENT_ID = process.env.NEXT_PUBLIC_AGENT_ID || "default";
 
 const columns: Column<RequestLog>[] = [
   {
@@ -60,7 +60,16 @@ const columns: Column<RequestLog>[] = [
 ];
 
 export default function LogsPage() {
-  const { data, loading } = useLogs(AGENT_ID);
+  return (
+    <RequireAuth>
+      <LogsContent />
+    </RequireAuth>
+  );
+}
+
+function LogsContent() {
+  const { agent, apiKey } = useAuth();
+  const { data, loading } = useLogs(agent!.agent_id, apiKey!);
 
   if (loading) {
     return <p className="text-gray-500">Loading...</p>;

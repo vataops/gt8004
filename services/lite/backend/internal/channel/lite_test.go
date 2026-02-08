@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 
-	"github.com/AEL/aes-lite/internal/channel"
+	"github.com/AEL/ael-lite/internal/channel"
 )
 
 // requireDB skips the test if DATABASE_URL is not set.

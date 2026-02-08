@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
-	"github.com/AEL/aes-open/internal/ingest"
+	"github.com/AEL/ael-open/internal/ingest"
 )
 
 // IngestLogs handles POST /v1/ingest.

@@ -63,7 +63,7 @@ const escrowABIJSON = `[
 	}
 ]`
 
-// EscrowClient wraps interactions with the AESEscrow contract on Base.
+// EscrowClient wraps interactions with the AELEscrow contract on Base.
 type EscrowClient struct {
 	client          *ethclient.Client
 	contractAddr    common.Address

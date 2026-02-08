@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/AEL/aes-open/internal/store"
+	"github.com/AEL/ael-open/internal/store"
 )
 
 // BenchmarkCalculator periodically recalculates benchmark rankings for each agent category.

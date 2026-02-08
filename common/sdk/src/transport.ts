@@ -64,7 +64,7 @@ export class BatchTransport {
         if (res.ok || res.status === 202) {
           this.consecutiveFailures = 0;
           if (this.options.debug) {
-            console.log(`[AES SDK] Sent ${entries.length} logs`);
+            console.log(`[GT8004 SDK] Sent ${entries.length} logs`);
           }
           return;
         }
@@ -84,7 +84,7 @@ export class BatchTransport {
     if (this.consecutiveFailures >= 5) {
       this.backoffUntil = Date.now() + 30000;
       if (this.options.debug) {
-        console.warn('[AES SDK] Circuit breaker: backing off for 30s');
+        console.warn('[GT8004 SDK] Circuit breaker: backing off for 30s');
       }
     }
 
@@ -92,7 +92,7 @@ export class BatchTransport {
     this.buffer.unshift(...entries);
 
     if (this.options.debug) {
-      console.warn(`[AES SDK] Failed to send logs: ${lastError?.message}`);
+      console.warn(`[GT8004 SDK] Failed to send logs: ${lastError?.message}`);
     }
   }
 

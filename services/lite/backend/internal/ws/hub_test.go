@@ -11,7 +11,7 @@ import (
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 
-	"github.com/AEL/aes-lite/internal/ws"
+	"github.com/AEL/ael-lite/internal/ws"
 )
 
 func TestHub_BroadcastToChannel(t *testing.T) {

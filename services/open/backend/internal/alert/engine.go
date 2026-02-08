@@ -7,8 +7,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/AEL/aes-open/internal/analytics"
-	"github.com/AEL/aes-open/internal/store"
+	"github.com/AEL/ael-open/internal/analytics"
+	"github.com/AEL/ael-open/internal/store"
 )
 
 // Engine periodically evaluates all enabled alert rules.

@@ -1,11 +1,11 @@
 "use client";
 
 import { useRevenue } from "@/lib/hooks";
+import { useAuth } from "@/lib/auth";
+import { RequireAuth } from "@/components/RequireAuth";
 import { StatCard } from "@/components/StatCard";
 import { DataTable, type Column } from "@/components/DataTable";
 import type { RevenuePeriod, RevenueByTool } from "@/lib/api";
-
-const AGENT_ID = process.env.NEXT_PUBLIC_AGENT_ID || "default";
 
 const periodColumns: Column<RevenuePeriod>[] = [
   {
@@ -48,7 +48,16 @@ const toolColumns: Column<RevenueByTool>[] = [
 ];
 
 export default function RevenuePage() {
-  const { data, loading } = useRevenue(AGENT_ID);
+  return (
+    <RequireAuth>
+      <RevenueContent />
+    </RequireAuth>
+  );
+}
+
+function RevenueContent() {
+  const { agent, apiKey } = useAuth();
+  const { data, loading } = useRevenue(agent!.agent_id, apiKey!);
 
   if (loading || !data) {
     return <p className="text-gray-500">Loading...</p>;

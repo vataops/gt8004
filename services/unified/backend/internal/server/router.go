@@ -1,0 +1,121 @@
+package server
+
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
+
+	"github.com/GT8004/gt8004/internal/config"
+	"github.com/GT8004/gt8004/internal/handler"
+)
+
+func corsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization, X-Customer-ID, X-Admin-Key")
+		c.Header("Access-Control-Max-Age", "86400")
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+		c.Next()
+	}
+}
+
+func NewRouter(cfg *config.Config, h *handler.Handler, logger *zap.Logger) *gin.Engine {
+	r := gin.New()
+	r.Use(corsMiddleware(), gin.Logger(), gin.Recovery())
+
+	// Health
+	r.GET("/healthz", h.Healthz)
+	r.GET("/readyz", h.Readyz)
+
+	// ERC-8004 agent descriptor
+	r.GET("/.well-known/agent.json", h.AgentDescriptor)
+
+	// Gateway proxy (public, rate-limited)
+	r.Any("/gateway/:slug/*path", h.GatewayProxy)
+
+	v1 := r.Group("/v1")
+
+	// Auth (public)
+	auth := v1.Group("/auth")
+	{
+		auth.POST("/challenge", h.AuthChallenge)
+		auth.POST("/verify", h.AuthVerify)
+	}
+
+	// === Service Lifecycle ===
+	v1.POST("/services/register", h.RegisterService)
+
+	servicesAuth := v1.Group("/services")
+	servicesAuth.Use(APIKeyAuthMiddleware(h))
+	{
+		servicesAuth.GET("/:agent_id", h.GetService)
+		servicesAuth.PUT("/:agent_id/tier", h.UpdateTier)
+		servicesAuth.DELETE("/:agent_id", h.DeregisterService)
+	}
+
+	// === Open Tier Routes (backwards compatible) ===
+	// Agent registration (public)
+	v1.POST("/agents/register", h.RegisterAgent)
+	v1.GET("/agents/search", h.SearchAgents)
+	v1.GET("/benchmark", h.GetBenchmark)
+
+	// Dashboard (public for MVP)
+	dashboard := v1.Group("/dashboard")
+	{
+		dashboard.GET("/overview", h.DashboardOverview)
+	}
+
+	// API key authenticated Open routes
+	authenticated := v1.Group("")
+	authenticated.Use(APIKeyAuthMiddleware(h))
+	{
+		authenticated.GET("/agents/me", h.GetMe)
+		authenticated.PUT("/agents/me/endpoint", h.UpdateOriginEndpoint)
+		authenticated.POST("/ingest", h.IngestLogs)
+		authenticated.GET("/agents/:agent_id/stats", h.AgentStats)
+		authenticated.GET("/agents/:agent_id/customers", h.ListCustomers)
+		authenticated.GET("/agents/:agent_id/customers/:customer_id", h.GetCustomer)
+		authenticated.GET("/agents/:agent_id/revenue", h.RevenueReport)
+		authenticated.GET("/agents/:agent_id/performance", h.PerformanceReport)
+		authenticated.GET("/agents/:agent_id/alerts", h.ListAlerts)
+		authenticated.POST("/agents/:agent_id/alerts", h.CreateAlert)
+		authenticated.PUT("/agents/:agent_id/alerts/:alert_id", h.UpdateAlert)
+		authenticated.DELETE("/agents/:agent_id/alerts/:alert_id", h.DeleteAlert)
+		authenticated.GET("/agents/:agent_id/alerts/history", h.AlertHistory)
+		authenticated.POST("/agents/:agent_id/gateway/enable", h.EnableGateway)
+		authenticated.POST("/agents/:agent_id/gateway/disable", h.DisableGateway)
+		authenticated.GET("/agents/:agent_id/logs", h.ListLogs)
+	}
+
+	// === Admin API ===
+	admin := v1.Group("/admin")
+	admin.Use(adminAuthMiddleware(cfg.AdminAPIKey))
+	{
+		admin.GET("/overview", h.AdminOverview)
+		admin.GET("/agents", h.AdminListAgents)
+		admin.GET("/agents/:id", h.AdminGetAgent)
+		admin.GET("/events/ws", h.AdminEventsWebSocket)
+	}
+
+	return r
+}
+
+func adminAuthMiddleware(apiKey string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if apiKey == "" {
+			c.Next()
+			return
+		}
+		key := c.GetHeader("X-Admin-Key")
+		if key != apiKey {
+			c.AbortWithStatusJSON(401, gin.H{"error": "unauthorized"})
+			return
+		}
+		c.Next()
+	}
+}

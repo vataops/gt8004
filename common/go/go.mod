@@ -1,4 +1,4 @@
-module github.com/AEL/aes-common
+module github.com/GT8004/gt8004-common
 
 go 1.24.0
 

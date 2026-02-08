@@ -1,11 +1,11 @@
-name = "aes/credit-policy"
+name = "ael/credit-policy"
 version = "0.1.0"
 license = "Apache-2.0"
-description = "AES CREDIT token minting policy"
+description = "AEL CREDIT token minting policy"
 
 [repository]
 user = "AEL"
-project = "aes-credit"
+project = "ael-credit"
 platform = "github"
 
 [[dependencies]]

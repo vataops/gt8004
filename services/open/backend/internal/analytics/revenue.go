@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
-	"github.com/AEL/aes-open/internal/store"
+	"github.com/AEL/ael-open/internal/store"
 )
 
 // RevenueReport aggregates all revenue analytics for an agent.

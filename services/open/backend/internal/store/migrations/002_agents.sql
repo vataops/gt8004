@@ -4,7 +4,7 @@ CREATE TABLE agents (
     name                  VARCHAR(128),
     evm_address           VARCHAR(42),
     origin_endpoint       TEXT,
-    aes_endpoint          TEXT,
+    ael_endpoint          TEXT,
     protocols             TEXT[] DEFAULT '{}',
     category              VARCHAR(64),
     pricing_model         VARCHAR(32),

@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
-	"github.com/AEL/aes-open/internal/store"
+	"github.com/AEL/ael-open/internal/store"
 )
 
 // PerformanceReport contains aggregated performance metrics for an agent.

@@ -1,0 +1,83 @@
+services:
+  # ── PostgreSQL ─────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ael
+      POSTGRES_PASSWORD: ael
+      POSTGRES_DB: ael
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ael"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── GT8004 Backend (Open + ERC-8004) ───────────
+  gt8004-backend:
+    build:
+      context: .
+      dockerfile: services/unified/backend/Dockerfile
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    environment:
+      PORT: 8080
+      METRICS_PORT: 8081
+      LOG_LEVEL: debug
+      DATABASE_URL: postgres://ael:ael@postgres:5432/gt8004?sslmode=disable
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-changeme}
+      IDENTITY_REGISTRY_ADDRESS: ${IDENTITY_REGISTRY_ADDRESS:-}
+      IDENTITY_REGISTRY_RPC: ${IDENTITY_REGISTRY_RPC:-https://eth.llamarpc.com}
+      GT8004_TOKEN_ID: ${GT8004_TOKEN_ID:-0}
+      GT8004_AGENT_URI: ${GT8004_AGENT_URI:-https://api.gt8004.network}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Open Backend (legacy) ─────────────────────
+  open-backend:
+    build:
+      context: .
+      dockerfile: services/open/backend/Dockerfile
+    ports:
+      - "8084:8080"
+      - "8085:8081"
+    environment:
+      PORT: 8080
+      METRICS_PORT: 8081
+      LOG_LEVEL: debug
+      DATABASE_URL: postgres://ael:ael@postgres:5432/ael_open?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles: ["legacy"]
+
+  # ── Lite Backend (legacy) ─────────────────────
+  lite-backend:
+    build:
+      context: .
+      dockerfile: services/lite/backend/Dockerfile
+    ports:
+      - "8086:8082"
+      - "8087:8083"
+    environment:
+      PORT: 8082
+      METRICS_PORT: 8083
+      LOG_LEVEL: debug
+      DATABASE_URL: postgres://ael:ael@postgres:5432/ael_lite?sslmode=disable
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-changeme}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles: ["legacy"]
+
+volumes:
+  pgdata:

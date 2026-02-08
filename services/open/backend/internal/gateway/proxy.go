@@ -9,10 +9,10 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/AEL/aes-open/internal/store"
+	"github.com/AEL/ael-open/internal/store"
 )
 
-// Proxy provides reverse-proxy functionality for the AES gateway.
+// Proxy provides reverse-proxy functionality for the AEL gateway.
 type Proxy struct {
 	store  *store.Store
 	logger *zap.Logger
@@ -38,8 +38,8 @@ func (p *Proxy) Forward(w http.ResponseWriter, r *http.Request, agent *store.Age
 			req.URL.Host = target.Host
 			req.URL.Path = path
 			req.Host = target.Host
-			req.Header.Set("X-Forwarded-By", "AES-Gateway")
-			req.Header.Set("X-AES-Agent-ID", agent.AgentID)
+			req.Header.Set("X-Forwarded-By", "AEL-Gateway")
+			req.Header.Set("X-AEL-Agent-ID", agent.AgentID)
 		},
 		Transport: &http.Transport{
 			ResponseHeaderTimeout: 30 * time.Second,

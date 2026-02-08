@@ -1,14 +1,14 @@
-import { AESLoggerConfig, RequestLogEntry } from './types';
+import { GT8004LoggerConfig, RequestLogEntry } from './types';
 import { BatchTransport } from './transport';
 import { createExpressMiddleware, MiddlewareOptions } from './middleware/express';
 
-const DEFAULT_ENDPOINT = 'https://api.aes.network';
+const DEFAULT_ENDPOINT = 'https://api.gt8004.network';
 
-export class AESLogger {
+export class GT8004Logger {
   private transport: BatchTransport;
-  private config: Required<Pick<AESLoggerConfig, 'agentId' | 'apiKey' | 'endpoint' | 'debug'>>;
+  private config: Required<Pick<GT8004LoggerConfig, 'agentId' | 'apiKey' | 'endpoint' | 'debug'>>;
 
-  constructor(config: AESLoggerConfig) {
+  constructor(config: GT8004LoggerConfig) {
     this.config = {
       agentId: config.agentId,
       apiKey: config.apiKey,

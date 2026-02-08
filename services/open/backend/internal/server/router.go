@@ -1,16 +1,33 @@
 package server
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
-	"github.com/AEL/aes-open/internal/config"
-	"github.com/AEL/aes-open/internal/handler"
+	"github.com/AEL/ael-open/internal/config"
+	"github.com/AEL/ael-open/internal/handler"
 )
+
+func corsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization, X-Customer-ID, X-Payment")
+		c.Header("Access-Control-Max-Age", "86400")
+
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+		c.Next()
+	}
+}
 
 func NewRouter(_ *config.Config, h *handler.Handler, _ *zap.Logger) *gin.Engine {
 	r := gin.New()
-	r.Use(gin.Logger(), gin.Recovery())
+	r.Use(corsMiddleware(), gin.Logger(), gin.Recovery())
 
 	// Health
 	r.GET("/healthz", h.Healthz)
@@ -47,6 +64,7 @@ func NewRouter(_ *config.Config, h *handler.Handler, _ *zap.Logger) *gin.Engine 
 	authenticated := v1.Group("")
 	authenticated.Use(APIKeyAuthMiddleware(h))
 	{
+		authenticated.GET("/agents/me", h.GetMe)
 		authenticated.POST("/ingest", h.IngestLogs)
 		authenticated.GET("/agents/:agent_id/stats", h.AgentStats)
 		authenticated.GET("/agents/:agent_id/customers", h.ListCustomers)

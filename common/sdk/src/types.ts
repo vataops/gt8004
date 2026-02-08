@@ -1,4 +1,4 @@
-export interface AESLoggerConfig {
+export interface GT8004LoggerConfig {
   agentId: string;
   apiKey: string;
   endpoint?: string;

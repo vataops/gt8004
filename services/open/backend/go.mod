@@ -1,9 +1,9 @@
-module github.com/AEL/aes-open
+module github.com/AEL/ael-open
 
 go 1.24.0
 
 require (
-	github.com/AEL/aes-common v0.0.0
+	github.com/AEL/ael-common v0.0.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.2
@@ -71,4 +71,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/AEL/aes-common => ../../../common/go
+replace github.com/AEL/ael-common => ../../../common/go

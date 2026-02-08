@@ -6,7 +6,7 @@ description: 현재 코드를 기준으로 docs/ 디렉토리에 Open/Lite/Pro �
 
 ## Context
 
-- Project: AES (Agent Execution Service) — AI 에이전트 비즈니스 인프라 플랫폼
+- Project: AEL (Agent Economy Layer) — AI 에이전트 비즈니스 인프라 플랫폼
 - 3티어 구조: Open (무료 BI) / Lite (DB Escrow) / Pro (Hydra 채널)
 - 문서 출력 경로: `docs/`
 - 루트 README.md: 서비스 전체 스펙 (비즈니스 모델, API 레퍼런스)
@@ -111,7 +111,7 @@ Read: contracts/credit/aiken.toml (있으면)
 ### `docs/open.md` 형식
 
 ```markdown
-# AES Open — [현재 상태: 구현 중 / 완료]
+# AEL Open — [현재 상태: 구현 중 / 완료]
 
 > 마지막 생성: YYYY-MM-DD (코드 기준 자동 생성)
 
@@ -163,9 +163,9 @@ Read: contracts/credit/aiken.toml (있으면)
 ### `docs/common.md` 형식
 
 ```markdown
-# AES Common — 공유 패키지
+# AEL Common — 공유 패키지
 
-## Go 패키지 (github.com/AEL/aes-common)
+## Go 패키지 (github.com/AEL/ael-common)
 ### identity/
 [함수 시그니처 + 역할]
 ### ws/
@@ -173,8 +173,8 @@ Read: contracts/credit/aiken.toml (있으면)
 ### types/
 [공유 타입 정의]
 
-## TypeScript SDK (@aes-network/sdk)
-### AESLogger
+## TypeScript SDK (@ael-network/sdk)
+### AELLogger
 [클래스 메서드 + 옵션]
 ### BatchTransport
 [전송 로직]
@@ -185,7 +185,7 @@ Read: contracts/credit/aiken.toml (있으면)
 ### `docs/contracts.md` 형식
 
 ```markdown
-# AES Contracts
+# AEL Contracts
 
 ## Escrow (Solidity — Base Sepolia)
 ### 함수

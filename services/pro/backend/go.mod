@@ -1,4 +1,4 @@
-module github.com/AEL/aes-pro
+module github.com/AEL/ael-pro
 
 go 1.23.0
 

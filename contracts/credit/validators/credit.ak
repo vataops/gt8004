@@ -9,7 +9,7 @@ pub type CreditAction {
   Burn { channel_id: ByteArray }
 }
 
-/// CREDIT minting policy parameterized by the AES operator's
+/// CREDIT minting policy parameterized by the AEL operator's
 /// verification key hash. Only the operator can mint or burn.
 validator credit_policy(operator_pkh: ByteArray) {
   mint(action: CreditAction, _policy_id: ByteArray, tx: Transaction) -> Bool {

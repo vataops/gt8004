@@ -8,9 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
 
-	"github.com/AEL/aes-lite/internal/channel"
-	"github.com/AEL/aes-lite/internal/evm"
-	"github.com/AEL/aes-lite/internal/store"
+	"github.com/AEL/ael-lite/internal/channel"
+	"github.com/AEL/ael-lite/internal/evm"
+	"github.com/AEL/ael-lite/internal/store"
 )
 
 // Settler handles the settlement flow: DB balances → Escrow settle on-chain.

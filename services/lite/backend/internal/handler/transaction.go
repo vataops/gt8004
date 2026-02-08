@@ -7,8 +7,8 @@ import (
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 
-	"github.com/AEL/aes-lite/internal/channel"
-	"github.com/AEL/aes-common/ws"
+	"github.com/AEL/ael-lite/internal/channel"
+	"github.com/AEL/ael-common/ws"
 )
 
 var upgrader = websocket.Upgrader{

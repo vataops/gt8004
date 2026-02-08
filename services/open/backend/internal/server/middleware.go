@@ -8,7 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/AEL/aes-open/internal/handler"
+	"github.com/AEL/ael-open/internal/handler"
 )
 
 const (

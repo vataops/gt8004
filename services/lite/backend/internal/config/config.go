@@ -15,11 +15,11 @@ type Config struct {
 	// EVM (Escrow on Base)
 	EVMRPCURL             string `mapstructure:"EVM_RPC_URL"`
 	EscrowContractAddress string `mapstructure:"ESCROW_CONTRACT_ADDRESS"`
-	OperatorEVMKey        string `mapstructure:"AES_OPERATOR_EVM_KEY"`
+	OperatorEVMKey        string `mapstructure:"AEL_OPERATOR_EVM_KEY"`
 
 	// x402 Payment
 	X402FacilitatorURL string `mapstructure:"X402_FACILITATOR_URL"`
-	PaymentRecipient   string `mapstructure:"AES_PAYMENT_RECIPIENT"`
+	PaymentRecipient   string `mapstructure:"AEL_PAYMENT_RECIPIENT"`
 
 	// ERC-8004 Identity
 	IdentityRegistryAddress string `mapstructure:"IDENTITY_REGISTRY_ADDRESS"`
@@ -45,9 +45,9 @@ func Load() (*Config, error) {
 	cfg.DatabaseURL = viper.GetString("DATABASE_URL")
 	cfg.EVMRPCURL = viper.GetString("EVM_RPC_URL")
 	cfg.EscrowContractAddress = viper.GetString("ESCROW_CONTRACT_ADDRESS")
-	cfg.OperatorEVMKey = viper.GetString("AES_OPERATOR_EVM_KEY")
+	cfg.OperatorEVMKey = viper.GetString("AEL_OPERATOR_EVM_KEY")
 	cfg.X402FacilitatorURL = viper.GetString("X402_FACILITATOR_URL")
-	cfg.PaymentRecipient = viper.GetString("AES_PAYMENT_RECIPIENT")
+	cfg.PaymentRecipient = viper.GetString("AEL_PAYMENT_RECIPIENT")
 	cfg.IdentityRegistryAddress = viper.GetString("IDENTITY_REGISTRY_ADDRESS")
 	cfg.IdentityRegistryRPC = viper.GetString("IDENTITY_REGISTRY_RPC")
 	cfg.AdminAPIKey = viper.GetString("ADMIN_API_KEY")

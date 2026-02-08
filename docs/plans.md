@@ -1,21 +1,21 @@
-# AES (Agent Execution Service) 구현 계획
+# AEL (Agent Economy Layer) 구현 계획
 
 ## Context
 
-AES는 3티어 프리미엄 모델 (Open → Lite → Pro)로 구성된 AI 에이전트 인프라 플랫폼.
+AEL은 3티어 프리미엄 모델 (Open → Lite → Pro)로 구성된 AI 에이전트 인프라 플랫폼.
 
-- **AES Open (무료)**: SDK 기반 비즈니스 인텔리전스 — 트래픽, 수익, 고객 분석, 성능 모니터링
-- **AES Lite (서버 모드)**: DB가 원장, Hydra 없음, <1ms, 최저 비용, AES 신뢰 필요
-- **AES Pro (Hydra 모드)**: Hydra UTXO가 원장, 에이전트 직접 서명, <50ms, 검증 가능
+- **AEL Open (무료)**: SDK 기반 비즈니스 인텔리전스 — 트래픽, 수익, 고객 분석, 성능 모니터링
+- **AEL Lite (서버 모드)**: DB가 원장, Hydra 없음, <1ms, 최저 비용, AEL 신뢰 필요
+- **AEL Pro (Hydra 모드)**: Hydra UTXO가 원장, 에이전트 직접 서명, <50ms, 검증 가능
 
-**현재 진행**: AES Open (Phase 1A Foundation) 구현 중.
+**현재 진행**: AEL Open (Phase 1A Foundation) 구현 중.
 **디렉토리 구조**: `open/`, `lite/`, `pro/`, `common/` 4개 디렉토리로 재구성.
 
 **기술 스택**: Go (백엔드) / Next.js (대시보드) / TypeScript SDK / Aiken (CREDIT, Pro 전용) / Solidity (Escrow) / PostgreSQL
 
 ---
 
-# Part 1: AES Open 구현 계획
+# Part 1: AEL Open 구현 계획
 
 ## Overview
 
@@ -23,8 +23,8 @@ SDK 5줄로 연동 → 비즈니스 인텔리전스 대시보드. 에이전트 �
 
 **핵심 온보딩 흐름**:
 ```
-npm install @aes-network/sdk
-→ AESLogger 초기화 (agentId + apiKey)
+npm install @ael-network/sdk
+→ AELLogger 초기화 (agentId + apiKey)
 → Express/Fastify 미들웨어 연결
 → 로그 자동 배치 전송 (/v1/ingest)
 → 대시보드에서 통계 확인
@@ -35,21 +35,21 @@ npm install @aes-network/sdk
 ```
 /AEL/
 ├── common/
-│   ├── go/                        # 공유 Go 패키지 (module: github.com/AEL/aes-common)
+│   ├── go/                        # 공유 Go 패키지 (module: github.com/AEL/ael-common)
 │   │   ├── go.mod
 │   │   ├── identity/identity.go   # ERC-8004 검증 (lite에서 추출)
 │   │   ├── ws/hub.go              # WebSocket hub (lite에서 추출)
 │   │   ├── ws/hub_test.go
 │   │   └── types/types.go         # 공유 타입 (Agent 등)
 │   │
-│   └── sdk/                       # TypeScript SDK (@aes-network/sdk)
+│   └── sdk/                       # TypeScript SDK (@ael-network/sdk)
 │       ├── package.json
 │       ├── tsconfig.json
 │       ├── tsup.config.ts
 │       └── src/
 │           ├── index.ts
-│           ├── logger.ts          # AESLogger 클래스
-│           ├── client.ts          # AESClient 클래스 (Phase 1F)
+│           ├── logger.ts          # AELLogger 클래스
+│           ├── client.ts          # AELClient 클래스 (Phase 1F)
 │           ├── transport.ts       # 비동기 배치 전송
 │           ├── middleware/
 │           │   ├── express.ts     # Express 미들웨어
@@ -57,7 +57,7 @@ npm install @aes-network/sdk
 │           └── types.ts
 │
 ├── open/
-│   ├── backend/                   # Go (Gin) — module: github.com/AEL/aes-open
+│   ├── backend/                   # Go (Gin) — module: github.com/AEL/ael-open
 │   │   ├── go.mod
 │   │   ├── cmd/aesd/main.go
 │   │   ├── Dockerfile
@@ -112,7 +112,7 @@ npm install @aes-network/sdk
 └── README.md
 ```
 
-## AES Open 구현 순서 (Sub-Phases)
+## AEL Open 구현 순서 (Sub-Phases)
 
 ### Phase 1A — Foundation (MVP) ← 현재 진행 중
 
@@ -121,12 +121,12 @@ SDK로 로그를 보내고, 대시보드에서 기본 통계를 보는 최소 �
 **1. common/go 추출** ✅ 완료
 - `lite/backend/internal/identity/` → `common/go/identity/` 이동
 - `lite/backend/internal/ws/` → `common/go/ws/` 이동
-- `common/go/go.mod` 생성 (module: `github.com/AEL/aes-common`)
+- `common/go/go.mod` 생성 (module: `github.com/AEL/ael-common`)
 - `common/go/types/types.go` 생성 (공유 Agent 타입)
 - `lite/backend` import 경로 변경 + 빌드 확인 ✅
 
 **2. common/sdk TypeScript 패키지** 🔄 진행 중
-- `AESLogger` 클래스: `new AESLogger({ agentId, apiKey })` → `.middleware()` 반환
+- `AELLogger` 클래스: `new AELLogger({ agentId, apiKey })` → `.middleware()` 반환
 - Express 미들웨어: req/res 래핑, 응답 시간 측정, x402 헤더 추출, 고객 ID 추출
 - `BatchTransport`: 내부 버퍼 → 50건 또는 5초마다 `POST /v1/ingest`로 전송
 - 재시도: 지수 백오프 (1s, 2s, 4s), circuit breaker
@@ -191,7 +191,7 @@ SDK로 로그를 보내고, 대시보드에서 기본 통계를 보는 최소 �
 
 ### Phase 1F — SDK Client + Polish
 
-- `common/sdk/src/client.ts`: `AESClient`
+- `common/sdk/src/client.ts`: `AELClient`
 - `common/sdk/src/middleware/fastify.ts`: Fastify 플러그인
 - Dashboard: `logs/page.tsx`, 차트 (Recharts)
 
@@ -206,20 +206,20 @@ SDK로 로그를 보내고, 대시보드에서 기본 통계를 보는 최소 �
 
 ---
 
-# Part 2: AES Lite/Pro 구현 계획 (기존)
+# Part 2: AEL Lite/Pro 구현 계획 (기존)
 
 ---
 
 ## Lite/Pro 서비스 티어 비교
 
-| | AES Lite | AES Pro |
+| | AEL Lite | AEL Pro |
 |---|---|---|
-| 원장 | AES 서버 DB | Hydra UTXO |
+| 원장 | AEL 서버 DB | Hydra UTXO |
 | 지연시간 | <1ms | <50ms |
 | 비용 | 최저 | 약간 높음 |
 | 에이전트 서명 | 불필요 | 직접 서명 |
-| 검증 가능성 | ❌ (AES 신뢰) | ✅ (온체인 증명) |
-| 분쟁 해결 | AES 중재 | Hydra 스냅샷 증명 |
+| 검증 가능성 | ❌ (AEL 신뢰) | ✅ (온체인 증명) |
+| 분쟁 해결 | AEL 중재 | Hydra 스냅샷 증명 |
 | 인프라 의존 | PostgreSQL만 | PostgreSQL + Cardano + Hydra |
 
 ---
@@ -230,8 +230,8 @@ SDK로 로그를 보내고, 대시보드에서 기본 통계를 보는 최소 �
 
 ```
 /AEL
-├── lite/                        # ── AES Lite (DB 기반) ──
-│   ├── backend/                 # Go — module: github.com/AEL/aes-lite
+├── lite/                        # ── AEL Lite (DB 기반) ──
+│   ├── backend/                 # Go — module: github.com/AEL/ael-lite
 │   │   ├── Dockerfile
 │   │   ├── go.mod
 │   │   ├── cmd/aesd/main.go
@@ -254,8 +254,8 @@ SDK로 로그를 보내고, 대시보드에서 기본 통계를 보는 최소 �
 │   ├── Makefile
 │   └── .env.example
 │
-├── pro/                         # ── AES Pro (Hydra 기반) ──
-│   ├── backend/                 # Go — module: github.com/AEL/aes-pro
+├── pro/                         # ── AEL Pro (Hydra 기반) ──
+│   ├── backend/                 # Go — module: github.com/AEL/ael-pro
 │   │   ├── Dockerfile
 │   │   ├── go.mod
 │   │   ├── cmd/aesd/main.go
@@ -282,8 +282,8 @@ SDK로 로그를 보내고, 대시보드에서 기본 통계를 보는 최소 �
 │
 ├── contracts/                   # ── 공유 스마트 컨트랙트 ──
 │   ├── escrow/                  # Solidity (Foundry) — Base Sepolia
-│   │   ├── src/AESEscrow.sol
-│   │   └── test/AESEscrow.t.sol
+│   │   ├── src/AELEscrow.sol
+│   │   └── test/
 │   └── credit/                  # Aiken — CREDIT 민팅 (Pro 전용)
 │       └── validators/credit.ak
 ├── scripts/                     # 개발/배포 스크립트
@@ -410,7 +410,7 @@ POST /tx/submit { tx_hash, signature }
 
 ## 구현 순서
 
-### Phase 1: AES Lite MVP + 대시보드 ← 현재 목표
+### Phase 1: AEL Lite MVP + 대시보드 ← 현재 목표
 
 **Step 1: 기반 구축** ✅ 완료
 - [x] 전체 디렉토리 구조 생성
@@ -459,7 +459,7 @@ POST /tx/submit { tx_hash, signature }
 - [x] WebSocket Hub 테스트 (`hub_test.go`): 채널 구독 브로드캐스트 + 글로벌 구독
 - [x] `go test ./...` 전체 통과
 
-### Phase 2: AES Pro (Hydra 모드)
+### Phase 2: AEL Pro (Hydra 모드)
 
 **Step 7: Pro 엔진**
 - [ ] `ProEngine` 구현 (`channel/pro.go`)

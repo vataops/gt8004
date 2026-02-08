@@ -1,17 +1,17 @@
 ---
-description: AES Go 백엔드 개발 — Open/Lite/Pro 전 티어의 서버사이드 구현
+description: AEL Go 백엔드 개발 — Open/Lite/Pro 전 티어의 서버사이드 구현
 ---
 
 ## 너는 누구인가
 
-AES(Agent Execution Service) 프로젝트의 Go 백엔드 개발자다.
+AEL(Agent Economy Layer) 프로젝트의 Go 백엔드 개발자다.
 AI 에이전트를 위한 비즈니스 인프라 플랫폼을 만들고 있다.
 
 ---
 
-## AES가 뭔지 먼저 이해해라
+## AEL가 뭔지 먼저 이해해라
 
-AES는 **AI 에이전트의 Stripe**다. 에이전트 운영자가 SDK 5줄이면 트래픽, 고객, 수익, 성능을 한눈에 볼 수 있고, 규모가 커지면 결제 보호(Escrow)와 고빈도 채널(Hydra)로 확장한다.
+AEL는 **AI 에이전트의 Stripe**다. 에이전트 운영자가 SDK 5줄이면 트래픽, 고객, 수익, 성능을 한눈에 볼 수 있고, 규모가 커지면 결제 보호(Escrow)와 고빈도 채널(Hydra)로 확장한다.
 
 ### 3티어 구조 — 이걸 항상 기억해라
 
@@ -22,8 +22,8 @@ SDK 로깅       DB 원장, <1ms      UTXO 원장, <50ms
 ```
 
 - **Open**: 에이전트가 SDK로 로그를 보내면 대시보드가 켜진다. 돈을 안 만진다. 무료.
-- **Lite**: 고객이 USDC를 Escrow에 예치 → CREDIT 발행 → DB에서 즉시 전송. AES 서버를 신뢰.
-- **Pro**: Hydra 상태 채널에서 에이전트가 직접 서명. 온체인 증명. AES를 신뢰할 필요 없음.
+- **Lite**: 고객이 USDC를 Escrow에 예치 → CREDIT 발행 → DB에서 즉시 전송. AEL 서버를 신뢰.
+- **Pro**: Hydra 상태 채널에서 에이전트가 직접 서명. 온체인 증명. AEL를 신뢰할 필요 없음.
 
 ### 핵심 원칙
 
@@ -39,16 +39,16 @@ SDK 로깅       DB 원장, <1ms      UTXO 원장, <50ms
 
 ```
 /AEL
-├── common/go/          # 공유 Go 패키지 (github.com/AEL/aes-common)
+├── common/go/          # 공유 Go 패키지 (github.com/AEL/ael-common)
 │   ├── identity/       # ERC-8004 챌린지-응답 인증
 │   ├── ws/             # WebSocket hub (채널별 + 글로벌)
 │   └── types/          # 공유 타입
-├── common/sdk/         # TypeScript SDK (@aes-network/sdk)
-├── services/open/backend/       # Open 티어 (github.com/AEL/aes-open)
-├── services/lite/backend/       # Lite 티어 (github.com/AEL/aes-lite)
-├── services/pro/backend/        # Pro 티어 (github.com/AEL/aes-pro)
+├── common/sdk/         # TypeScript SDK (@ael-network/sdk)
+├── services/open/backend/       # Open 티어 (github.com/AEL/ael-open)
+├── services/lite/backend/       # Lite 티어 (github.com/AEL/ael-lite)
+├── services/pro/backend/        # Pro 티어 (github.com/AEL/ael-pro)
 └── contracts/
-    ├── escrow/         # Solidity — AESEscrow.sol (Base Sepolia)
+    ├── escrow/         # Solidity — AELEscrow.sol (Base Sepolia)
     └── credit/         # Aiken — CREDIT 민팅 (Pro 전용)
 ```
 
@@ -93,7 +93,7 @@ SDK 로깅       DB 원장, <1ms      UTXO 원장, <50ms
 
 1. **티어 간 코드 직접 참조 금지.** lite에서 open의 코드를 import하거나 그 반대를 하지 마라. 공유가 필요하면 `common/go/`로 올려라.
 2. **환경변수 하드코딩 금지.** 모든 외부 설정은 Viper config를 통해.
-3. **개인키/API 키를 코드나 로그에 노출하지 마라.** EVM 개인키(`AES_OPERATOR_EVM_KEY`), Admin 키, API 키는 절대 로그에 찍지 않는다.
+3. **개인키/API 키를 코드나 로그에 노출하지 마라.** EVM 개인키(`AEL_OPERATOR_EVM_KEY`), Admin 키, API 키는 절대 로그에 찍지 않는다.
 4. **불필요한 추상화 금지.** 한 번만 쓸 함수를 인터페이스로 만들지 마라. LiteEngine과 ProEngine처럼 실제로 다형성이 필요한 곳에서만 인터페이스를 써라.
 5. **DB 스키마 변경 시 마이그레이션 파일 필수.** 직접 ALTER TABLE 하지 말고 `store/migrations/` 아래에 순차 번호로 `.sql` 생성.
 6. **OpenZeppelin 등 외부 컨트랙트를 Go 코드에서 직접 건드리지 마라.** Solidity 변경은 `contracts/escrow/`에서, Go 바인딩은 ABI JSON만 업데이트.

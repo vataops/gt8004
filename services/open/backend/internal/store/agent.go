@@ -13,7 +13,7 @@ type Agent struct {
 	AgentID          string    `json:"agent_id"`
 	Name             string    `json:"name"`
 	OriginEndpoint   string    `json:"origin_endpoint"`
-	AESEndpoint      string    `json:"aes_endpoint"`
+	AELEndpoint      string    `json:"ael_endpoint"`
 	Protocols        []string  `json:"protocols"`
 	Category         string    `json:"category"`
 	PricingModel     string    `json:"pricing_model,omitempty"`
@@ -36,12 +36,12 @@ func (s *Store) CreateAgent(ctx context.Context, agent *Agent) error {
 		agent.Protocols = []string{}
 	}
 	err := s.pool.QueryRow(ctx, `
-		INSERT INTO agents (agent_id, name, origin_endpoint, aes_endpoint, protocols, category,
+		INSERT INTO agents (agent_id, name, origin_endpoint, ael_endpoint, protocols, category,
 			pricing_model, pricing_currency, status)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING id, created_at, updated_at
 	`,
-		agent.AgentID, agent.Name, agent.OriginEndpoint, agent.AESEndpoint,
+		agent.AgentID, agent.Name, agent.OriginEndpoint, agent.AELEndpoint,
 		agent.Protocols, agent.Category, agent.PricingModel, agent.PricingCurrency,
 		agent.Status,
 	).Scan(&agent.ID, &agent.CreatedAt, &agent.UpdatedAt)
@@ -54,14 +54,14 @@ func (s *Store) CreateAgent(ctx context.Context, agent *Agent) error {
 func (s *Store) GetAgentByID(ctx context.Context, agentID string) (*Agent, error) {
 	a := &Agent{}
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, agent_id, name, origin_endpoint, aes_endpoint, protocols, category,
+		SELECT id, agent_id, name, origin_endpoint, ael_endpoint, protocols, category,
 			COALESCE(pricing_model, ''), COALESCE(pricing_amount, 0), COALESCE(pricing_currency, 'USDC'),
 			gateway_enabled, status, COALESCE(evm_address, ''), reputation_score,
 			total_requests, COALESCE(total_revenue_usdc, 0), total_customers, avg_response_ms,
 			created_at, updated_at
 		FROM agents WHERE agent_id = $1
 	`, agentID).Scan(
-		&a.ID, &a.AgentID, &a.Name, &a.OriginEndpoint, &a.AESEndpoint,
+		&a.ID, &a.AgentID, &a.Name, &a.OriginEndpoint, &a.AELEndpoint,
 		&a.Protocols, &a.Category, &a.PricingModel, &a.PricingAmount, &a.PricingCurrency,
 		&a.GatewayEnabled, &a.Status, &a.EVMAddress, &a.ReputationScore,
 		&a.TotalRequests, &a.TotalRevenueUSDC, &a.TotalCustomers, &a.AvgResponseMs,
@@ -76,14 +76,14 @@ func (s *Store) GetAgentByID(ctx context.Context, agentID string) (*Agent, error
 func (s *Store) GetAgentByDBID(ctx context.Context, id uuid.UUID) (*Agent, error) {
 	a := &Agent{}
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, agent_id, name, origin_endpoint, aes_endpoint, protocols, category,
+		SELECT id, agent_id, name, origin_endpoint, ael_endpoint, protocols, category,
 			COALESCE(pricing_model, ''), COALESCE(pricing_amount, 0), COALESCE(pricing_currency, 'USDC'),
 			gateway_enabled, status, COALESCE(evm_address, ''), reputation_score,
 			total_requests, COALESCE(total_revenue_usdc, 0), total_customers, avg_response_ms,
 			created_at, updated_at
 		FROM agents WHERE id = $1
 	`, id).Scan(
-		&a.ID, &a.AgentID, &a.Name, &a.OriginEndpoint, &a.AESEndpoint,
+		&a.ID, &a.AgentID, &a.Name, &a.OriginEndpoint, &a.AELEndpoint,
 		&a.Protocols, &a.Category, &a.PricingModel, &a.PricingAmount, &a.PricingCurrency,
 		&a.GatewayEnabled, &a.Status, &a.EVMAddress, &a.ReputationScore,
 		&a.TotalRequests, &a.TotalRevenueUSDC, &a.TotalCustomers, &a.AvgResponseMs,
@@ -131,7 +131,7 @@ func (s *Store) SaveAgentEVMAddress(ctx context.Context, agentID, evmAddress str
 
 func (s *Store) SearchAgents(ctx context.Context, category, protocol string) ([]Agent, error) {
 	query := `
-		SELECT id, agent_id, name, origin_endpoint, aes_endpoint, protocols, category,
+		SELECT id, agent_id, name, origin_endpoint, ael_endpoint, protocols, category,
 			COALESCE(pricing_model, ''), COALESCE(pricing_amount, 0), COALESCE(pricing_currency, 'USDC'),
 			gateway_enabled, status, COALESCE(evm_address, ''), reputation_score,
 			total_requests, COALESCE(total_revenue_usdc, 0), total_customers, avg_response_ms,
@@ -165,7 +165,7 @@ func (s *Store) SearchAgents(ctx context.Context, category, protocol string) ([]
 	for rows.Next() {
 		var a Agent
 		if err := rows.Scan(
-			&a.ID, &a.AgentID, &a.Name, &a.OriginEndpoint, &a.AESEndpoint,
+			&a.ID, &a.AgentID, &a.Name, &a.OriginEndpoint, &a.AELEndpoint,
 			&a.Protocols, &a.Category, &a.PricingModel, &a.PricingAmount, &a.PricingCurrency,
 			&a.GatewayEnabled, &a.Status, &a.EVMAddress, &a.ReputationScore,
 			&a.TotalRequests, &a.TotalRevenueUSDC, &a.TotalCustomers, &a.AvgResponseMs,
@@ -186,7 +186,7 @@ func (s *Store) SearchAgents(ctx context.Context, category, protocol string) ([]
 // SearchAgentsAdvanced extends SearchAgents with additional filtering and sorting options.
 func (s *Store) SearchAgentsAdvanced(ctx context.Context, category, protocol string, minReputation float64, sort string) ([]Agent, error) {
 	query := `
-		SELECT id, agent_id, name, origin_endpoint, aes_endpoint, protocols, category,
+		SELECT id, agent_id, name, origin_endpoint, ael_endpoint, protocols, category,
 			COALESCE(pricing_model, ''), COALESCE(pricing_amount, 0), COALESCE(pricing_currency, 'USDC'),
 			gateway_enabled, status, COALESCE(evm_address, ''), reputation_score,
 			total_requests, COALESCE(total_revenue_usdc, 0), total_customers, avg_response_ms,
@@ -240,7 +240,7 @@ func (s *Store) SearchAgentsAdvanced(ctx context.Context, category, protocol str
 	for rows.Next() {
 		var a Agent
 		if err := rows.Scan(
-			&a.ID, &a.AgentID, &a.Name, &a.OriginEndpoint, &a.AESEndpoint,
+			&a.ID, &a.AgentID, &a.Name, &a.OriginEndpoint, &a.AELEndpoint,
 			&a.Protocols, &a.Category, &a.PricingModel, &a.PricingAmount, &a.PricingCurrency,
 			&a.GatewayEnabled, &a.Status, &a.EVMAddress, &a.ReputationScore,
 			&a.TotalRequests, &a.TotalRevenueUSDC, &a.TotalCustomers, &a.AvgResponseMs,

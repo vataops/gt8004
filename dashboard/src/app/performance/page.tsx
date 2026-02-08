@@ -1,12 +1,21 @@
 "use client";
 
 import { usePerformance } from "@/lib/hooks";
+import { useAuth } from "@/lib/auth";
+import { RequireAuth } from "@/components/RequireAuth";
 import { StatCard } from "@/components/StatCard";
 
-const AGENT_ID = process.env.NEXT_PUBLIC_AGENT_ID || "default";
-
 export default function PerformancePage() {
-  const { data: perf, loading } = usePerformance(AGENT_ID);
+  return (
+    <RequireAuth>
+      <PerformanceContent />
+    </RequireAuth>
+  );
+}
+
+function PerformanceContent() {
+  const { agent, apiKey } = useAuth();
+  const { data: perf, loading } = usePerformance(agent!.agent_id, apiKey!);
 
   if (loading || !perf) {
     return <p className="text-gray-500">Loading...</p>;

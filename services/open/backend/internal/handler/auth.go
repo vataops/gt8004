@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
-	"github.com/AEL/aes-common/identity"
+	"github.com/AEL/ael-common/identity"
 )
 
 func (h *Handler) AuthChallenge(c *gin.Context) {

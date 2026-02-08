@@ -1,6 +1,6 @@
-const DEFAULT_ENDPOINT = 'https://api.aes.network';
+const DEFAULT_ENDPOINT = 'https://api.gt8004.network';
 
-export interface AESClientConfig {
+export interface GT8004ClientConfig {
   apiKey: string;
   endpoint?: string;
 }
@@ -26,17 +26,59 @@ export interface AgentInfo {
 
 export interface RegisterResult {
   agent_id: string;
-  aes_endpoint: string;
+  gt8004_endpoint: string;
   dashboard_url: string;
   api_key: string;
   status: string;
 }
 
-export class AESClient {
+export interface RegisterServiceParams {
+  agent_id: string;
+  name?: string;
+  origin_endpoint: string;
+  protocols?: string[];
+  category?: string;
+  pricing?: { model: string; amount: string; currency: string };
+  tier?: 'open' | 'lite' | 'pro';
+  erc8004?: { token_id: number; registry: string };
+}
+
+export interface RegisterServiceResult extends RegisterResult {
+  tier: string;
+}
+
+export interface ServiceStatus {
+  agent_id: string;
+  name: string;
+  tier: string;
+  status: string;
+  evm_address?: string;
+  open: {
+    total_requests: number;
+    total_revenue_usdc: number;
+    gateway_enabled: boolean;
+    reputation_score: number;
+  };
+  lite?: {
+    active_channels: number;
+  };
+  erc8004?: {
+    token_id: number;
+    verified: boolean;
+  };
+}
+
+export interface TierUpdateResult {
+  agent_id: string;
+  tier: string;
+  tier_updated_at: string;
+}
+
+export class GT8004Client {
   private endpoint: string;
   private apiKey: string;
 
-  constructor(config: AESClientConfig) {
+  constructor(config: GT8004ClientConfig) {
     this.endpoint = config.endpoint ?? DEFAULT_ENDPOINT;
     this.apiKey = config.apiKey;
   }
@@ -56,7 +98,7 @@ export class AESClient {
     });
 
     if (!res.ok) {
-      throw new Error(`AES API error: ${res.status} ${res.statusText}`);
+      throw new Error(`GT8004 API error: ${res.status} ${res.statusText}`);
     }
 
     return res.json() as Promise<T>;
@@ -100,5 +142,35 @@ export class AESClient {
   /** Get benchmark rankings for a category. */
   async getBenchmark(category: string): Promise<Record<string, unknown>> {
     return this.request(`/v1/benchmark?category=${encodeURIComponent(category)}`);
+  }
+
+  // === Service Lifecycle (Unified Agent) ===
+
+  /** Register a new service with the unified GT8004 agent. */
+  async registerService(params: RegisterServiceParams): Promise<RegisterServiceResult> {
+    return this.request('/v1/services/register', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  /** Get the current service status for an agent across all tiers. */
+  async getService(agentId: string): Promise<ServiceStatus> {
+    return this.request(`/v1/services/${agentId}`);
+  }
+
+  /** Upgrade or downgrade the service tier for an agent. */
+  async updateTier(agentId: string, tier: 'open' | 'lite' | 'pro', evmAddress?: string): Promise<TierUpdateResult> {
+    return this.request(`/v1/services/${agentId}/tier`, {
+      method: 'PUT',
+      body: JSON.stringify({ tier, evm_address: evmAddress }),
+    });
+  }
+
+  /** Deregister an agent from the GT8004 service. */
+  async deregister(agentId: string): Promise<{ status: string }> {
+    return this.request(`/v1/services/${agentId}`, {
+      method: 'DELETE',
+    });
   }
 }

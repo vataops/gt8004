@@ -11,9 +11,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
-	"github.com/AEL/aes-lite/internal/channel"
-	"github.com/AEL/aes-lite/internal/handler"
-	"github.com/AEL/aes-common/ws"
+	"github.com/AEL/ael-lite/internal/channel"
+	"github.com/AEL/ael-lite/internal/handler"
+	"github.com/AEL/ael-common/ws"
 )
 
 // mockEngine is a simple in-memory Engine for testing handlers without DB.

@@ -155,7 +155,7 @@ func (s *Store) GetAgentErrorRate(ctx context.Context, agentDBID uuid.UUID) (flo
 // GetActiveAgentsByCategory returns all active agents for a given category.
 func (s *Store) GetActiveAgentsByCategory(ctx context.Context, category string) ([]Agent, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT id, agent_id, name, origin_endpoint, aes_endpoint, protocols, category,
+		SELECT id, agent_id, name, origin_endpoint, ael_endpoint, protocols, category,
 			COALESCE(pricing_model, ''), COALESCE(pricing_amount, 0), COALESCE(pricing_currency, 'USDC'),
 			gateway_enabled, status, COALESCE(evm_address, ''), reputation_score,
 			total_requests, COALESCE(total_revenue_usdc, 0), total_customers, avg_response_ms,
@@ -172,7 +172,7 @@ func (s *Store) GetActiveAgentsByCategory(ctx context.Context, category string) 
 	for rows.Next() {
 		var a Agent
 		if err := rows.Scan(
-			&a.ID, &a.AgentID, &a.Name, &a.OriginEndpoint, &a.AESEndpoint,
+			&a.ID, &a.AgentID, &a.Name, &a.OriginEndpoint, &a.AELEndpoint,
 			&a.Protocols, &a.Category, &a.PricingModel, &a.PricingAmount, &a.PricingCurrency,
 			&a.GatewayEnabled, &a.Status, &a.EVMAddress, &a.ReputationScore,
 			&a.TotalRequests, &a.TotalRevenueUSDC, &a.TotalCustomers, &a.AvgResponseMs,

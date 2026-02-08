@@ -3,9 +3,9 @@ package server
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/AEL/aes-lite/internal/config"
-	"github.com/AEL/aes-lite/internal/handler"
-	"github.com/AEL/aes-lite/internal/x402"
+	"github.com/AEL/ael-lite/internal/config"
+	"github.com/AEL/ael-lite/internal/handler"
+	"github.com/AEL/ael-lite/internal/x402"
 	"go.uber.org/zap"
 )
 

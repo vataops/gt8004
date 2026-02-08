@@ -1,5 +1,5 @@
 services:
-  # ── AES Pro Backend ────────────────────────────
+  # ── AEL Pro Backend ────────────────────────────
   backend:
     build:
       context: ./backend
@@ -8,7 +8,7 @@ services:
       - "8080:8080"
       - "8081:8081"
     environment:
-      - DATABASE_URL=postgres://aes:aes@postgres:5432/aes?sslmode=disable
+      - DATABASE_URL=postgres://ael:ael@postgres:5432/ael?sslmode=disable
       - HYDRA_NODE_URL=ws://hydra-node:4001
       - HYDRA_API_URL=http://hydra-node:4001
       - CARDANO_NODE_SOCKET=/ipc/node.socket
@@ -16,10 +16,10 @@ services:
       - BLOCKFROST_URL=${BLOCKFROST_URL:-https://cardano-preview.blockfrost.io/api/v0}
       - EVM_RPC_URL=${EVM_RPC_URL:-https://sepolia.base.org}
       - ESCROW_CONTRACT_ADDRESS=${ESCROW_CONTRACT_ADDRESS}
-      - AES_OPERATOR_EVM_KEY=${AES_OPERATOR_EVM_KEY}
-      - AES_OPERATOR_CARDANO_SKEY=${AES_OPERATOR_CARDANO_SKEY}
+      - AEL_OPERATOR_EVM_KEY=${AEL_OPERATOR_EVM_KEY}
+      - AEL_OPERATOR_CARDANO_SKEY=${AEL_OPERATOR_CARDANO_SKEY}
       - X402_FACILITATOR_URL=${X402_FACILITATOR_URL:-https://x402.org/facilitator}
-      - AES_PAYMENT_RECIPIENT=${AES_PAYMENT_RECIPIENT}
+      - AEL_PAYMENT_RECIPIENT=${AEL_PAYMENT_RECIPIENT}
       - ADMIN_API_KEY=${ADMIN_API_KEY:-changeme}
       - IDENTITY_REGISTRY_ADDRESS=${IDENTITY_REGISTRY_ADDRESS}
       - IDENTITY_REGISTRY_RPC=${IDENTITY_REGISTRY_RPC:-https://eth.llamarpc.com}
@@ -52,15 +52,15 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: aes
-      POSTGRES_USER: aes
-      POSTGRES_PASSWORD: aes
+      POSTGRES_DB: ael
+      POSTGRES_USER: ael
+      POSTGRES_PASSWORD: ael
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U aes"]
+      test: ["CMD-SHELL", "pg_isready -U ael"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -93,7 +93,7 @@ services:
     image: ghcr.io/cardano-scaling/hydra-node:0.20.0
     command:
       - "--node-id"
-      - "aes-operator"
+      - "ael-operator"
       - "--api-host"
       - "0.0.0.0"
       - "--api-port"

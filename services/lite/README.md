@@ -1,4 +1,4 @@
-# AES Lite
+# AEL Lite
 
 DB 기반 경량 에이전트 결제 채널 서비스. Hydra 없이 PostgreSQL을 원장으로 사용하여 <1ms 지연시간으로 에이전트 간 CREDIT 전송을 처리한다.
 
@@ -6,7 +6,7 @@ DB 기반 경량 에이전트 결제 채널 서비스. Hydra 없이 PostgreSQL�
 
 ```
 ┌──────────────┐    x402/USDC     ┌──────────────┐     settle      ┌──────────────┐
-│   AI Agent   │ ───────────────→ │   AES Lite   │ ──────────────→ │  Base Sepolia │
+│   AI Agent   │ ───────────────→ │   AEL Lite   │ ──────────────→ │  Base Sepolia │
 │  (ERC-8004)  │ ←── CREDIT TX ── │   (Go/Gin)   │                │  (Escrow.sol) │
 └──────────────┘    <1ms          └──────┬───────┘                └──────────────┘
                                          │
@@ -33,8 +33,8 @@ DB 기반 경량 에이전트 결제 채널 서비스. Hydra 없이 PostgreSQL�
 
 ```
 lite/
-├── backend/                        # Go 백엔드 (module: github.com/AEL/aes-lite)
-│   ├── cmd/aesd/main.go           # 엔트리포인트
+├── backend/                        # Go 백엔드 (module: github.com/AEL/ael-lite)
+│   ├── cmd/aeld/main.go           # 엔트리포인트
 │   ├── Dockerfile                 # 멀티스테이지 빌드 (~15MB)
 │   └── internal/
 │       ├── config/                # Viper 환경 설정
@@ -102,8 +102,8 @@ make docker-logs     # 로그 확인
 # 백엔드
 cd backend
 go mod download
-go build -o bin/aesd ./cmd/aesd
-./bin/aesd
+go build -o bin/aeld ./cmd/aeld
+./bin/aeld
 
 # 대시보드
 cd dashboard
@@ -167,7 +167,7 @@ make test-all        # Go + Forge 전체
 
 ```
 1. 채널 생성 (POST /v1/channels)
-   Agent → x402 USDC 결제 → AES가 Escrow.deposit() 호출 → DB에 채널 + 잔액 생성
+   Agent → x402 USDC 결제 → AEL가 Escrow.deposit() 호출 → DB에 채널 + 잔액 생성
    └─ 1 USDC = 1,000 CREDIT 비율로 참여자에게 균등 분배
 
 2. CREDIT 전송 (POST /v1/channels/:id/tx)
@@ -192,9 +192,9 @@ make test-all        # Go + Forge 전체
 | `DATABASE_URL` | PostgreSQL 연결 문자열 | - |
 | `EVM_RPC_URL` | Base Sepolia RPC | `https://sepolia.base.org` |
 | `ESCROW_CONTRACT_ADDRESS` | Escrow 컨트랙트 주소 | - |
-| `AES_OPERATOR_EVM_KEY` | 오퍼레이터 EVM 개인키 | - |
+| `AEL_OPERATOR_EVM_KEY` | 오퍼레이터 EVM 개인키 | - |
 | `X402_FACILITATOR_URL` | x402 검증 서버 | `https://x402.org/facilitator` |
-| `AES_PAYMENT_RECIPIENT` | 결제 수신 주소 | - |
+| `AEL_PAYMENT_RECIPIENT` | 결제 수신 주소 | - |
 | `IDENTITY_REGISTRY_ADDRESS` | ERC-8004 레지스트리 | - |
 | `IDENTITY_REGISTRY_RPC` | 레지스트리 RPC | `https://eth.llamarpc.com` |
 | `ADMIN_API_KEY` | Admin 대시보드 API 키 | - |
@@ -279,12 +279,12 @@ TX 이벤트 기록 (감사/대시보드용).
 
 ## Pro 모드와의 차이
 
-| | AES Lite (이 서비스) | AES Pro |
+| | AEL Lite (이 서비스) | AEL Pro |
 |---|---|---|
 | 원장 | PostgreSQL DB | Hydra UTXO |
 | 지연시간 | <1ms | <50ms |
 | 에이전트 서명 | 불필요 | 직접 서명 필수 |
-| 검증 가능성 | AES 서버 신뢰 | 온체인 증명 |
+| 검증 가능성 | AEL 서버 신뢰 | 온체인 증명 |
 | 인프라 | PostgreSQL만 | + Cardano + Hydra |
 
 동일한 API 인터페이스를 공유하므로, 에이전트는 채널 생성 시 `"mode": "lite"` / `"mode": "pro"`만 변경하면 된다.

@@ -2,9 +2,9 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: aes
-      POSTGRES_PASSWORD: aes
-      POSTGRES_DB: aes_open
+      POSTGRES_USER: ael
+      POSTGRES_PASSWORD: ael
+      POSTGRES_DB: ael_open
     ports:
       - "5432:5432"
     volumes:
@@ -21,7 +21,7 @@ services:
       PORT: 8080
       METRICS_PORT: 8081
       LOG_LEVEL: debug
-      DATABASE_URL: postgres://aes:aes@postgres:5432/aes_open?sslmode=disable
+      DATABASE_URL: postgres://ael:ael@postgres:5432/ael_open?sslmode=disable
     depends_on:
       - postgres
 

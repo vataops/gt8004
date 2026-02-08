@@ -8,14 +8,39 @@ import type { Agent } from "@/lib/api";
 const agentColumns: Column<Agent>[] = [
   {
     key: "name",
-    header: "Name",
+    header: "Agent",
     render: (row) => (
-      <span className="font-medium text-white">
-        {row.name || row.agent_id}
-      </span>
+      <div>
+        <span className="font-medium text-white">
+          {row.name || row.agent_id}
+        </span>
+        {row.name && (
+          <p className="text-xs text-gray-500 font-mono mt-0.5">
+            {row.agent_id.length > 20
+              ? `${row.agent_id.slice(0, 10)}...${row.agent_id.slice(-6)}`
+              : row.agent_id}
+          </p>
+        )}
+      </div>
     ),
   },
   { key: "category", header: "Category" },
+  {
+    key: "protocols",
+    header: "Protocols",
+    render: (row) => (
+      <div className="flex gap-1 flex-wrap">
+        {(row.protocols || []).map((p: string) => (
+          <span
+            key={p}
+            className="px-1.5 py-0.5 rounded text-xs bg-blue-900/30 text-blue-400"
+          >
+            {p}
+          </span>
+        ))}
+      </div>
+    ),
+  },
   {
     key: "status",
     header: "Status",
@@ -54,40 +79,58 @@ export default function OverviewPage() {
   const { data: overview, loading } = useOverview();
   const { data: agentsData } = useAgents();
 
+  const agents = agentsData?.agents || [];
+  const activeCount = agents.filter((a) => a.status === "active").length;
+
   if (loading || !overview) {
     return <p className="text-gray-500">Loading...</p>;
   }
 
   return (
     <div>
-      <h2 className="text-xl font-bold mb-4">Overview</h2>
+      {/* Header */}
+      <div className="mb-6">
+        <h2 className="text-xl font-bold">Platform Overview</h2>
+        <p className="text-sm text-gray-500 mt-1">
+          GT8004 network-wide metrics across all registered agents
+        </p>
+      </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+      {/* Primary stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <StatCard
-          label="Today's Requests"
-          value={overview.today_requests.toLocaleString()}
+          label="Registered Agents"
+          value={overview.total_agents}
+          sub={`${overview.active_agents} active`}
         />
         <StatCard
           label="Total Requests"
           value={overview.total_requests.toLocaleString()}
+          sub={`${overview.today_requests.toLocaleString()} today`}
         />
         <StatCard
-          label="Revenue (USDC)"
+          label="Total Revenue"
           value={`$${overview.total_revenue_usdc.toFixed(2)}`}
+          sub="USDC"
         />
-        <StatCard label="Agents" value={overview.total_agents} />
-        <StatCard label="Active Agents" value={overview.active_agents} />
         <StatCard
           label="Avg Response"
           value={`${overview.avg_response_ms.toFixed(0)}ms`}
+          sub="across all agents"
         />
       </div>
 
-      <h3 className="text-lg font-semibold mb-3">Registered Agents</h3>
+      {/* Agents table */}
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-lg font-semibold">Agents on Network</h3>
+        <span className="text-sm text-gray-500">
+          {agents.length} registered &middot; {activeCount} active
+        </span>
+      </div>
       <DataTable
         columns={agentColumns}
-        data={agentsData?.agents || []}
-        emptyMessage="No agents registered yet"
+        data={agents}
+        emptyMessage="No agents registered on the network yet"
       />
     </div>
   );

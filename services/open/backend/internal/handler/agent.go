@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
-	"github.com/AEL/aes-open/internal/store"
+	"github.com/AEL/ael-open/internal/store"
 )
 
 type Pricing struct {
@@ -29,7 +29,7 @@ type RegisterRequest struct {
 
 type RegisterResponse struct {
 	AgentID      string `json:"agent_id"`
-	AESEndpoint  string `json:"aes_endpoint"`
+	AELEndpoint  string `json:"ael_endpoint"`
 	DashboardURL string `json:"dashboard_url"`
 	APIKey       string `json:"api_key"`
 	Status       string `json:"status"`
@@ -57,8 +57,8 @@ func (h *Handler) RegisterAgent(c *gin.Context) {
 		agent.PricingCurrency = req.Pricing.Currency
 	}
 
-	aesEndpoint := fmt.Sprintf("/v1/agents/%s", req.AgentID)
-	agent.AESEndpoint = aesEndpoint
+	aelEndpoint := fmt.Sprintf("/v1/agents/%s", req.AgentID)
+	agent.AELEndpoint = aelEndpoint
 
 	if err := h.store.CreateAgent(c.Request.Context(), agent); err != nil {
 		h.logger.Error("failed to create agent", zap.Error(err))
@@ -76,7 +76,7 @@ func (h *Handler) RegisterAgent(c *gin.Context) {
 
 	resp := RegisterResponse{
 		AgentID:      req.AgentID,
-		AESEndpoint:  aesEndpoint,
+		AELEndpoint:  aelEndpoint,
 		DashboardURL: fmt.Sprintf("/dashboard/agents/%s", req.AgentID),
 		APIKey:       rawKey,
 		Status:       "active",
@@ -107,6 +107,30 @@ func (h *Handler) AgentStats(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, stats)
+}
+
+// GetMe handles GET /v1/agents/me — returns the authenticated agent's profile.
+func (h *Handler) GetMe(c *gin.Context) {
+	agentDBID, exists := c.Get("agent_db_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	dbID, ok := agentDBID.(uuid.UUID)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid agent context"})
+		return
+	}
+
+	agent, err := h.store.GetAgentByDBID(c.Request.Context(), dbID)
+	if err != nil {
+		h.logger.Error("failed to get agent", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get agent"})
+		return
+	}
+
+	c.JSON(http.StatusOK, agent)
 }
 
 // SearchAgents handles GET /v1/agents/search (Phase 1D - public).

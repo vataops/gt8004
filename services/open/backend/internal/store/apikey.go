@@ -24,7 +24,7 @@ func (s *Store) CreateAPIKey(ctx context.Context, agentDBID uuid.UUID) (string, 
 		return "", fmt.Errorf("generate random bytes: %w", err)
 	}
 
-	rawKey := "aes_sk_" + hex.EncodeToString(b)
+	rawKey := "ael_sk_" + hex.EncodeToString(b)
 	keyPrefix := rawKey[:16]
 
 	hash := sha256.Sum256([]byte(rawKey))
