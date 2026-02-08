@@ -1,5 +1,6 @@
 # Binaries
 backend/aesd
+**/bin/
 *.exe
 *.dll
 *.so
