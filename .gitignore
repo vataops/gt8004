@@ -1,5 +1,5 @@
 # Binaries
-backend/aesd
+**/aesd
 **/bin/
 *.exe
 *.dll
@@ -10,9 +10,11 @@ backend/aesd
 backend/vendor/
 
 # Node / Next.js
-dashboard/node_modules/
-dashboard/.next/
-dashboard/out/
+**/node_modules/
+**/.next/
+**/out/
+**/dist/
+next-env.d.ts
 
 # Environment
 .env

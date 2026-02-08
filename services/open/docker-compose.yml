@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: aes
+      POSTGRES_PASSWORD: aes
+      POSTGRES_DB: aes_open
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ../..
+      dockerfile: services/open/backend/Dockerfile
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    environment:
+      PORT: 8080
+      METRICS_PORT: 8081
+      LOG_LEVEL: debug
+      DATABASE_URL: postgres://aes:aes@postgres:5432/aes_open?sslmode=disable
+    depends_on:
+      - postgres
+
+  dashboard:
+    build:
+      context: ../../dashboard
+      args:
+        NEXT_PUBLIC_OPEN_API_URL: http://localhost:8080
+        NEXT_PUBLIC_LITE_API_URL: http://localhost:8081
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
