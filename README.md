@@ -1,459 +1,358 @@
 # AES — Agent Execution Service
 
-> **AI 에이전트를 위한 API Gateway + Observability 플랫폼**
+> **AI 에이전트를 위한 비즈니스 인텔리전스 플랫폼**
 >
-> 에이전트의 모든 요청을 라우팅하고 기록합니다.
-> 무료로 시작하고, 규모가 커지면 Escrow와 Hydra로 확장합니다.
+> 에이전트를 등록하면 API Gateway, 요청 기록, 고객 분석, 수익 리포트를 무료로 제공합니다.
+> 규모가 커지면 Escrow 결제 보호와 Hydra 상태 채널로 확장합니다.
 
 ---
 
 ## 문제
 
-AI 에이전트(ERC-8004)가 자율적인 경제 주체로 진화하고 있습니다. 거래, 서비스 제공, 조직 간 협업을 독립적으로 수행합니다. 그러나 에이전트가 실제 서비스를 운영하면 다음 문제에 부딪힙니다:
+AI 에이전트(ERC-8004)가 서비스를 제공하고 x402로 수익을 만드는 시대가 시작되었습니다. 하지만 에이전트 운영자들은 서비스 로직이 아닌 **운영 인프라**에 시간을 빼앗기고 있습니다.
 
-**1. 기록 관리가 귀찮다**
-- 고객 요청 로그, 응답 기록, 사용량 통계 — 모든 에이전트에게 필요하지만 직접 만들기 번거로움
-- 에이전트마다 다른 로깅 포맷, 통합된 대시보드 없음
-- 분쟁 시 증빙할 기록이 없음
+**에이전트 운영자가 직접 구축해야 하는 것들:**
 
-**2. 대규모 작업에서 결제 보호가 없다**
-- 고객이 에이전트에게 직접 결제하면, 작업 완료 전 환불 분쟁 발생
-- 에이전트 입장에서도 작업 후 미지급 리스크
+- 누가 내 에이전트를 호출했는지, 몇 번 호출했는지 기록
+- 고객별 사용량 추적, 월간 수익 계산
+- 응답 시간 모니터링, 장애 감지
+- 요청/응답 로그 보관 (분쟁 대비)
+- API 엔드포인트 관리, 레이트 리밋, 인증
 
-**3. 고빈도 상호작용에서 기존 인프라가 느리다**
-- **L1 (Ethereum)**: 트랜잭션당 $0.50~$5, 12초 확정
-- **L2 (Base, Arbitrum)**: 트랜잭션당 ~$0.001, 2초 블록
-- **오프체인 서버**: 빠르고 무료지만 검증 불가, 분쟁 해결 불가
+이걸 **모든 에이전트가 각자 구축**하고 있습니다. 비효율적입니다.
+
+**규모가 커지면 추가 문제:**
+
+- 고객이 $500짜리 작업을 요청 → 작업 완료 후 미지급 리스크
+- 에이전트가 선불 받고 작업 미완료 → 고객 피해
+- 고빈도 에이전트 간 상호작용 → 건당 L2 정산도 비용/속도 한계
 
 ---
 
 ## 솔루션
 
-AES는 **AI 에이전트를 위한 API Gateway**입니다. 에이전트의 요청을 라우팅하고, 모든 상호작용을 기록하며, 필요에 따라 Escrow 결제 보호와 Hydra 상태 채널을 제공합니다.
-
-3가지 티어로 운영됩니다:
+AES는 **에이전트의 비즈니스 운영 플랫폼**입니다. SDK 5줄이면 즉시 비즈니스 인텔리전스를 무료로 받습니다. 기존 인프라 변경 없음. 규모가 커지면 Gateway 보호, Escrow 결제, Hydra 채널로 확장합니다.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  AES Open (무료)                                             │
-│  라우팅 + 기록 관리 + 대시보드 + 통계                        │
-│  결제는 고객 → 에이전트 직접. AES는 돈을 안 만짐.            │
+│                                                              │
+│  "에이전트의 Stripe Dashboard"                               │
+│                                                              │
+│  SDK 5줄 → 요청 로깅 + 고객 분석 + 수익 리포트              │
+│  + 성능 모니터링 + 장애 알림 + 가격 최적화 추천              │
+│  + 에이전트 디스커버리 마켓플레이스 노출                     │
+│                                                              │
+│  연동 방식:                                                  │
+│    SDK 모드 (기본) — 코드 5줄, 레이턴시 제로, 비동기 로그    │
+│    Gateway 모드 (옵션) — DDoS 보호, 레이트 리밋, 라우팅      │
+│                                                              │
+│  결제는 고객 → 에이전트 직접 (x402). AES는 돈을 안 만짐.    │
 ├─────────────────────────────────────────────────────────────┤
 │  AES Lite (Escrow 모드)                                      │
-│  USDC → Escrow → CREDIT. 서버 DB가 원장.                    │
-│  대규모 작업 시 결제 보호. 작업 완료 후 정산.                │
+│                                                              │
+│  "대규모 작업의 결제 보호"                                   │
+│                                                              │
+│  USDC → Escrow → CREDIT. 마일스톤 기반 정산.                │
+│  + Open의 모든 기능                                          │
 ├─────────────────────────────────────────────────────────────┤
-│  AES Pro (Hydra 모드)                                        │
-│  Hydra 상태 채널이 원장. 에이전트 직접 서명.                 │
-│  고빈도 + 트러스트리스. 온체인 검증 가능.                    │
+│  AES Pro (Hydra 모드) — coming soon                          │
+│                                                              │
+│  트러스트리스 고빈도 채널. 온체인 검증. 상세 스펙 추후 공개. │
 └─────────────────────────────────────────────────────────────┘
 ```
 
+---
+
+## AES Open — 무료 비즈니스 인텔리전스
+
+SDK 5줄이면 **즉시 무료로** 비즈니스 인텔리전스를 받습니다. 기존 인프라 변경 없음.
+
+### 1. 연동 방식 — SDK (기본) vs Gateway (옵션)
+
 ```
-고객                           AES                          에이전트
-  │                              │                              │
-  │  1. 요청 (+ 직접 결제)       │                              │
-  │  ────────────────────────→  │  라우팅 + 기록               │
-  │                              │  ────────────────────────→  │
-  │                              │                              │  처리
-  │                              │  ←────────────────────────  │
-  │  2. 응답                     │  기록 저장                   │
-  │  ←────────────────────────  │                              │
-  │                              │                              │
-  │  3. 대시보드에서 기록 조회    │                              │
-  │  ════════════════════════→  │                              │
+  SDK 모드 (기본) — 코드 5줄, 기존 인프라 변경 없음
+
+    고객 ──→ 에이전트 (기존 그대로)
+                │
+                └──→ AES SDK: 비동기 로그 전송
+
+    ✅ 레이턴시 제로 (기존 경로 그대로)
+    ✅ 내 트래픽은 내가 소유
+    ✅ AES 장애 = 로그만 안 보임, 서비스 정상
+    ✅ Lite/Pro에서도 사용 가능 (결제 API만 별도 호출)
 ```
 
-**에이전트가 알아야 하는 것:** AES에 등록하고 API 엔드포인트 받기
-**에이전트가 몰라도 되는 것:** 로깅, 통계, 대시보드 구축, Hydra, Cardano
+```javascript
+// SDK 모드 — 기존 에이전트 코드에 5줄 추가
+import { AESLogger } from '@aes-network/sdk';
+
+const logger = new AESLogger({
+  agentId: 'erc8004:0xJames',
+  apiKey: process.env.AES_API_KEY
+});
+
+app.use(logger.middleware());  // 요청/응답 자동 캡처, 비동기 전송
+// 끝. 대시보드가 켜집니다.
+```
+
+```
+  Gateway 모드 (옵션) — 추가 보호가 필요할 때
+
+    고객 ──→ AES Gateway ──→ 에이전트
+         ←──              ←──
+
+    ✅ DDoS 보호, 레이트 리밋
+    ✅ AES 엔드포인트로 트래픽 통합
+    ❌ 레이턴시 추가 (+20~50ms)
+    ❌ 트래픽이 AES를 경유
+
+  Gateway 활성화 시 받는 것:
+    원래 엔드포인트:  https://meerkat.up.railway.app/mcp/meerkat-19
+    AES 엔드포인트:   https://aes.network/agents/meerkat-19/mcp
+```
+
+SDK든 Gateway든 대시보드, 분석, 디스커버리 기능은 동일하게 제공됩니다.
+
+### 2. 대시보드 — 에이전트의 Stripe Dashboard
+
+에이전트 운영자가 자기 에이전트의 비즈니스를 한눈에 볼 수 있습니다.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  AES Dashboard — James (meerkat-19)                             │
+│                                                                  │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐       │
+│  │ 오늘 요청 │  │ 이번 주   │  │ 이번 달   │  │ 총 수익   │       │
+│  │   1,247   │  │   8,392   │  │  34,521   │  │ $172.60   │       │
+│  │  +12% ↑   │  │  +8% ↑    │  │  +23% ↑   │  │ +31% ↑    │       │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘       │
+│                                                                  │
+│  ── 요청 트래픽 (24시간) ─────────────────────────────────────  │
+│  │     ╭─╮                                                      │
+│  │   ╭─╯ ╰─╮     ╭──╮                                          │
+│  │ ──╯      ╰───╮╭╯  ╰──╮                                      │
+│  │              ╰╯       ╰───                                   │
+│  └──────────────────────────────────────────────────────────── │
+│   00:00    06:00    12:00    18:00    24:00                      │
+│                                                                  │
+│  ── 상위 고객 ──────────────────────────────────────────────── │
+│  │ 1. 0xAgent_Alpha   4,231건   $86.20   응답 만족도 4.8/5     │
+│  │ 2. 0xAgent_Beta    2,107건   $42.10   응답 만족도 4.5/5     │
+│  │ 3. 0xAgent_Gamma     891건   $17.80   응답 만족도 4.9/5     │
+│  └──────────────────────────────────────────────────────────── │
+│                                                                  │
+│  ── 성능 ──────────────────────────────────────────────────── │
+│  │ 평균 응답 시간:  142ms    │  P99:  890ms                    │
+│  │ 가용률:         99.7%     │  오류율:  0.3%                  │
+│  │ x402 결제 성공률: 98.2%   │                                  │
+│  └──────────────────────────────────────────────────────────── │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 3. 고객 분석 (Customer Intelligence)
+
+```
+내 에이전트의 고객이 누구인지, 어떻게 쓰는지 분석:
+
+  고객별 프로파일:
+    0xAgent_Alpha
+    ├── 첫 이용: 2026-01-15
+    ├── 총 요청: 4,231건
+    ├── 총 지출: $86.20
+    ├── 주 사용 기능: chat (78%), get_agent_info (22%)
+    ├── 평균 요청 빈도: 하루 141건
+    ├── 활성 시간대: UTC 14:00~22:00
+    └── 이탈 리스크: 낮음 (사용량 증가 추세)
+
+  고객 코호트 분석:
+    ├── 신규 고객 (이번 주): 12명
+    ├── 재방문 고객: 47명
+    ├── 이탈 고객 (7일 미활동): 3명
+    └── VIP 고객 (상위 10%): 6명
+```
+
+### 4. 수익 분석 (Revenue Intelligence)
+
+x402 결제를 자동으로 추적해서 수익 리포트를 생성합니다.
+
+```
+  수익 대시보드:
+    ├── 오늘 수익: $12.47
+    ├── 이번 주: $86.20
+    ├── 이번 달: $172.60 (+31% MoM)
+    ├── 건당 평균 수익: $0.005
+    ├── 고객당 평균 수익 (ARPU): $2.88/월
+    └── LTV 추정: $17.30
+
+  수익 분포:
+    ├── chat 기능: $134.50 (78%)
+    ├── get_agent_info: $38.10 (22%)
+    └── 기타: $0.00
+
+  추천:
+    "chat 기능의 가격을 $0.004 → $0.006으로 올리면
+     예상 수익 +18%, 이탈률 +2% 이내"
+```
+
+### 5. 성능 모니터링 + 알림
+
+```
+  실시간 모니터링:
+    ├── 응답 시간 (평균, P50, P95, P99)
+    ├── 오류율 (HTTP 5xx, 타임아웃)
+    ├── 처리량 (RPS)
+    └── 가용률
+
+  알림 (Webhook, 이메일, Slack):
+    ├── "응답 시간이 500ms 초과 (5분 지속)"
+    ├── "오류율이 5% 초과"
+    ├── "고객 0xAgent_Alpha가 7일간 미활동"
+    └── "일일 요청량이 전주 대비 30% 감소"
+```
+
+### 6. 경쟁 벤치마크
+
+같은 카테고리의 다른 에이전트와 비교합니다. (에이전트가 동의한 공개 데이터만 사용)
+
+```
+  "자연어 처리" 카테고리 내 순위:
+
+  │ 순위  에이전트           응답시간   가격      평판   요청량/일  │
+  │ 1    James (나)          142ms    $0.005    4.8    1,247     │
+  │ 2    ChatBot_Pro         98ms     $0.008    4.6    2,103     │
+  │ 3    NLP_Agent_X         210ms    $0.003    4.4      891     │
+  │ 4    TextMaster          180ms    $0.004    4.7      654     │
+
+  인사이트:
+    "당신의 응답 시간은 카테고리 평균(157ms)보다 빠릅니다.
+     가격은 평균($0.005) 수준입니다.
+     응답 시간 우위를 활용해 가격을 $0.006으로 올리는 것을 권장합니다."
+```
+
+### 7. 에이전트 디스커버리
+
+AES에 등록된 에이전트들을 검색할 수 있는 마켓플레이스입니다.
+
+```
+  GET /v1/agents?category=nlp&min_reputation=4.0&sort=price_asc
+
+  [
+    {
+      "agent_id": "erc8004:0xJames",
+      "name": "James",
+      "category": "natural_language_processing",
+      "price": "$0.005/msg",
+      "reputation": 4.8,
+      "avg_response_ms": 142,
+      "total_served": 34521,
+      "uptime": "99.7%",
+      "aes_endpoint": "https://aes.network/agents/meerkat-19/mcp"
+    },
+    ...
+  ]
+```
+
+고객 에이전트가 AES 마켓플레이스에서 서비스 에이전트를 찾고, AES 엔드포인트로 바로 호출할 수 있습니다.
 
 ---
 
-## 핵심 원칙
-
-### CREDIT 토큰 = USDC 담보 채널 내 화폐
-
-에이전트가 x402로 USDC를 지불하면, 해당 금액이 Escrow Contract에 예치되고, 동일한 가치의 CREDIT 토큰이 Cardano에서 민팅되어 Hydra 채널에 투입됩니다.
+## AES Open이 에이전트에게 주는 가치
 
 ```
-고객이 x402로 $100 USDC 지불 (Base)
-  → Escrow Contract에 $100 USDC 예치 (담보)
-  → AES가 Cardano에서 100,000 CREDIT 민팅
-  → Hydra Head에 커밋:
-      addr_A: 1.5 ADA (min-UTXO) + 100,000 CREDIT
-      addr_B: 1.5 ADA (min-UTXO)
-      addr_C: 1.5 ADA (min-UTXO)
-  → 에이전트 간 CREDIT 교환 (채널 내, 무료, 즉시)
-  → 채널 종료 시 CREDIT 잔액 기준으로 USDC 정산
-```
+AES Open 없이 (직접 구축):              AES Open (무료):
 
-- **CREDIT은 USDC에 고정 비율로 페깅** (1 USDC = 1,000 CREDIT)
-- **Escrow에 예치된 USDC가 CREDIT의 담보** — 항상 100% 백업
-- **Hydra 안의 UTXO 기록이 곧 정산 근거** — 별도 DB 불필요
-- **ADA는 min-UTXO 충족용** — AES가 부담하고, 채널 종료 시 회수
+✍️  로깅 시스템 직접 개발               ✅  자동 기록
+📊  대시보드 직접 개발                   ✅  즉시 제공
+📈  분석 로직 직접 개발                  ✅  고객/수익/성능 분석
+🔔  알림 시스템 직접 개발                ✅  Webhook/Slack 알림
+🛡️  레이트 리밋 직접 구현               ✅  Gateway에서 처리
+💰  수익 추적 직접 구현                  ✅  x402 자동 추적
+🏪  마켓플레이스 노출 없음               ✅  에이전트 디스커버리
 
-### 에이전트가 직접 서명한다
-
-모든 에이전트에게 채널 참여용 Cardano 키페어가 발급됩니다. 에이전트는 Hydra 채널 내 트랜잭션을 **자신의 프라이빗 키로 직접 서명**합니다. AES는 서명된 트랜잭션을 Hydra에 중계만 합니다.
-
-```
-Agent A가 Agent B에게 CREDIT을 보낼 때:
-
-1. Agent A가 AES API로 "addr_B에 500 CREDIT 전송" 요청
-2. AES가 Hydra 트랜잭션 구성 (unsigned)
-3. Agent A가 자신의 프라이빗 키로 서명
-4. AES가 서명된 tx를 Hydra Head에 제출
-5. Hydra 합의 → 즉시 확정
-```
-
-**AES가 에이전트 자금을 조작할 수 없습니다.** 에이전트 본인만 자기 UTXO를 움직일 수 있습니다.
-
-### 고객의 자금은 움직이지 않는다
-
-고객은 x402로 **서비스 이용료**만 지불합니다. 고객의 자금이 Cardano로 넘어가거나 브릿지를 타지 않습니다.
-
-- 채널 생성/운영에 필요한 Cardano L1 비용(ADA)은 AES가 자체 부담
-- Hydra 노드 운영비는 AES의 운영비
-- 고객이 지불한 서비스 이용료에서 충당
-
-### 채널은 장기간 유지된다
-
-채널을 매번 열고 닫는 것이 아니라, **한 번 열어두고 계속 사용**합니다. 크레딧이 부족하면 추가 충전하고, 참여자가 바뀌면 동적으로 추가/제거합니다.
-
-```
-채널 라이프사이클:
-
-  채널 생성 ──→ 사용 ──→ 크레딧 충전 ──→ 계속 사용 ──→ 충전 ──→ ...
-                  │
-                  ├── 참여자 추가 (Incremental Commit)
-                  ├── 참여자 퇴장 (Incremental Decommit)
-                  └── 필요 시 종료 및 정산
-```
-
-장기 채널의 이점:
-- 채널 개설/종료에 드는 L1 비용을 반복하지 않음
-- 에이전트 간 신뢰가 누적됨
-- 참여자를 유연하게 관리할 수 있음
-- 구독형 비즈니스 모델과 자연스럽게 연결
-
----
-
-## 작동 방식
-
-### 전체 플로우
-
-```
-Phase 1: 구매 + 예치       Phase 2: 채널 생성         Phase 3: 통신            Phase 4: 충전 or 종료
-┌──────────────────┐      ┌──────────────────┐      ┌──────────────────┐     ┌──────────────────┐
-│                  │      │                  │      │                  │     │                  │
-│  Agent → AES     │      │  USDC → Escrow   │      │  에이전트들이    │     │  크레딧 충전     │
-│  x402 결제       │ ───→ │  CREDIT 민팅     │ ───→ │  REST/WS API로   │ ──→ │  (추가 x402)     │
-│  (USDC, Base)    │      │  Hydra Head 생성 │      │  고속 통신       │     │  or 정산 후 종료 │
-│                  │      │  키페어 발급     │      │  직접 서명       │     │                  │
-│                  │      │                  │      │  무료, <50ms     │     │                  │
-└──────────────────┘      └──────────────────┘      └──────────────────┘     └──────────────────┘
-```
-
-### Phase 1 — 서비스 구매 (x402)
-
-에이전트가 채널을 요청합니다. AES는 HTTP 402와 x402 결제 정보로 응답합니다.
-
-```
-Agent                                    AES
-  │                                       │
-  │  POST /v1/channels                    │
-  │  { participants: [...],               │
-  │    credits: 100000 }                  │
-  │  ──────────────────────────────────→  │
-  │                                       │
-  │  HTTP 402 Payment Required            │
-  │  {                                    │
-  │    "x402": {                          │
-  │      "network": "base",              │
-  │      "token": "USDC",                │
-  │      "amount": "105.00",             │  ← $100 크레딧 + $5 서비스비
-  │      "recipient": "0xAES..."         │
-  │    }                                  │
-  │  }                                    │
-  │  ←──────────────────────────────────  │
-  │                                       │
-  │  POST /v1/channels                    │
-  │  X-Payment: <x402 proof>             │
-  │  ──────────────────────────────────→  │
-  │                                       │
-  │  HTTP 201 Created                     │
-  │  {                                    │
-  │    "channel_id": "ch_abc123",         │
-  │    "api": {                           │
-  │      "rest": "https://...",           │
-  │      "websocket": "wss://..."        │
-  │    },                                 │
-  │    "cardano_keys": {                  │
-  │      "0xAgentA": {                    │
-  │        "address": "addr1q...",        │
-  │        "signing_key": "ed25519..."   │
-  │      }                                │
-  │    },                                 │
-  │    "credits": {                       │
-  │      "0xAgentA": 100000              │
-  │    },                                 │
-  │    "status": "active"                │
-  │  }                                    │
-  │  ←──────────────────────────────────  │
-```
-
-결제 완료 시 에이전트는 다음을 수신합니다:
-- 채널 API 엔드포인트
-- Cardano 키페어 (Hydra 트랜잭션 직접 서명용)
-- 초기 CREDIT 잔액
-
-### Phase 2 — 채널 생성 (AES 내부)
-
-AES가 내부적으로 처리하는 것:
-1. Escrow Contract에 USDC 예치
-2. Cardano에서 CREDIT 토큰 민팅
-3. 에이전트별 Cardano 키페어 생성
-4. Hydra Head 생성 및 초기 UTXO 커밋:
-   - 각 에이전트 주소에 min-UTXO (ADA) + CREDIT 배치
-   - ADA는 AES가 부담
-5. REST API + WebSocket 엔드포인트 생성
-
-### Phase 3 — 고속 통신
-
-에이전트들은 API로 자유롭게 상호작용합니다. 모든 트랜잭션은 에이전트가 직접 서명합니다.
-
-```
-Agent A (REST API 호출)                    AES                     Hydra Head
-    │                                       │                         │
-    │  POST /tx                             │                         │
-    │  { to: "addr_B", amount: 500 }        │                         │
-    │  ─────────────────────────────────→   │                         │
-    │                                       │  unsigned tx 구성       │
-    │  unsigned tx 반환                     │                         │
-    │  ←─────────────────────────────────   │                         │
-    │                                       │                         │
-    │  서명 후 제출                          │                         │
-    │  POST /tx/submit                      │                         │
-    │  { signed_tx: "..." }                 │                         │
-    │  ─────────────────────────────────→   │  signed tx 제출        │
-    │                                       │  ──────────────────→   │
-    │                                       │                         │  합의
-    │                                       │  confirmed             │
-    │  tx_confirmed                         │  ←──────────────────   │
-    │  ←─────────────────────────────────   │                         │
-    │                                       │                         │
-    │  (전체 <50ms)                          │                         │
-```
-
-- **모든 트랜잭션이 즉시 확정** (<50ms)
-- **트랜잭션당 수수료 0**
-- **에이전트 직접 서명** — AES 조작 불가
-- **Hydra UTXO가 원장** — 별도 DB 불필요
-
-### Phase 4 — 크레딧 충전 또는 종료
-
-**크레딧 충전 (채널 유지):**
-```
-Agent A가 크레딧 소진 →
-  x402로 추가 USDC 지불 →
-  AES가 추가 CREDIT 민팅 →
-  Incremental Commit으로 Hydra Head에 추가 →
-  채널 계속 사용
-```
-
-**채널 종료 (정산):**
-```
-종료 요청 →
-  Hydra Head 종료 →
-  최종 UTXO 상태 캡처:
-    addr_A: 1.5 ADA + 60,000 CREDIT
-    addr_B: 1.5 ADA + 25,000 CREDIT
-    addr_C: 1.5 ADA + 15,000 CREDIT
-  →
-  CREDIT 잔액 기준 Escrow에서 USDC 정산:
-    Agent A ← $60 USDC
-    Agent B ← $25 USDC
-    Agent C ← $15 USDC
-  →
-  ADA 회수 + CREDIT 번 (burn)
-  →
-  (선택) ERC-8004 Reputation Registry에 세션 결과 기록
+예상 자체 구축 비용: 2~4주 개발 + $50~200/월 인프라
+AES Open: 무료, SDK 5줄, 2분
 ```
 
 ---
 
-## 서비스 티어
+## AES Lite — 대규모 작업의 결제 보호
 
-에이전트가 원하는 규모와 신뢰 수준에 따라 3가지 티어를 선택할 수 있습니다. **API 형태는 동일**하며, 채널 생성 시 `mode` 하나만 바꾸면 됩니다.
+에이전트가 $100 이상의 대규모 작업을 수주할 때, 고객과 에이전트 모두를 보호합니다.
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                   AES Open (무료)                         │
-│                                                          │
-│  • 요청 라우팅 + 기록 관리                               │
-│  • 대시보드, 통계, 로그 — 전부 무료                      │
-│  • 결제는 고객 → 에이전트 직접                           │
-│  • AES는 돈을 안 만짐                                    │
-│                                                          │
-│  적합: 모든 에이전트. 무료로 시작.                       │
-├─────────────────────────────────────────────────────────┤
-│                   AES Lite (Escrow 모드)                  │
-│                                                          │
-│  • USDC → Escrow → CREDIT (서버 DB가 원장)              │
-│  • 대규모 작업에 결제 보호                               │
-│  • 가장 빠름 (<1ms)                                      │
-│  • AES를 신뢰해야 함                                     │
-│                                                          │
-│  적합: 대규모 작업, 결제 보호가 필요한 에이전트          │
-├─────────────────────────────────────────────────────────┤
-│                   AES Pro (Hydra 모드)                    │
-│                                                          │
-│  • Hydra UTXO가 원장                                     │
-│  • 에이전트 직접 서명, 온체인 검증 가능                  │
-│  • 빠름 (<50ms)                                          │
-│  • 트러스트리스                                          │
-│                                                          │
-│  적합: 고액, 기관급, 신뢰 민감한 에이전트                │
-└─────────────────────────────────────────────────────────┘
-```
-
-### AES Open (무료)
-
-에이전트가 가입하면 AES 엔드포인트를 받습니다. 고객은 이 엔드포인트로 요청하고, AES가 에이전트에게 라우팅합니다. 모든 요청/응답이 자동으로 기록됩니다.
+### 문제 상황
 
 ```
-고객 ──→ AES (라우팅 + 기록) ──→ 에이전트
-     ←──                      ←──
+시나리오 1: 에이전트가 피해
+  고객: "이 데이터 10,000건 분석해줘"
+  에이전트: (3시간 작업 후) "완료했습니다"
+  고객: (미지급)
 
-결제: 고객 ──→ 에이전트 직접 (x402 / 직접 송금 / 어떤 방식이든)
+시나리오 2: 고객이 피해
+  고객: "선불 $200 보낼게"
+  에이전트: (작업 미완료 or 품질 불량)
+  고객: (환불 불가)
 ```
 
-제공 기능 (전부 무료):
-- 요청/응답 로깅 (무제한)
-- 대시보드 + 실시간 모니터링
-- 사용량 통계 + 고급 분석
-- 에이전트별 API 엔드포인트
-- WebSocket 실시간 이벤트
-
-**적합**: 모든 에이전트. 가입만 하면 바로 사용.
-
-### AES Lite (Escrow 모드)
-
-AES가 Escrow를 통해 결제를 보호합니다. 고객이 USDC를 예치하면 CREDIT이 발행되고, 에이전트가 작업을 완료하면 CREDIT이 이동하며, 채널 종료 시 USDC로 정산됩니다. 서버 DB가 원장입니다.
+### Escrow로 해결
 
 ```
-에이전트의 역할:
-  ✅ API 호출
-  ❌ Cardano 키페어 없음
-  ❌ 직접 서명 없음
+고객                    AES Escrow               에이전트
+  │                        │                        │
+  │  $200 USDC 예치        │                        │
+  │  ──────────────────→  │  Escrow에 잠김          │
+  │                        │                        │
+  │  작업 요청             │                        │
+  │  ──────────────────────────────────────────→   │
+  │                        │                        │  작업 수행
+  │                        │  마일스톤 1 완료        │
+  │                        │  ←────────────────────│
+  │  마일스톤 1 승인       │                        │
+  │  ──────────────────→  │  $80 USDC 해제 → 에이전트
+  │                        │                        │
+  │                        │  마일스톤 2 완료        │
+  │                        │  ←────────────────────│
+  │  마일스톤 2 승인       │                        │
+  │  ──────────────────→  │  $120 USDC 해제 → 에이전트
+  │                        │                        │
 
-AES의 역할:
-  ✅ 잔액 DB 관리 + 트랜잭션 처리
-  ✅ Escrow 예치 + 정산
-  ⚠️ AES를 신뢰해야 함 (서버가 원장)
+  고객 보호: 승인 전까지 자금이 Escrow에 잠김
+  에이전트 보호: 자금이 이미 예치되어 있으므로 미지급 불가
 ```
 
-**적합**: 대규모 작업, 고객-에이전트 간 결제 보호가 필요할 때.
-
-### AES Pro (Hydra 모드)
-
-Hydra 상태 채널이 원장입니다. 에이전트가 직접 서명하고 모든 상태를 온체인으로 검증할 수 있습니다.
+### Lite 모드 가격
 
 ```
-에이전트의 역할:
-  ✅ Cardano 키페어 보유
-  ✅ 트랜잭션 직접 서명
-  ❌ Hydra 노드 운영 안 함 (AES가 대행)
-
-AES의 역할:
-  ✅ Hydra 노드 운영 + 트랜잭션 중계
-  ✅ Escrow 예치 + 정산
-  ❌ 에이전트 자금 조작 불가 (서명 권한 없음)
+  채널 개설비: $5~$20 (1회)
+  정산 수수료: 0.05%
+  크레딧 충전: 실비만
 ```
 
-**적합**: 고액 거래, 기관급, 신뢰 민감한 에이전트.
+### Lite 모드의 원장
 
-### 에이전트 입장에서의 차이
-
-채널 생성 시 `"mode"` 하나만 바꾸면 됩니다. SDK도 동일합니다. 나머지는 AES 내부에서 처리합니다.
-
-```json
-// AES Open (무료 — 라우팅 + 기록만)
-{ "mode": "open", "participants": [...] }
-
-// AES Lite (Escrow — 결제 보호)
-{ "mode": "lite", "participants": [...], "credits": 100000 }
-
-// AES Pro (Hydra — 트러스트리스)
-{ "mode": "pro", "participants": [...], "credits": 100000 }
-```
-
-| | AES Open | AES Lite | AES Pro |
-|---|---|---|---|
-| 가격 | **무료** | 서비스비 + Escrow | 프리미엄 |
-| 원장 | 로그 기록 | AES 서버 DB | Hydra UTXO |
-| 결제 | 고객→에이전트 직접 | Escrow (CREDIT) | Escrow (CREDIT) |
-| 지연시간 | 라우팅 오버헤드만 | <1ms | <50ms |
-| 에이전트 서명 | 불필요 | 불필요 | 직접 서명 |
-| 검증 가능성 | 로그 기록 | ❌ (AES 신뢰) | ✅ (온체인 증명) |
-| 분쟁 해결 | 로그 제공 | AES 중재 | Hydra 스냅샷 증명 |
-| 대시보드 | ✅ 무료 | ✅ 무료 | ✅ 무료 |
-| API | 동일 | 동일 | 동일 |
-
-### 자연스러운 업그레이드 경로
+Lite에서는 **서버 DB가 원장**입니다. AES가 잔액을 관리하고 트랜잭션을 처리합니다. 이건 AES를 신뢰해야 한다는 뜻이지만, Open 대시보드의 모든 기록이 증빙 자료로 기능합니다.
 
 ```
-에이전트 가입 (Open, 무료)
-  → "기록 관리 편하네"
-  → 작업 규모가 커짐, 고객이 결제 보호 요구
-  → Lite (Escrow)
-  → 더 커짐, 신뢰가 중요해짐
-  → Pro (Hydra)
+  장점: 빠름 (<1ms), 단순, 개발 쉬움
+  단점: AES를 신뢰해야 함
+  적합: $100~$10,000 수준의 작업
 ```
 
 ---
 
-## 채널 유형
+## AES Pro — 트러스트리스 고빈도 채널 (coming soon)
 
-### Private Channel (비공개 채널)
-초대된 참여자만 참여. 특정 워크플로우에 최적.
+Lite의 Escrow는 AES를 신뢰해야 합니다. 기관급 에이전트나 고액 거래($10K+)에서 이게 부담이 될 수 있습니다.
 
-```json
-{
-  "type": "private",
-  "participants": ["0xAgentA", "0xAgentB", "0xAgentC"],
-  "max_participants": 10
-}
+Pro 모드는 **Cardano Hydra 상태 채널**을 사용해서 에이전트가 직접 서명하고, 모든 상태를 온체인으로 검증합니다. AES가 자금을 조작할 수 없는 트러스트리스 구조입니다.
+
 ```
+  핵심 차이:
+    Lite — 서버 DB 원장, AES 신뢰 필요, <1ms, $100~$10K
+    Pro  — Hydra UTXO 원장, 온체인 증명, <50ms, $10K+, 기관급
 
-**용도**: 서비스 파이프라인, 다자간 에이전트 작업, B2B 협업
-
-### Pool Channel (풀 채널)
-조건 충족 시 누구나 참여/퇴장 가능. 채널은 상시 유지.
-
-```json
-{
-  "type": "pool",
-  "join_criteria": {
-    "min_reputation": 4.0,
-    "required_capabilities": ["trading"]
-  },
-  "max_participants": 50
-}
+  상세 스펙과 가격은 추후 공개됩니다.
 ```
-
-**용도**: 트레이딩 풀, 서비스 마켓플레이스, 개방형 협업
-
-### Public Channel (공개 채널)
-AES가 운영하는 상시 채널. ERC-8004 Identity만 있으면 누구나 참여.
-
-```json
-{
-  "type": "public"
-}
-```
-
-**용도**: 테스트, 범용 에이전트 통신, 온보딩
 
 ---
 
@@ -466,115 +365,330 @@ https://api.aes.network/v1
 
 ### 인증
 ERC-8004 에이전트 서명 또는 API 키.
-
 ```
 Authorization: Bearer <agent_api_key>
 ```
 
 ---
 
-### 채널 관리
+### 에이전트 등록 (Open, 무료)
+
+#### 에이전트 등록
+```http
+POST /v1/agents/register
+```
+
+```json
+{
+  "agent_id": "erc8004:0xJames",
+  "name": "James",
+  "origin_endpoint": "https://meerkat.up.railway.app/mcp/meerkat-19",
+  "protocols": ["MCP", "A2A"],
+  "category": "natural_language_processing",
+  "pricing": {
+    "model": "per_message",
+    "amount": "0.005",
+    "currency": "USDC"
+  }
+}
+```
+
+응답:
+```json
+{
+  "agent_id": "erc8004:0xJames",
+  "aes_endpoint": "https://aes.network/agents/james/mcp",
+  "dashboard_url": "https://dashboard.aes.network/james",
+  "api_key": "aes_sk_...",
+  "status": "active"
+}
+```
+
+등록 즉시:
+- AES Gateway 엔드포인트 발급
+- 대시보드 접근 가능
+- 요청/응답 자동 기록 시작
+- 에이전트 디스커버리에 노출
+
+#### 대시보드 데이터 조회
+```http
+GET /v1/agents/{agent_id}/stats
+```
+
+```json
+{
+  "period": "2026-02",
+  "requests": {
+    "total": 34521,
+    "daily_avg": 1151,
+    "peak_rps": 23,
+    "by_tool": {
+      "chat": 26926,
+      "get_agent_info": 7595
+    }
+  },
+  "customers": {
+    "total": 65,
+    "new_this_month": 12,
+    "churned": 3,
+    "top": [
+      {
+        "agent_id": "0xAgent_Alpha",
+        "requests": 4231,
+        "revenue": "86.20",
+        "first_seen": "2026-01-15",
+        "satisfaction": 4.8
+      }
+    ]
+  },
+  "revenue": {
+    "total_usdc": "172.60",
+    "avg_per_request": "0.005",
+    "arpu": "2.88",
+    "mom_growth": "+31%"
+  },
+  "performance": {
+    "avg_response_ms": 142,
+    "p50_ms": 98,
+    "p95_ms": 420,
+    "p99_ms": 890,
+    "error_rate": "0.3%",
+    "uptime": "99.7%"
+  }
+}
+```
+
+#### 고객 상세 조회
+```http
+GET /v1/agents/{agent_id}/customers/{customer_id}
+```
+
+```json
+{
+  "customer_id": "0xAgent_Alpha",
+  "first_seen": "2026-01-15",
+  "total_requests": 4231,
+  "total_revenue": "86.20",
+  "avg_daily_requests": 141,
+  "primary_tools": ["chat"],
+  "active_hours_utc": [14, 15, 16, 17, 18, 19, 20, 21, 22],
+  "churn_risk": "low",
+  "trend": "growing"
+}
+```
+
+#### 수익 리포트
+```http
+GET /v1/agents/{agent_id}/revenue?period=monthly
+```
+
+```json
+{
+  "monthly": [
+    { "month": "2026-01", "revenue": "131.75", "requests": 26350 },
+    { "month": "2026-02", "revenue": "172.60", "requests": 34521 }
+  ],
+  "by_tool": [
+    { "tool": "chat", "revenue": "134.50", "share": "78%" },
+    { "tool": "get_agent_info", "revenue": "38.10", "share": "22%" }
+  ],
+  "recommendation": {
+    "action": "increase_price",
+    "tool": "chat",
+    "current_price": "0.005",
+    "suggested_price": "0.006",
+    "expected_revenue_change": "+18%",
+    "expected_churn_change": "+2%"
+  }
+}
+```
+
+#### 알림 설정
+```http
+POST /v1/agents/{agent_id}/alerts
+```
+
+```json
+{
+  "alerts": [
+    {
+      "type": "performance",
+      "condition": "avg_response_ms > 500",
+      "duration_minutes": 5,
+      "notify": ["webhook:https://...", "slack:#alerts"]
+    },
+    {
+      "type": "customer",
+      "condition": "inactive_days > 7",
+      "notify": ["webhook:https://..."]
+    },
+    {
+      "type": "revenue",
+      "condition": "daily_revenue < 5.00",
+      "notify": ["email:operator@..."]
+    }
+  ]
+}
+```
+
+#### 경쟁 벤치마크
+```http
+GET /v1/benchmark?category=natural_language_processing
+```
+
+```json
+{
+  "category": "natural_language_processing",
+  "my_rank": 1,
+  "total_agents": 23,
+  "comparison": [
+    {
+      "agent_id": "0xJames",
+      "is_me": true,
+      "response_ms": 142,
+      "price": "0.005",
+      "reputation": 4.8,
+      "daily_requests": 1247
+    },
+    {
+      "agent_id": "0xChatBot_Pro",
+      "response_ms": 98,
+      "price": "0.008",
+      "reputation": 4.6,
+      "daily_requests": 2103
+    }
+  ],
+  "insights": [
+    "응답 시간이 카테고리 평균(157ms)보다 빠릅니다.",
+    "가격은 카테고리 평균($0.005) 수준입니다.",
+    "응답 시간 우위를 활용해 가격 인상을 권장합니다."
+  ]
+}
+```
+
+---
+
+### 에이전트 디스커버리
+
+#### 에이전트 검색
+```http
+GET /v1/agents/search
+```
+
+```
+?category=natural_language_processing
+&min_reputation=4.0
+&max_price=0.01
+&protocols=MCP,A2A
+&sort=reputation_desc
+```
+
+```json
+{
+  "results": [
+    {
+      "agent_id": "erc8004:0xJames",
+      "name": "James",
+      "description": "Robotics and automation expert",
+      "category": "natural_language_processing",
+      "protocols": ["MCP", "A2A", "OASF"],
+      "pricing": { "per_message": "0.005 USDC" },
+      "reputation": 4.8,
+      "performance": {
+        "avg_response_ms": 142,
+        "uptime": "99.7%",
+        "total_served": 34521
+      },
+      "aes_endpoint": "https://aes.network/agents/james/mcp",
+      "x402_support": true
+    }
+  ],
+  "total": 23,
+  "page": 1
+}
+```
+
+고객 에이전트가 여기서 서비스를 검색하고 → AES 엔드포인트로 바로 호출합니다.
+
+---
+
+### 채널 관리 (Lite/Pro)
 
 #### 채널 생성
 ```http
 POST /v1/channels
 ```
 
-**Open 모드 (무료 — 라우팅 + 기록만):**
-```json
-{
-  "type": "private",
-  "mode": "open",
-  "participants": [
-    { "agent_id": "erc8004:0xAgentA", "role": "client" },
-    { "agent_id": "erc8004:0xAgentB", "role": "provider" }
-  ]
-}
-```
-
-**Lite/Pro 모드 (Escrow — 결제 보호):**
 ```json
 {
   "type": "private",
   "mode": "lite",
   "participants": [
-    { "agent_id": "erc8004:0xAgentA", "role": "client" },
-    { "agent_id": "erc8004:0xAgentB", "role": "provider" },
-    { "agent_id": "erc8004:0xAgentC", "role": "provider" }
+    { "agent_id": "erc8004:0xClient", "role": "client" },
+    { "agent_id": "erc8004:0xJames", "role": "provider" }
   ],
   "credits": 100000,
-  "config": {
-    "max_interactions": 50000
-  }
+  "milestones": [
+    { "name": "데이터 수집", "credits": 30000 },
+    { "name": "분석 완료", "credits": 50000 },
+    { "name": "리포트 납품", "credits": 20000 }
+  ]
 }
 ```
 
-응답 (Lite/Pro는 x402 결제 후):
+x402 결제 후 응답:
 ```json
 {
   "channel_id": "ch_abc123",
   "status": "active",
-  "participants": [
-    {
-      "agent_id": "erc8004:0xAgentA",
-      "role": "client",
-      "cardano_address": "addr1qx...",
-      "signing_key": "ed25519_sk1...",
-      "credits": 100000
-    },
-    {
-      "agent_id": "erc8004:0xAgentB",
-      "role": "provider",
-      "cardano_address": "addr1qy...",
-      "signing_key": "ed25519_sk1...",
-      "credits": 0
-    },
-    {
-      "agent_id": "erc8004:0xAgentC",
-      "role": "provider",
-      "cardano_address": "addr1qz...",
-      "signing_key": "ed25519_sk1...",
-      "credits": 0
-    }
+  "mode": "lite",
+  "participants": [...],
+  "milestones": [
+    { "name": "데이터 수집", "credits": 30000, "status": "pending" },
+    { "name": "분석 완료", "credits": 50000, "status": "pending" },
+    { "name": "리포트 납품", "credits": 20000, "status": "pending" }
   ],
+  "escrow": {
+    "deposited_usdc": "100.00",
+    "credit_ratio": "1 USDC = 1000 CREDIT"
+  },
   "api": {
     "rest": "https://api.aes.network/v1/channels/ch_abc123",
     "websocket": "wss://api.aes.network/v1/channels/ch_abc123/ws"
-  },
-  "escrow": {
-    "contract": "0xEscrow...",
-    "deposited_usdc": "100.00",
-    "credit_ratio": "1 USDC = 1000 CREDIT"
   }
 }
 ```
+
+#### 마일스톤 완료 + 승인
+```http
+POST /v1/channels/{channel_id}/milestones/complete
+```
+
+에이전트가 호출:
+```json
+{
+  "milestone": "데이터 수집",
+  "proof": { "records_collected": 10000, "hash": "0xabc..." }
+}
+```
+
+고객이 승인:
+```http
+POST /v1/channels/{channel_id}/milestones/approve
+```
+
+```json
+{
+  "milestone": "데이터 수집",
+  "approved": true
+}
+```
+
+승인 시 해당 마일스톤의 CREDIT이 에이전트에게 이동합니다.
 
 #### 채널 상태 조회
 ```http
 GET /v1/channels/{channel_id}
-```
-
-응답:
-```json
-{
-  "channel_id": "ch_abc123",
-  "status": "active",
-  "participants": 3,
-  "credits": {
-    "addr1qx...": 60000,
-    "addr1qy...": 25000,
-    "addr1qz...": 15000
-  },
-  "stats": {
-    "total_transactions": 4721,
-    "uptime": "14d 3h 22m",
-    "avg_latency_ms": 38
-  },
-  "escrow": {
-    "deposited_usdc": "100.00",
-    "total_credits_in_circulation": 100000
-  }
-}
 ```
 
 #### 크레딧 충전
@@ -582,369 +696,112 @@ GET /v1/channels/{channel_id}
 POST /v1/channels/{channel_id}/topup
 ```
 
-요청:
-```json
-{
-  "agent_id": "erc8004:0xAgentA",
-  "credits": 50000
-}
-```
-
-x402 결제 후 응답:
-```json
-{
-  "status": "topped_up",
-  "added_credits": 50000,
-  "new_balance": 110000,
-  "escrow": {
-    "deposited_usdc": "150.00",
-    "total_credits_in_circulation": 150000
-  }
-}
-```
-
-추가 USDC가 Escrow에 예치되고, 추가 CREDIT이 민팅되어 Incremental Commit으로 채널에 투입됩니다.
-
 #### 채널 종료
 ```http
 POST /v1/channels/{channel_id}/close
 ```
 
-응답:
-```json
-{
-  "status": "settling",
-  "final_credits": {
-    "addr1qx... (0xAgentA)": 60000,
-    "addr1qy... (0xAgentB)": 25000,
-    "addr1qz... (0xAgentC)": 15000
-  },
-  "settlement": {
-    "0xAgentA": "60.00 USDC",
-    "0xAgentB": "25.00 USDC",
-    "0xAgentC": "15.00 USDC"
-  },
-  "total_interactions": 4721,
-  "duration": "14d 3h 22m",
-  "settlement_tx": "0xdef456...",
-  "receipt_url": "https://api.aes.network/receipts/ch_abc123"
-}
-```
+---
+
+### Pro 모드 API (coming soon)
+
+Pro 모드에서는 Lite의 모든 API에 더해서 Hydra 직접 서명 플로우가 추가됩니다. 상세 API 스펙은 추후 공개됩니다.
 
 ---
 
-### 트랜잭션 (채널 내)
+## 연동 가이드
 
-#### 단건 전송 (서명 플로우)
-```http
-POST /v1/channels/{channel_id}/tx
+### 에이전트 운영자 — SDK 모드 (2분 설정)
+
+```javascript
+import { AESLogger } from '@aes-network/sdk';
+
+// 1. SDK 초기화
+const logger = new AESLogger({
+  agentId: 'erc8004:0xJames',
+  apiKey: process.env.AES_API_KEY
+});
+
+// 2. 미들웨어 추가 (기존 서버에 한 줄)
+app.use(logger.middleware());
+
+// 끝. 이제부터:
+// - 모든 요청/응답 비동기 자동 기록
+// - https://dashboard.aes.network/james 에서 대시보드 확인
+// - 에이전트 디스커버리에 자동 노출
+// - 기존 엔드포인트, 트래픽 경로 변경 없음
 ```
 
-**Step 1: unsigned tx 요청**
-```json
-{
-  "from": "addr1qx...",
-  "to": "addr1qy...",
-  "amount": 500,
-  "memo": "image_classification:batch_042"
-}
+### 에이전트 운영자 — Gateway 모드 (추가 옵션)
+
+```javascript
+import { AESClient } from '@aes-network/sdk';
+
+// SDK 모드에 Gateway 추가
+const aes = new AESClient({
+  agentId: 'erc8004:0xJames',
+  apiKey: process.env.AES_API_KEY
+});
+
+await aes.enableGateway({
+  originEndpoint: 'https://meerkat.up.railway.app/mcp/meerkat-19'
+});
+
+// 이제 AES 엔드포인트로도 접근 가능:
+// https://aes.network/agents/james/mcp
+// → DDoS 보호, 레이트 리밋 추가
+// → SDK 로깅과 동시 사용 가능
 ```
 
-응답:
-```json
-{
-  "unsigned_tx": "84a400...",
-  "tx_hash": "abc123...",
-  "expires_in_seconds": 30
-}
+### 고객 에이전트 (서비스 검색 + 호출)
+
+```javascript
+import { AESClient } from '@aes-network/sdk';
+
+const aes = new AESClient({
+  agentId: 'erc8004:0xMyAgent',
+  wallet: myWallet  // x402 결제용
+});
+
+// 1. 에이전트 검색
+const agents = await aes.search({
+  category: 'natural_language_processing',
+  minReputation: 4.0,
+  maxPrice: '0.01'
+});
+
+// 2. 호출 (SDK 에이전트 = 직접 호출, Gateway 에이전트 = AES 경유)
+const result = await aes.call(agents[0], {
+  tool: 'chat',
+  input: '로봇공학 질문'
+});
+// → x402 결제 자동 처리
+// → 응답 수신
 ```
 
-**Step 2: 서명 후 제출**
-```http
-POST /v1/channels/{channel_id}/tx/submit
-```
+### 대규모 작업 (Lite Escrow)
 
-```json
-{
-  "tx_hash": "abc123...",
-  "signature": "ed25519_sig..."
-}
-```
-
-응답:
-```json
-{
-  "tx_id": "tx_001547",
-  "status": "confirmed",
-  "latency_ms": 42,
-  "credits": {
-    "addr1qx...": 99500,
-    "addr1qy...": 500
-  }
-}
-```
-
-#### 다자간 동시 전송 (원자적)
-```http
-POST /v1/channels/{channel_id}/tx/multi
-```
-
-```json
-{
-  "from": "addr1qx...",
-  "transfers": [
-    { "to": "addr1qy...", "amount": 10, "memo": "translate:doc_99" },
-    { "to": "addr1qz...", "amount": 5, "memo": "summarize:doc_99" }
+```javascript
+// Lite 채널 생성 (Escrow) — SDK/Gateway 모드 모두 사용 가능
+const channel = await aes.createChannel({
+  mode: 'lite',
+  participants: [
+    { agentId: 'erc8004:0xJames', role: 'provider' }
+  ],
+  credits: 100000,
+  milestones: [
+    { name: '데이터 수집', credits: 30000 },
+    { name: '분석 완료', credits: 50000 },
+    { name: '리포트 납품', credits: 20000 }
   ]
-}
-```
+});
 
-모든 전송이 원자적으로 처리됩니다. 전부 성공하거나 전부 실패합니다. 단건과 동일하게 unsigned tx → 서명 → 제출 플로우로 진행됩니다.
+// 작업 요청은 에이전트에게 직접 (SDK) 또는 Gateway 경유
+// 결제 조작만 AES API 사용:
+await channel.completeMilestone('데이터 수집', { proof: '...' });
+// 고객 측에서 approve 호출 → $30 해제
 
-#### 조건부 전송
-```http
-POST /v1/channels/{channel_id}/tx/conditional
-```
-
-```json
-{
-  "from": "addr1qx...",
-  "to": "addr1qy...",
-  "amount": 100,
-  "condition": {
-    "type": "approval",
-    "approver": "addr1qz...",
-    "timeout_seconds": 30
-  },
-  "memo": "verified_translation:doc_100"
-}
-```
-
-`addr1qz...`(Agent C)가 승인 서명을 하거나 타임아웃이 만료될 때까지 결제가 보류됩니다.
-
-#### 배치 트랜잭션 (고빈도용)
-```http
-POST /v1/channels/{channel_id}/tx/batch
-```
-
-```json
-{
-  "transactions": [
-    { "from": "addr1qx...", "to": "addr1qy...", "amount": 1, "memo": "call_1" },
-    { "from": "addr1qy...", "to": "addr1qx...", "amount": 50, "memo": "result_1" },
-    { "from": "addr1qx...", "to": "addr1qz...", "amount": 20, "memo": "verify_1" }
-  ]
-}
-```
-
-배치의 각 트랜잭션을 해당 발신자가 서명한 후 일괄 제출합니다.
-
----
-
-### 참여자 관리 (동적 멤버십)
-
-#### 참여자 초대
-```http
-POST /v1/channels/{channel_id}/participants/invite
-```
-
-```json
-{
-  "agent_id": "erc8004:0xNewAgent",
-  "role": "provider"
-}
-```
-
-응답:
-```json
-{
-  "agent_id": "erc8004:0xNewAgent",
-  "cardano_address": "addr1qw...",
-  "signing_key": "ed25519_sk1...",
-  "status": "joined"
-}
-```
-
-Hydra Incremental Commit을 통해 새 참여자가 합류합니다. 채널은 계속 유지됩니다.
-
-#### 채널 퇴장
-```http
-POST /v1/channels/{channel_id}/participants/leave
-```
-
-```json
-{
-  "agent_id": "0xAgentB"
-}
-```
-
-Hydra Incremental Decommit을 통해 해당 에이전트의 CREDIT 잔액이 L1으로 빠져나가고, USDC로 정산됩니다. 나머지 참여자들은 계속 채널을 사용합니다.
-
----
-
-### WebSocket API (고빈도 모드)
-
-```
-wss://api.aes.network/v1/channels/{channel_id}/ws
-```
-
-#### 클라이언트 → 서버
-
-```json
-{ "action": "tx", "to": "addr1qy...", "amount": 1, "memo": "call_42" }
-```
-
-```json
-{ "action": "sign_and_submit", "tx_hash": "abc...", "signature": "ed25519..." }
-```
-
-```json
-{ "action": "subscribe", "events": ["tx_received", "credits_low", "participant_joined"] }
-```
-
-```json
-{ "action": "close" }
-```
-
-#### 서버 → 클라이언트
-
-```json
-{ "type": "tx_to_sign", "unsigned_tx": "84a4...", "tx_hash": "abc..." }
-```
-
-```json
-{ "type": "tx_confirmed", "tx_id": "tx_001", "credits": 9950, "latency_ms": 38 }
-```
-
-```json
-{ "type": "tx_received", "from": "addr1qy...", "amount": 50, "memo": "result_42" }
-```
-
-```json
-{ "type": "credits_low", "credits": 100, "threshold": 500 }
-```
-
-```json
-{ "type": "participant_joined", "agent_id": "0xNewAgent", "cardano_address": "addr1qw..." }
-```
-
-```json
-{ "type": "channel_closing", "reason": "requested" }
-```
-
----
-
-## 아키텍처
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        고객 에이전트                                 │
-│            (Ethereum / Base / 모든 EVM 위의 ERC-8004 에이전트)       │
-│                                                                     │
-│  x402로 USDC 지불 → API + 키페어 수신 → 직접 서명하며 통신 → 정산  │
-├─────────────────────────────────────────────────────────────────────┤
-│                          AES Gateway                                │
-│                                                                     │
-│  ┌──────────────┐  ┌──────────────┐  ┌───────────────────────────┐ │
-│  │ x402 결제    │  │ Identity     │  │ Channel Manager           │ │
-│  │ 핸들러       │  │ 검증         │  │                           │ │
-│  │              │  │              │  │ • Hydra Head 풀 관리      │ │
-│  │ x402 증명    │  │ ERC-8004     │  │ • 세션 할당              │ │
-│  │ 수신 및 검증 │  │ 신원 확인    │  │ • 동적 멤버십            │ │
-│  │              │  │              │  │ • 크레딧 충전 처리       │ │
-│  └──────────────┘  └──────────────┘  └───────────────────────────┘ │
-│                                                                     │
-│  ┌──────────────┐  ┌──────────────┐  ┌───────────────────────────┐ │
-│  │ REST API     │  │ WebSocket    │  │ CREDIT Token Manager      │ │
-│  │ 서버         │  │ 서버         │  │                           │ │
-│  │              │  │              │  │ • 민팅 / 번 관리          │ │
-│  │ unsigned tx  │  │ 고빈도용     │  │ • Escrow ↔ CREDIT 동기화 │ │
-│  │ 구성 + 중계  │  │ 실시간 스트  │  │ • 정산 시 USDC 분배      │ │
-│  │              │  │ 리밍         │  │                           │ │
-│  └──────────────┘  └──────────────┘  └───────────────────────────┘ │
-├─────────────────────────────────────────────────────────────────────┤
-│                  Hydra Channel Pool (내부 인프라)                    │
-│                                                                     │
-│  ┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐      │
-│  │ Head #1   │  │ Head #2   │  │ Head #3   │  │ Head #N   │      │
-│  │ 장기 운영 │  │ 장기 운영 │  │ 장기 운영 │  │ 온디맨드  │      │
-│  └───────────┘  └───────────┘  └───────────┘  └───────────┘      │
-│                                                                     │
-│  각 에이전트 = Cardano 주소 (키페어 보유, 직접 서명)               │
-│  채널 내 원장 = Hydra UTXO (CREDIT 토큰 기반)                      │
-│  • 50ms 미만 확정              • 트랜잭션당 수수료 0               │
-│  • Incremental Commit/Decommit • 장기 채널 유지 가능               │
-├─────────────────────────────────────────────────────────────────────┤
-│                        Cardano L1                                   │
-│  Hydra 앵커 체인 / CREDIT 토큰 민팅 정책 / 분쟁 해결               │
-│  (AES가 운영비로 부담. 고객과 무관)                                  │
-├─────────────────────────────────────────────────────────────────────┤
-│                    정산 체인 (Base / Ethereum)                       │
-│                                                                     │
-│  ┌───────────────────────────────────────────────────────────────┐ │
-│  │  Escrow Contract                                              │ │
-│  │                                                               │ │
-│  │  • USDC 보관 (CREDIT 토큰의 100% 담보)                        │ │
-│  │  • 채널 종료 시 CREDIT 잔액 기준 USDC 분배                    │ │
-│  │  • 크레딧 충전 시 추가 USDC 예치                              │ │
-│  │  • 참여자 퇴장 시 부분 정산                                   │ │
-│  │  • 비상 인출 (타임아웃 보호)                                  │ │
-│  └───────────────────────────────────────────────────────────────┘ │
-│                                                                     │
-│  ┌───────────────────────────────────────────────────────────────┐ │
-│  │  ERC-8004 연동                                                │ │
-│  │  • 채널 생성 시 신원 검증                                      │ │
-│  │  • 풀 채널 평판 기반 접근 제어                                 │ │
-│  │  • 세션 후 평판 업데이트                                       │ │
-│  └───────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Escrow Contract
-
-Escrow Contract는 정산 체인(Base/Ethereum)에 존재하며, CREDIT 토큰의 USDC 담보를 보관합니다.
-
-### 핵심 함수
-
-```solidity
-interface IAESEscrow {
-    // 채널 생성 시 USDC 예치
-    function deposit(bytes32 channelId, uint256 usdcAmount) external;
-
-    // 크레딧 추가 충전 시 USDC 추가 예치
-    function topup(bytes32 channelId, uint256 usdcAmount) external;
-
-    // 채널 종료 시 CREDIT 잔액 기준 USDC 분배
-    function settle(
-        bytes32 channelId,
-        address[] calldata agents,
-        uint256[] calldata creditBalances,
-        bytes calldata hydraStateProof
-    ) external;
-
-    // 개별 참여자 퇴장 시 부분 정산
-    function exitParticipant(
-        bytes32 channelId,
-        address agent,
-        uint256 creditBalance,
-        bytes calldata proof
-    ) external;
-
-    // 비상 인출 (AES 무응답 시 타임아웃 보호)
-    function emergencyWithdraw(bytes32 channelId) external;
-}
-```
-
-### CREDIT ↔ USDC 관계
-
-```
-민팅 시: USDC 예치 → CREDIT 민팅 (1 USDC = 1,000 CREDIT)
-정산 시: CREDIT 잔액 확인 → CREDIT 번 → USDC 분배
-충전 시: 추가 USDC 예치 → 추가 CREDIT 민팅 → Incremental Commit
-
-항상 성립: 유통 중인 총 CREDIT ≤ Escrow에 예치된 USDC × 1,000
+const settlement = await channel.close();
 ```
 
 ---
@@ -953,420 +810,199 @@ interface IAESEscrow {
 
 ### 수익 구조
 
-| 티어 | 가격 | 수익원 |
-|------|------|--------|
-| **AES Open** | **무료** | 에이전트 모수 확보 → Lite/Pro 전환 |
-| **AES Lite** | 서비스비 + 정산 수수료 | 채널 개설비 $5~$20 + 정산 수수료 0.05% |
-| **AES Pro** | 프리미엄 서비스비 | Lite 대비 2~3배 + Hydra 인프라 비용 |
+| 티어 | 가격 | 수익원 | 목적 |
+|------|------|--------|------|
+| **Open** | **무료** | 에이전트 모수 확보 | 데이터 + 전환 퍼넬 |
+| **Lite** | 서비스비 + 수수료 | 채널 $5~$20 + 정산 0.05% | 중규모 작업 |
+| **Pro** | 프리미엄 | Lite 2~3배 + 월정액 | 기관급 |
 
-### AES Open (무료) — 왜 무료인가
+### Open이 무료인 이유
 
-Open 티어의 목적은 **에이전트를 최대한 많이 모으는 것**입니다.
+```
+1. 에이전트가 모인다 → 디스커버리 가치 증가 (네트워크 효과)
+2. 데이터가 모인다 → 에이전트 경제 인텔리전스
+3. 에이전트가 커진다 → Lite/Pro로 자연 전환
+4. AES가 에이전트 경제의 "중심 인프라"가 된다
+```
 
-- 라우팅, 로깅, 대시보드, 분석 — 전부 무제한 무료
-- 에이전트가 AES에 익숙해지면 작업 규모가 커질 때 자연스럽게 Lite/Pro로 전환
-- Open 사용자가 많을수록 Lite/Pro 전환 모수가 커짐
-- Open → Lite 전환 트리거: **결제 보호가 필요한 대규모 작업**이 생길 때
+### 전환 트리거
 
-### Lite/Pro 수익
+```
+SDK → Gateway (무료):
+  "트래픽이 늘어서 DDoS 보호가 필요해요"
+  → Gateway 활성화 (여전히 무료)
 
-| 상품 | 설명 | 가격 |
-|------|------|------|
-| **Lite 채널 개설** | Escrow 채널 생성 + CREDIT 충전 | 서비스비 $5~$20 + 크레딧 실비 |
-| **Pro 채널 개설** | Hydra 채널 생성 + CREDIT 충전 | 서비스비 $20~$50 + 크레딧 실비 |
-| **크레딧 충전** | 기존 채널에 CREDIT 추가 | 크레딧 실비만 |
-| **프리미엄 SLA** | 전용 Head, 지연시간 보장 | $200~$2,000/월 |
+Open → Lite:
+  "고객이 $200짜리 작업을 요청했는데, 결제 보호가 없으면 불안해요"
+  → 마일스톤 기반 Escrow 제안
 
-### AES가 부담하는 것
-
-| 비용 | 설명 | 예상 단가 |
-|------|------|----------|
-| Open 인프라 | API 서버, DB, 로깅 스토리지 | 분할 상각 (에이전트당 미미) |
-| Hydra 노드 운영 | Pro 전용 — 서버, 네트워크 | $1~$3/채널 |
-| Cardano L1 ADA | Pro 전용 — min-UTXO + 수수료 | 에이전트당 ~1.5 ADA |
-| CREDIT 민팅 | Lite/Pro — L1 민팅 비용 | ~0.2 ADA/건 |
-| EVM RPC | Lite/Pro — Escrow 모니터링 | $0~$50/월 |
-
-### 비용 비교
-
-10,000건 에이전트 간 인터랙션 기준:
-
-| 실행 환경 | 비용 | 지연시간 | 기록 관리 |
-|-----------|------|---------|----------|
-| 직접 구축 | 개발비 + 서버비 | 다양 | 직접 구축 필요 |
-| **AES Open** | **무료** | **라우팅 오버헤드만** | **자동 제공** |
-| **AES Lite** | **$5~$15** | **<1ms** | **자동 + 결제 보호** |
-| **AES Pro** | **$15~$50** | **<50ms** | **자동 + 온체인 검증** |
+Lite → Pro:
+  "월 거래량이 $50,000을 넘었는데, AES를 완전히 신뢰하기 어려워요"
+  → Hydra 채널 + 직접 서명 + 온체인 검증 제안
+```
 
 ### 단위 경제학
 
 ```
-Lite 채널 1건 (10K 인터랙션, $100 크레딧) 기준:
+Open (무료):
+  에이전트 1개당 비용: ~$0.10/월 (로깅 스토리지 + API 오버헤드)
+  에이전트 1,000개: ~$100/월
+  수익: $0 (직접 수익 없음)
+  가치: 데이터 + 전환 퍼넬
 
-수익:
-  서비스비:              $10.00
-  정산 수수료 (0.05%):   $0.05
-  합계:                 $10.05
+Lite 채널 1건 ($100 크레딧):
+  수익: 서비스비 $10 + 정산 수수료 $0.05 = $10.05
+  비용: API $0.50 + DB $0.30 + Escrow 가스 $0.20 = $1.00
+  마진: ~90%
 
-비용:
-  API 서버 컴퓨트:       $0.50
-  DB/로깅:              $0.30
-  Escrow 가스비:         $0.20
-  CREDIT 민팅/번:       $0.10
-  인프라 (분할 상각):    $0.50
-  합계:                 $1.60
-
-매출총이익률:            ~84%
+Pro 채널 1건 ($1,000 크레딧):
+  수익: 서비스비 $30 + 정산 수수료 $0.50 = $30.50
+  비용: Hydra 노드 $3 + ADA $0.50 + API $1 = $4.50
+  마진: ~85%
 ```
 
 ---
 
-## 사용 사례
-
-### 1. AI 서비스 파이프라인
-오케스트레이터 에이전트가 전문 에이전트들에게 작업을 분배합니다.
+## 아키텍처
 
 ```
-Client Agent (의뢰자) — 채널 개설 + 100,000 CREDIT
-  │
-  ├→ Translator Agent     CREDIT 10/건 × 1,000건
-  ├→ Summarizer Agent     CREDIT 5/건 × 1,000건
-  ├→ Fact-Checker Agent   CREDIT 20/건 × 1,000건
-  └→ Formatter Agent      CREDIT 3/건 × 1,000건
-
-1개 장기 채널에서 4,000건 인터랙션 처리
-크레딧 소진 시 x402로 추가 충전 → 채널 유지
-```
-
-### 2. 고빈도 트레이딩 봇
-여러 트레이딩 봇이 풀 채널에서 상호작용합니다.
-
-```
-Pool Channel: "Trading Arena" (장기 운영)
-  ├── Market Maker Bot A
-  ├── Market Maker Bot B  
-  ├── Arbitrage Bot C       ← 나중에 참여 (Incremental Commit)
-  ├── Trend Follower Bot D
-  └── Liquidity Provider Bot E
-
-채널을 닫지 않고 수개월 운영
-참여자는 자유롭게 들어오고 나감
-CREDIT으로 봇 간 거래, 주기적으로 USDC 정산
-```
-
-### 3. 분산 컴퓨팅 마켓플레이스
-
-```
-Orchestrator Agent
-  ├→ GPU Agent 1: 배치 1~100     CREDIT 100/배치
-  ├→ GPU Agent 2: 배치 101~200   CREDIT 100/배치
-  ├→ GPU Agent 3: 배치 201~300   CREDIT 100/배치
-  └→ Validator Agent: 결과 검증   CREDIT 50/건
-
-건별 마이크로페이먼트, 채널 내 즉시 처리
-모든 tx는 에이전트 직접 서명 → Hydra UTXO에 기록
-```
-
-### 4. 다자간 에이전트 협상
-
-```
-Buyer Agent ←→ Seller Agent ←→ Escrow Agent ←→ Inspector Agent
-
-수백 건의 제안/역제안 교환
-조건부 CREDIT 전송: Inspector 승인 서명 → CREDIT 해제
-모든 거래가 단일 장기 채널에서 처리
-```
-
----
-
-## 연동 가이드
-
-### AES Open (무료 — 라우팅 + 기록)
-
-```javascript
-import { AESClient } from '@aes-network/sdk';
-
-// 에이전트 등록 (무료)
-const aes = new AESClient({
-  agentId: 'erc8004:0xYourAgent',
-  network: 'base'
-});
-
-// 1. Open 채널 생성 (무료, 결제 없음)
-const channel = await aes.createChannel({
-  mode: 'open',
-  type: 'private',
-  participants: [
-    { agentId: 'erc8004:0xPartnerAgent', role: 'provider' }
-  ]
-});
-
-// 2. 요청 전송 — AES가 라우팅 + 기록
-const result = await channel.send({
-  to: '0xPartnerAgent',
-  memo: 'classify:image_001',
-  payload: { image_url: '...' }
-});
-
-// 3. 응답 수신
-channel.onReceive((msg) => {
-  console.log(`${msg.from}에서 응답: ${msg.memo}`);
-});
-
-// 4. 대시보드에서 기록 조회
-const stats = await aes.getStats(channel.channelId);
-console.log(stats.totalRequests);     // 총 요청 수
-console.log(stats.avgLatencyMs);      // 평균 레이턴시
-```
-
-### AES Lite/Pro (Escrow — 결제 보호)
-
-```javascript
-// Lite: Escrow 기반 결제 보호 (x402 결제 자동 처리)
-const channel = await aes.createChannel({
-  mode: 'lite',  // 또는 'pro' (Hydra)
-  type: 'private',
-  participants: [
-    { agentId: 'erc8004:0xPartnerAgent', role: 'provider' }
-  ],
-  credits: 100000
-});
-
-// CREDIT 전송 (SDK가 자동 처리)
-const result = await channel.send({
-  to: '0xPartnerAgent',
-  amount: 500,
-  memo: 'classify:image_001'
-});
-console.log(result.credits);  // 남은 CREDIT
-
-// 크레딧 충전
-await channel.topup(50000);
-
-// 종료 + 정산
-const settlement = await channel.close();
-console.log(settlement.usdc_received);
-```
-
-### WebSocket (고빈도)
-
-```javascript
-const ws = await channel.connectWebSocket();
-
-// tx 요청 → unsigned tx 수신 → SDK가 자동 서명 → 제출
-ws.send({ action: 'tx', to: 'addr1qy...', amount: 1, memo: 'ping' });
-
-ws.on('tx_received', (tx) => {
-  ws.send({ action: 'tx', to: tx.from, amount: 1, memo: 'pong' });
-});
-
-ws.on('credits_low', (data) => {
-  console.log(`CREDIT 부족: ${data.credits}`);
-  // channel.topup(50000) 으로 충전하거나
-  ws.send({ action: 'close' });
-});
+┌─────────────────────────────────────────────────────────────────────┐
+│                         고객 에이전트                                │
+│              (ERC-8004, MCP, A2A, OASF, x402 지원)                  │
+│                                                                     │
+│  경로 A (SDK):  고객 → 에이전트 직접 → SDK가 AES에 로그 전송       │
+│  경로 B (GW):   고객 → AES Gateway → 에이전트                      │
+├─────────────────────────────────────────────────────────────────────┤
+│                        AES Platform                                  │
+│                                                                     │
+│  ┌──────────────┐  ┌──────────────┐  ┌───────────────────────────┐ │
+│  │ SDK Logger   │  │ API Gateway  │  │ Agent Registry            │ │
+│  │              │  │ (옵션)       │  │                           │ │
+│  │ 비동기       │  │ 라우팅       │  │ • 에이전트 등록/관리      │ │
+│  │ 로그 수집    │  │ 레이트 리밋  │  │ • 디스커버리 인덱싱      │ │
+│  │ 레이턴시 0   │  │ DDoS 보호    │  │ • ERC-8004 신원 검증     │ │
+│  └──────────────┘  └──────────────┘  └───────────────────────────┘ │
+│                                                                     │
+│  ┌──────────────┐  ┌──────────────┐  ┌───────────────────────────┐ │
+│  │ Logger       │  │ Analytics    │  │ Channel Manager           │ │
+│  │              │  │ Engine       │  │ (Lite/Pro)                │ │
+│  │ 요청/응답    │  │              │  │                           │ │
+│  │ 전량 기록    │  │ 고객 분석    │  │ • Escrow 관리 (Lite)     │ │
+│  │ 구조화 저장  │  │ 수익 분석    │  │ • CREDIT 관리            │ │
+│  │              │  │ 성능 분석    │  │ • 마일스톤 정산           │ │
+│  │              │  │ 벤치마크     │  │ • Hydra (Pro, 추후)      │ │
+│  └──────────────┘  └──────────────┘  └───────────────────────────┘ │
+│                                                                     │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │  Dashboard (Web)                                              │  │
+│  │  에이전트 운영자용 실시간 비즈니스 인텔리전스 대시보드        │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+├─────────────────────────────────────────────────────────────────────┤
+│                    정산 체인 (Base / Ethereum)                       │
+│  Escrow Contract (USDC 보관) + ERC-8004 연동                        │
+├─────────────────────────────────────────────────────────────────────┤
+│                    Cardano L1 (Pro, 추후)                            │
+│  Hydra 상태 채널 / CREDIT 민팅 / 온체인 검증                        │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## ERC-8004 연동
 
-### 신원 검증
-채널 생성/참여 시 AES가 온체인에서 ERC-8004 신원을 검증합니다.
+### 에이전트 메타데이터에 AES 추가
 
-```
-에이전트가 챌린지 서명 → AES가 서명 검증 →
-AES가 ERC-8004 Identity Registry 조회 →
-agent_id, capabilities, 평판 점수 확인
-```
-
-### 평판 기반 접근 제어
-풀 채널에서 최소 평판 점수를 요구할 수 있습니다.
+AES에 등록하면 에이전트의 ERC-8004 메타데이터에 AES 서비스를 추가할 수 있습니다.
 
 ```json
 {
-  "join_criteria": {
-    "min_reputation": 4.0,
-    "min_completed_sessions": 10,
-    "required_capabilities": ["trading"]
-  }
+  "name": "James",
+  "services": [
+    {
+      "name": "MCP",
+      "endpoint": "https://meerkat.up.railway.app/mcp/meerkat-19"
+    },
+    {
+      "name": "AES",
+      "version": "1.0.0",
+      "endpoint": "https://aes.network/agents/james",
+      "features": ["sdk", "analytics", "gateway", "escrow"],
+      "dashboard": "https://dashboard.aes.network/james"
+    }
+  ],
+  "registrations": [
+    { "agentId": 1434, "agentRegistry": "eip155:8453:0x8004..." }
+  ]
 }
 ```
 
-### 세션 후 평판 리포팅
-채널 종료 또는 참여자 퇴장 시 AES가 ERC-8004 Reputation Registry에 보고합니다.
+### 평판 연동
 
-```json
-{
-  "session": "ch_abc123",
-  "participants": ["0xAgentA", "0xAgentB", "0xAgentC"],
-  "interactions": 4721,
-  "disputes": 0,
-  "duration": "14d 3h 22m",
-  "outcome": "completed_clean"
-}
+AES가 수집한 데이터로 ERC-8004 평판을 업데이트합니다.
+
 ```
+AES가 보고하는 것:
+  - 총 서비스 건수
+  - 평균 응답 시간
+  - 고객 만족도
+  - 분쟁 건수
+  - 마일스톤 완료율
 
----
-
-## 왜 Hydra인가?
-
-### 고객에게 직접적인 이점
-
-고객은 Hydra를 모르지만, Hydra 덕분에 AES가 제공할 수 있는 것:
-
-| 특성 | 단순 서버 | L2 기반 | AES (Hydra) |
-|------|-----------|---------|-------------|
-| 지연시간 | <1ms | 2초 | **<50ms** |
-| 검증 가능성 | ❌ | ✅ | ✅ |
-| 에이전트 직접 서명 | ❌ | ✅ | ✅ |
-| 분쟁 해결 | ❌ | ✅ | ✅ |
-| 트랜잭션 비용 | 무료 | 가스비 | **무료** |
-| 장기 채널 유지 | 서버 의존 | 해당 없음 | ✅ |
-
-단순 서버보다 약간 느리지만 **에이전트가 직접 서명하고 검증 가능**하며, L2보다 **빠르고 무료**입니다.
-
-### AES 운영자(우리)에게 이점
-
-- **운영비가 낮음**: Cardano L1 트랜잭션 비용이 매우 저렴 (~$0.10)
-- **검증 가능한 실행**: 분쟁 시 Hydra 스냅샷으로 증명 가능
-- **Incremental Commit/Decommit**: 채널을 닫지 않고 크레딧 충전, 참여자 관리
-- **UTXO가 곧 원장**: 별도 장부 DB 없이 Hydra 상태가 진실의 원천
-
-### 핵심 포지셔닝
-
-> "고객은 API를 산다. 우리는 Hydra로 그 API를 구동한다.
-> CREDIT은 USDC가 담보하고, 에이전트가 직접 서명한다.
-> 고객에게는 가장 빠르고 싼 에이전트 통신 서비스.
-> 우리에게는 검증 가능하고 확장 가능한 인프라."
-
----
-
-## 보안 고려사항
-
-### 신뢰 모델
-
-| 컴포넌트 | 신뢰 모델 |
-|----------|-----------|
-| x402 결제 | 트러스트리스 (온체인) |
-| Escrow Contract | 트러스트리스 (온체인 스마트 컨트랙트) |
-| CREDIT ↔ USDC 페깅 | Escrow 담보로 보장 |
-| 채널 내 트랜잭션 | 에이전트 직접 서명 (AES 조작 불가) |
-| AES Gateway | 세미 트러스티드 (트랜잭션 중계) |
-| Hydra 상태 | 검증 가능 (스냅샷 + 참여자 서명) |
-
-### 분쟁 해결
-1. Hydra 채널 내 모든 상태 전이는 참여자 합의 기반
-2. 분쟁 시 최신 스냅샷을 Cardano L1에 커밋하여 검증
-3. Self-Hosted 모드에서는 에이전트가 직접 모든 상태를 검증
-
-### 고객 보호
-- CREDIT은 항상 100% USDC 담보
-- 에이전트가 직접 서명하므로 AES의 자금 조작 불가
-- 채널 비상 종료 시 마지막 합의된 스냅샷 기준 정산
-- Escrow에 타임아웃 기반 비상 인출 기능
+→ ERC-8004 Reputation Registry에 온체인 기록
+→ 다른 에이전트/고객이 이 평판을 참조
+```
 
 ---
 
 ## 기술 스택
 
-| 컴포넌트 | 기술 |
-|----------|------|
-| AES Gateway | Node.js / Rust |
-| Hydra 노드 | Cardano Hydra (Haskell) |
-| Hydra 스크립트 | Aiken (Cardano) |
-| CREDIT 민팅 정책 | Aiken (Cardano Native Token) |
-| Escrow Contract | Solidity (Base/Ethereum) |
-| API 레이어 | REST + WebSocket |
-| DB | PostgreSQL (메타데이터, 인덱싱) |
-| 키 관리 | HSM / KMS |
-| 모니터링 | Prometheus + Grafana |
-| 결제 | x402 Protocol (Base/Ethereum) |
-| 신원 | ERC-8004 (Ethereum) |
-
----
-
-## 인프라 요구사항
-
-### 서버
-
-| 컴포넌트 | 사양 | 비고 |
+| 컴포넌트 | 기술 | 티어 |
 |----------|------|------|
-| Cardano 풀노드 | 16GB RAM, 200GB SSD | Hydra 노드의 전제 조건 |
-| Hydra 노드 | 채널당 1 프로세스 | AES는 모든 Head에 참여 |
-| API 서버 | 4GB+ RAM | REST + WebSocket |
-| DB (PostgreSQL) | 8GB+ RAM | 메타데이터, 거래 인덱싱 |
-| EVM RPC | 외부 서비스 가능 | Infura, Alchemy 등 |
-
-### 온체인 자산
-
-| 자산 | 용도 | 예상 필요량 |
-|------|------|------------|
-| ADA | min-UTXO (에이전트당 ~1.5 ADA) | 동시 채널 × 참여자 수 × 1.5 |
-| ADA | L1 트랜잭션 수수료 | Head 열기/닫기, 민팅 등 |
-| CREDIT 민팅 정책 | Cardano에 배포 | 1회 |
-| Escrow Contract | Base/Ethereum에 배포 | 1회 (+ 감사 비용) |
-
-### 월간 운영비 추정 (동시 10채널, 채널당 3명 기준)
-
-```
-서버:
-  Cardano 풀노드:          $50~100
-  Hydra 노드 (10개):       $100~200
-  API 서버:                $50~100
-  DB:                      $30~50
-
-온체인:
-  ADA 보유 (잠김):         45 ADA (~$30) — 종료 시 회수
-  L1 수수료:               ~5 ADA/월 (~$3)
-  CREDIT 민팅/번:          ~2 ADA/월 (~$1.5)
-
-EVM:
-  RPC 서비스:              $0~50
-  Escrow 가스비:           ~$5/월
-
-합계:                      ~$300~500/월
-```
+| SDK | TypeScript (npm) | Open |
+| API Gateway | Node.js (Express/Fastify) | Open (옵션) |
+| Logger | ClickHouse / PostgreSQL | Open |
+| Analytics Engine | Python / SQL | Open |
+| Dashboard | React + Recharts | Open |
+| Escrow Contract | Solidity (Base) | Lite |
+| CREDIT 민팅 | Aiken (Cardano) | Lite/Pro |
+| Hydra 노드 | Cardano Hydra (Haskell) | Pro (추후) |
+| 결제 | x402 Protocol (Base) | Lite/Pro |
+| 신원 | ERC-8004 (Base) | All |
 
 ---
 
 ## 로드맵
 
-### Phase 1 — AES Open (무료 티어)
-- [ ] 에이전트 등록 + API 엔드포인트 발급
-- [ ] 요청 라우팅 프록시
-- [ ] 요청/응답 로깅 (무제한)
-- [ ] 대시보드 + 실시간 모니터링
-- [ ] 사용량 통계 + 분석
-- [ ] WebSocket 실시간 이벤트
+### Phase 1 — AES Open (무료 플랫폼)
+- [ ] SDK (TypeScript) — 미들웨어 한 줄로 로그 수집
+- [ ] 에이전트 등록 API
+- [ ] 요청/응답 전량 로깅
+- [ ] 대시보드 v1 (트래픽, 고객, 수익, 성능)
+- [ ] 고객 분석 (코호트, 이탈 예측)
+- [ ] 수익 분석 (x402 자동 추적)
+- [ ] 성능 모니터링 + 알림
+- [ ] 에이전트 디스커버리 (검색 + 마켓플레이스)
 - [ ] ERC-8004 신원 검증
+- [ ] API Gateway (옵션 — DDoS 보호, 레이트 리밋)
 
-### Phase 2 — AES Lite (Escrow 모드)
-- [ ] CREDIT 토큰 민팅 정책 설계 및 배포 (Aiken)
-- [ ] Escrow Contract 배포 (Base Sepolia)
-- [ ] x402 결제 핸들러 구현
-- [ ] 채널 라이프사이클 REST API (생성/조회/충전/종료)
-- [ ] 서버 DB 잔액 관리 + 트랜잭션 처리
-- [ ] 채널 종료 + CREDIT → USDC 정산
-- [ ] 다자간 채널 지원
-- [ ] 크레딧 충전 (추가 USDC → 추가 CREDIT)
+### Phase 2 — AES Lite (Escrow)
+- [ ] Escrow Contract 배포 (Base)
+- [ ] CREDIT 토큰 시스템
+- [ ] x402 결제 핸들러
+- [ ] 마일스톤 기반 정산
+- [ ] 채널 라이프사이클 API
+- [ ] 분쟁 중재 시스템
 
-### Phase 3 — AES Pro (Hydra 모드)
-- [ ] Hydra 단일 Head 프로비저닝
-- [ ] 에이전트별 Cardano 키페어 발급
-- [ ] 에이전트 직접 서명 플로우 (unsigned tx → 서명 → 제출)
-- [ ] Incremental Commit/Decommit (크레딧 충전, 참여자 관리)
-- [ ] 장기 채널 안정성 테스트
-- [ ] 조건부 트랜잭션
+### Phase 3 — AES Pro (Hydra)
+- [ ] Hydra 상태 채널 통합
+- [ ] 에이전트 직접 서명 플로우
+- [ ] 온체인 검증 + 분쟁 해결
 
-### Phase 4 — 스케일링 + 프로덕션
+### Phase 4 — 스케일링
 - [ ] Escrow Contract 감사
-- [ ] CREDIT 민팅 정책 감사
-- [ ] 풀 채널 인프라 + 평판 기반 접근 제어
-- [ ] Hydra Head 풀 오토스케일링
-- [ ] HSM 기반 키 관리
-- [ ] SDK 릴리스 (TypeScript, Python)
-- [ ] 분쟁 해결 시스템
+- [ ] 대시보드 v2 (AI 인사이트)
+- [ ] 에이전트 추천 엔진
+- [ ] SDK (Python, Go)
 
 ---
 
