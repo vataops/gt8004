@@ -1,12 +1,21 @@
 const OPEN_API_BASE = process.env.NEXT_PUBLIC_OPEN_API_URL || "http://localhost:8080";
 
+async function parseError(res: Response): Promise<string> {
+  try {
+    const body = await res.json();
+    return body.error || `API error: ${res.status}`;
+  } catch {
+    return `API error: ${res.status}`;
+  }
+}
+
 async function openFetcher<T>(path: string, apiKey?: string): Promise<T> {
   const headers: Record<string, string> = {};
   if (apiKey) {
     headers["Authorization"] = `Bearer ${apiKey}`;
   }
   const res = await fetch(`${OPEN_API_BASE}${path}`, { headers });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) throw new Error(await parseError(res));
   return res.json();
 }
 
@@ -20,7 +29,7 @@ async function openFetcherPost<T>(path: string, body: unknown, apiKey?: string):
     headers,
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) throw new Error(await parseError(res));
   return res.json();
 }
 
@@ -34,7 +43,7 @@ async function openFetcherPut<T>(path: string, body: unknown, apiKey?: string): 
     headers,
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) throw new Error(await parseError(res));
   return res.json();
 }
 
@@ -47,7 +56,7 @@ async function openFetcherDelete(path: string, apiKey?: string): Promise<void> {
     method: "DELETE",
     headers,
   });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) throw new Error(await parseError(res));
 }
 
 // ---------- Types ----------
@@ -75,21 +84,32 @@ export interface Agent {
   gateway_enabled: boolean;
   evm_address?: string;
   reputation_score?: number;
+  erc8004_token_id?: number;
+  agent_uri?: string;
   created_at: string;
 }
 
 export interface RegisterRequest {
-  agent_id: string;
   name?: string;
   origin_endpoint: string;
   category?: string;
   protocols?: string[];
   pricing?: { model: string; amount: number; currency: string };
+  // ERC-8004 (optional)
+  erc8004_token_id?: number;
+  chain_id?: number;
+  wallet_address?: string;
+  challenge?: string;
+  signature?: string;
 }
 
 export interface RegisterResponse {
-  agent: Agent;
+  agent_id: string;
   api_key: string;
+  gt8004_endpoint: string;
+  dashboard_url: string;
+  tier: string;
+  status: string;
 }
 
 export interface ChallengeResponse {
@@ -146,32 +166,6 @@ export interface PerformanceReport {
   uptime: number;
 }
 
-export interface AlertRule {
-  id: string;
-  agent_id: string;
-  name: string;
-  type: string;
-  metric: string;
-  operator: string;
-  threshold: number;
-  window_minutes: number;
-  webhook_url?: string;
-  enabled: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface AlertHistoryEntry {
-  id: string;
-  rule_id: string;
-  agent_id: string;
-  metric_value: number;
-  threshold: number;
-  message: string;
-  notified: boolean;
-  created_at: string;
-}
-
 export interface BenchmarkEntry {
   id: string;
   category: string;
@@ -203,6 +197,65 @@ export interface RequestLog {
   batch_id: string;
   sdk_version: string;
   created_at: string;
+}
+
+export interface AgentStats {
+  total_requests: number;
+  today_requests: number;
+  week_requests: number;
+  month_requests: number;
+  total_revenue_usdc: number;
+  avg_response_ms: number;
+  error_rate: number;
+}
+
+export interface DailyStats {
+  date: string;
+  requests: number;
+  revenue: number;
+  errors: number;
+}
+
+// ---------- 8004scan API (proxied via /api/scan) ----------
+
+export interface ScanAgent {
+  name: string;
+  token_id: string;
+  chain_id: number;
+  total_score: number;
+  total_feedbacks: number;
+  is_active: boolean;
+  rank: number;
+  description: string;
+  image_url: string | null;
+  owner_address: string;
+  created_at: string;
+}
+
+export async function fetchScanAgent(chainId: number, tokenId: number): Promise<ScanAgent | null> {
+  try {
+    const res = await fetch(`/api/scan?chain_id=${chainId}&token_id=${tokenId}`);
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchScanAgents(
+  tokens: { token_id: number; chain_id: number }[]
+): Promise<Map<string, ScanAgent>> {
+  const results = await Promise.allSettled(
+    tokens.map((t) => fetchScanAgent(t.chain_id, t.token_id))
+  );
+  const map = new Map<string, ScanAgent>();
+  results.forEach((r, i) => {
+    if (r.status === "fulfilled" && r.value) {
+      const key = `${tokens[i].chain_id}-${tokens[i].token_id}`;
+      map.set(key, r.value);
+    }
+  });
+  return map;
 }
 
 // ---------- API methods ----------
@@ -259,30 +312,20 @@ export const openApi = {
       `/v1/agents/${agentId}/performance?window=${window}`,
       apiKey
     ),
-  getAlerts: (agentId: string, apiKey: string) =>
-    openFetcher<{ rules: AlertRule[] }>(
-      `/v1/agents/${agentId}/alerts`,
-      apiKey
-    ),
-  createAlert: (agentId: string, apiKey: string, rule: Partial<AlertRule>) =>
-    openFetcherPost<AlertRule>(
-      `/v1/agents/${agentId}/alerts`,
-      rule,
-      apiKey
-    ),
-  deleteAlert: (agentId: string, apiKey: string, alertId: string) =>
-    openFetcherDelete(
-      `/v1/agents/${agentId}/alerts/${alertId}`,
-      apiKey
-    ),
-  getAlertHistory: (agentId: string, apiKey: string, limit = 50) =>
-    openFetcher<{ history: AlertHistoryEntry[] }>(
-      `/v1/agents/${agentId}/alerts/history?limit=${limit}`,
-      apiKey
-    ),
   getLogs: (agentId: string, apiKey: string, limit = 50) =>
     openFetcher<{ logs: RequestLog[]; total: number }>(
       `/v1/agents/${agentId}/logs?limit=${limit}`,
+      apiKey
+    ),
+
+  getStats: (agentId: string, apiKey: string) =>
+    openFetcher<AgentStats>(
+      `/v1/agents/${agentId}/stats`,
+      apiKey
+    ),
+  getDailyStats: (agentId: string, apiKey: string, days = 30) =>
+    openFetcher<{ stats: DailyStats[] }>(
+      `/v1/agents/${agentId}/stats/daily?days=${days}`,
       apiKey
     ),
 
@@ -299,6 +342,38 @@ export const openApi = {
       challenge,
       signature,
     }),
+
+  // ERC-8004 token verification (public, no auth)
+  verifyToken: (tokenId: number) =>
+    openFetcher<{ exists: boolean; token_id: number; owner?: string; agent_uri?: string; error?: string }>(
+      `/v1/erc8004/token/${tokenId}`
+    ),
+  listTokensByOwner: (address: string, chainId?: number) =>
+    openFetcher<{ tokens: { token_id: number; agent_uri: string }[]; error?: string }>(
+      `/v1/erc8004/tokens/${address}${chainId ? `?chain_id=${chainId}` : ""}`
+    ),
+
+  // Link ERC-8004 to existing agent (auth required)
+  linkERC8004: (agentId: string, apiKey: string, body: { erc8004_token_id: number; challenge: string; signature: string }) =>
+    openFetcherPut<{ verified: boolean; evm_address: string; erc8004_token_id: number; agent_uri: string }>(
+      `/v1/services/${agentId}/link-erc8004`,
+      body,
+      apiKey
+    ),
+
+  // Wallet login (public)
+  walletLogin: (address: string, challenge: string, signature: string) =>
+    openFetcherPost<{ agent: Agent; api_key: string }>("/v1/auth/wallet-login", {
+      address,
+      challenge,
+      signature,
+    }),
+
+  // Wallet agents (public)
+  getWalletAgents: (address: string) =>
+    openFetcher<{ agents: Agent[]; total: number }>(
+      `/v1/agents/wallet/${address}`
+    ),
 
   // Gateway (auth required)
   enableGateway: (agentId: string, apiKey: string) =>

@@ -10,5 +10,8 @@ export type {
   RegisterServiceResult,
   ServiceStatus,
   TierUpdateResult,
+  LinkERC8004Params,
+  LinkERC8004Result,
+  TokenVerification,
 } from './client';
 export type { MiddlewareOptions } from './middleware/express';

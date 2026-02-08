@@ -16,22 +16,29 @@ const OPEN_API_BASE =
 interface AuthState {
   apiKey: string | null;
   agent: Agent | null;
+  walletAddress: string | null;
   loading: boolean;
   login: (key: string) => Promise<void>;
+  walletLogin: (key: string, agent: Agent, walletAddr: string) => void;
+  connectWallet: (walletAddr: string) => void;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthState>({
   apiKey: null,
   agent: null,
+  walletAddress: null,
   loading: true,
   login: async () => {},
+  walletLogin: () => {},
+  connectWallet: () => {},
   logout: () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [agent, setAgent] = useState<Agent | null>(null);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchMe = useCallback(async (key: string): Promise<Agent> => {
@@ -52,14 +59,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [fetchMe]
   );
 
+  const walletLogin = useCallback((key: string, agentData: Agent, walletAddr: string) => {
+    setApiKey(key);
+    setAgent(agentData);
+    setWalletAddress(walletAddr);
+    localStorage.setItem("gt8004_api_key", key);
+    localStorage.setItem("gt8004_wallet_address", walletAddr);
+  }, []);
+
+  const connectWallet = useCallback((walletAddr: string) => {
+    setWalletAddress(walletAddr);
+    localStorage.setItem("gt8004_wallet_address", walletAddr);
+  }, []);
+
   const logout = useCallback(() => {
     setApiKey(null);
     setAgent(null);
+    setWalletAddress(null);
     localStorage.removeItem("gt8004_api_key");
+    localStorage.removeItem("gt8004_wallet_address");
   }, []);
 
   useEffect(() => {
     const stored = localStorage.getItem("gt8004_api_key");
+    const storedWallet = localStorage.getItem("gt8004_wallet_address");
+    if (storedWallet) setWalletAddress(storedWallet);
     if (!stored) {
       setLoading(false);
       return;
@@ -76,7 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchMe]);
 
   return (
-    <AuthContext.Provider value={{ apiKey, agent, loading, login, logout }}>
+    <AuthContext.Provider value={{ apiKey, agent, walletAddress, loading, login, walletLogin, connectWallet, logout }}>
       {children}
     </AuthContext.Provider>
   );

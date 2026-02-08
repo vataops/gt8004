@@ -28,7 +28,7 @@ type Handler struct {
 	rateLimiter       *gateway.RateLimiter
 
 	// ERC-8004
-	erc8004 *erc8004.Client
+	erc8004Registry *erc8004.Registry
 }
 
 func New(
@@ -41,7 +41,7 @@ func New(
 	perfAnalytics *analytics.PerformanceAnalytics,
 	proxy *gateway.Proxy,
 	rateLimiter *gateway.RateLimiter,
-	erc8004Client *erc8004.Client,
+	erc8004Registry *erc8004.Registry,
 	logger *zap.Logger,
 ) *Handler {
 	return &Handler{
@@ -54,7 +54,7 @@ func New(
 		perfAnalytics:     perfAnalytics,
 		proxy:             proxy,
 		rateLimiter:       rateLimiter,
-		erc8004:           erc8004Client,
+		erc8004Registry:   erc8004Registry,
 		logger:            logger,
 	}
 }

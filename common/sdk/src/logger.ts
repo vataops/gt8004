@@ -2,7 +2,7 @@ import { GT8004LoggerConfig, RequestLogEntry } from './types';
 import { BatchTransport } from './transport';
 import { createExpressMiddleware, MiddlewareOptions } from './middleware/express';
 
-const DEFAULT_ENDPOINT = 'https://api.gt8004.network';
+const DEFAULT_ENDPOINT = 'https://api.gt8004.xyz';
 
 export class GT8004Logger {
   private transport: BatchTransport;

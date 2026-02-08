@@ -109,6 +109,38 @@ func (h *Handler) AgentStats(c *gin.Context) {
 	c.JSON(http.StatusOK, stats)
 }
 
+// AgentDailyStats handles GET /v1/agents/:agent_id/stats/daily.
+func (h *Handler) AgentDailyStats(c *gin.Context) {
+	agentDBID, exists := c.Get("agent_db_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	dbID, ok := agentDBID.(uuid.UUID)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid agent context"})
+		return
+	}
+
+	days := 30
+	if d := c.Query("days"); d != "" {
+		parsed, err := strconv.Atoi(d)
+		if err == nil && parsed > 0 && parsed <= 365 {
+			days = parsed
+		}
+	}
+
+	stats, err := h.store.GetDailyStats(c.Request.Context(), dbID, days)
+	if err != nil {
+		h.logger.Error("failed to get daily stats", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get daily stats"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"stats": stats})
+}
+
 // GetMe handles GET /v1/agents/me — returns the authenticated agent's profile.
 func (h *Handler) GetMe(c *gin.Context) {
 	agentDBID, exists := c.Get("agent_db_id")
@@ -169,6 +201,31 @@ func (h *Handler) UpdateOriginEndpoint(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, agent)
+}
+
+// ListWalletAgents handles GET /v1/agents/wallet/:address (public).
+// Returns all agents linked to the given EVM wallet address.
+func (h *Handler) ListWalletAgents(c *gin.Context) {
+	address := c.Param("address")
+	if address == "" || len(address) != 42 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid ethereum address"})
+		return
+	}
+
+	agents, err := h.store.GetAgentsByEVMAddress(c.Request.Context(), address)
+	if err != nil {
+		h.logger.Error("failed to list wallet agents", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list agents"})
+		return
+	}
+	if agents == nil {
+		agents = []store.Agent{}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"agents": agents,
+		"total":  len(agents),
+	})
 }
 
 // SearchAgents handles GET /v1/agents/search (Phase 1D - public).

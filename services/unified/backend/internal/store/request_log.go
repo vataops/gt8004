@@ -113,6 +113,54 @@ func (s *Store) GetAgentStats(ctx context.Context, agentDBID uuid.UUID) (*AgentS
 	return stats, nil
 }
 
+// DailyStats holds per-day aggregated metrics for charts.
+type DailyStats struct {
+	Date     string  `json:"date"`
+	Requests int64   `json:"requests"`
+	Revenue  float64 `json:"revenue"`
+	Errors   int64   `json:"errors"`
+}
+
+// GetDailyStats returns daily request/revenue/error counts for the last N days.
+func (s *Store) GetDailyStats(ctx context.Context, agentDBID uuid.UUID, days int) ([]DailyStats, error) {
+	if days <= 0 {
+		days = 30
+	}
+
+	rows, err := s.pool.Query(ctx, `
+		SELECT
+			DATE(created_at) AS date,
+			COUNT(*) AS requests,
+			COALESCE(SUM(x402_amount), 0) AS revenue,
+			COUNT(*) FILTER (WHERE status_code >= 400) AS errors
+		FROM request_logs
+		WHERE agent_id = $1 AND created_at >= CURRENT_DATE - $2 * INTERVAL '1 day'
+		GROUP BY DATE(created_at)
+		ORDER BY date
+	`, agentDBID, days)
+	if err != nil {
+		return nil, fmt.Errorf("get daily stats: %w", err)
+	}
+	defer rows.Close()
+
+	var stats []DailyStats
+	for rows.Next() {
+		var d DailyStats
+		var date time.Time
+		if err := rows.Scan(&date, &d.Requests, &d.Revenue, &d.Errors); err != nil {
+			return nil, fmt.Errorf("scan daily stats: %w", err)
+		}
+		d.Date = date.Format("2006-01-02")
+		stats = append(stats, d)
+	}
+
+	if stats == nil {
+		stats = []DailyStats{}
+	}
+
+	return stats, nil
+}
+
 // GetRecentRequests returns the most recent request logs for an agent.
 func (s *Store) GetRecentRequests(ctx context.Context, agentDBID uuid.UUID, limit int) ([]RequestLog, error) {
 	if limit <= 0 {

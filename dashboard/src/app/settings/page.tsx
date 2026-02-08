@@ -32,10 +32,6 @@ function SettingsContent() {
 
   if (!agent || !apiKey) return null;
 
-  const maskedKey = apiKey.length > 12
-    ? `${apiKey.slice(0, 7)}****${apiKey.slice(-4)}`
-    : "****";
-
   const gatewayUrl = `${BACKEND_URL}/gateway/${agent.agent_id}/`;
 
   const handleGatewayToggle = async () => {
@@ -244,9 +240,14 @@ function SettingsContent() {
       <section>
         <h3 className="text-sm font-semibold text-gray-400 mb-3">API Key</h3>
         <div className="p-4 rounded-lg border border-gray-800 bg-gray-900">
-          <code className="text-sm font-mono text-gray-300">{maskedKey}</code>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 text-sm font-mono text-gray-300 bg-gray-950 px-3 py-2 rounded border border-gray-800 break-all">
+              {apiKey}
+            </code>
+            <CopyButton text={apiKey} />
+          </div>
           <p className="text-xs text-gray-600 mt-2">
-            The full API key is only shown at registration time.
+            Use this key to authenticate SDK and API requests.
           </p>
         </div>
       </section>

@@ -14,7 +14,6 @@ import (
 
 	"github.com/GT8004/gt8004-common/identity"
 	"github.com/GT8004/gt8004-common/ws"
-	"github.com/GT8004/gt8004/internal/alert"
 	"github.com/GT8004/gt8004/internal/analytics"
 	"github.com/GT8004/gt8004/internal/config"
 	"github.com/GT8004/gt8004/internal/erc8004"
@@ -68,11 +67,6 @@ func main() {
 	revAnalytics := analytics.NewRevenueAnalytics(db, logger)
 	perfAnalytics := analytics.NewPerformanceAnalytics(db, logger)
 
-	// Alert engine
-	notifier := alert.NewNotifier(logger)
-	alertEngine := alert.NewEngine(db, perfAnalytics, notifier, logger, time.Duration(cfg.AlertCheckInterval)*time.Second)
-	alertEngine.Start()
-
 	// Benchmark calculator
 	benchCalc := analytics.NewBenchmarkCalculator(db, logger, time.Duration(cfg.BenchmarkInterval)*time.Second)
 	benchCalc.Start()
@@ -81,17 +75,17 @@ func main() {
 	proxy := gateway.NewProxy(db, logger)
 	rateLimiter := gateway.NewRateLimiter(10, 100) // 10 req/s, burst 100
 
-	// === ERC-8004 ===
+	// === ERC-8004 (multi-network registry) ===
 
-	var erc8004Client *erc8004.Client
-	if cfg.IdentityRegistryAddr != "" {
-		erc8004Client = erc8004.NewClient(erc8004.Config{
-			RegistryAddr: cfg.IdentityRegistryAddr,
-			RegistryRPC:  cfg.IdentityRegistryRPC,
-			GT8004TokenID:   cfg.GT8004TokenID,
-			GT8004AgentURI:  cfg.GT8004AgentURI,
-		}, logger)
+	networkConfigs := make(map[int]erc8004.Config, len(config.SupportedNetworks))
+	for chainID, nc := range config.SupportedNetworks {
+		networkConfigs[chainID] = erc8004.Config{
+			ChainID:      nc.ChainID,
+			RegistryAddr: nc.RegistryAddr,
+			RegistryRPC:  nc.RegistryRPC,
+		}
 	}
+	erc8004Registry := erc8004.NewRegistry(networkConfigs, logger)
 
 	// === Unified handler and server ===
 
@@ -99,7 +93,7 @@ func main() {
 		db, idVerifier, hub, worker,
 		custAnalytics, revAnalytics, perfAnalytics,
 		proxy, rateLimiter,
-		erc8004Client,
+		erc8004Registry,
 		logger,
 	)
 	srv := server.New(cfg, h, logger)
@@ -136,7 +130,6 @@ func main() {
 	}
 
 	worker.Stop()
-	alertEngine.Stop()
 	benchCalc.Stop()
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)

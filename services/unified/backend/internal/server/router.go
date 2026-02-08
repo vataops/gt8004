@@ -45,7 +45,12 @@ func NewRouter(cfg *config.Config, h *handler.Handler, logger *zap.Logger) *gin.
 	{
 		auth.POST("/challenge", h.AuthChallenge)
 		auth.POST("/verify", h.AuthVerify)
+		auth.POST("/wallet-login", h.WalletLogin)
 	}
+
+	// ERC-8004 token verification (public)
+	v1.GET("/erc8004/token/:token_id", h.VerifyToken)
+	v1.GET("/erc8004/tokens/:address", h.ListTokensByOwner)
 
 	// === Service Lifecycle ===
 	v1.POST("/services/register", h.RegisterService)
@@ -55,13 +60,15 @@ func NewRouter(cfg *config.Config, h *handler.Handler, logger *zap.Logger) *gin.
 	{
 		servicesAuth.GET("/:agent_id", h.GetService)
 		servicesAuth.PUT("/:agent_id/tier", h.UpdateTier)
+		servicesAuth.PUT("/:agent_id/link-erc8004", h.LinkERC8004)
 		servicesAuth.DELETE("/:agent_id", h.DeregisterService)
 	}
 
 	// === Open Tier Routes (backwards compatible) ===
-	// Agent registration (public)
-	v1.POST("/agents/register", h.RegisterAgent)
+	// Agent registration (public) — uses unified RegisterService with ERC-8004 support
+	v1.POST("/agents/register", h.RegisterService)
 	v1.GET("/agents/search", h.SearchAgents)
+	v1.GET("/agents/wallet/:address", h.ListWalletAgents)
 	v1.GET("/benchmark", h.GetBenchmark)
 
 	// Dashboard (public for MVP)
@@ -82,14 +89,10 @@ func NewRouter(cfg *config.Config, h *handler.Handler, logger *zap.Logger) *gin.
 		authenticated.GET("/agents/:agent_id/customers/:customer_id", h.GetCustomer)
 		authenticated.GET("/agents/:agent_id/revenue", h.RevenueReport)
 		authenticated.GET("/agents/:agent_id/performance", h.PerformanceReport)
-		authenticated.GET("/agents/:agent_id/alerts", h.ListAlerts)
-		authenticated.POST("/agents/:agent_id/alerts", h.CreateAlert)
-		authenticated.PUT("/agents/:agent_id/alerts/:alert_id", h.UpdateAlert)
-		authenticated.DELETE("/agents/:agent_id/alerts/:alert_id", h.DeleteAlert)
-		authenticated.GET("/agents/:agent_id/alerts/history", h.AlertHistory)
 		authenticated.POST("/agents/:agent_id/gateway/enable", h.EnableGateway)
 		authenticated.POST("/agents/:agent_id/gateway/disable", h.DisableGateway)
 		authenticated.GET("/agents/:agent_id/logs", h.ListLogs)
+		authenticated.GET("/agents/:agent_id/stats/daily", h.AgentDailyStats)
 	}
 
 	// === Admin API ===

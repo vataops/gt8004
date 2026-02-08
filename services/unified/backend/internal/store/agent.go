@@ -83,14 +83,16 @@ func (s *Store) CreateAgent(ctx context.Context, agent *Agent) error {
 	err := s.pool.QueryRow(ctx, `
 		INSERT INTO agents (agent_id, name, origin_endpoint, gt8004_endpoint, protocols, category,
 			pricing_model, pricing_currency, status, current_tier,
-			erc8004_token_id, agent_uri, capabilities, identity_registry)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+			erc8004_token_id, agent_uri, capabilities, identity_registry,
+			evm_address, verified_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 		RETURNING id, created_at, updated_at
 	`,
 		agent.AgentID, agent.Name, agent.OriginEndpoint, agent.GT8004Endpoint,
 		agent.Protocols, agent.Category, agent.PricingModel, agent.PricingCurrency,
 		agent.Status, agent.CurrentTier,
 		agent.ERC8004TokenID, agent.AgentURI, agent.Capabilities, agent.IdentityRegistry,
+		agent.EVMAddress, agent.VerifiedAt,
 	).Scan(&agent.ID, &agent.CreatedAt, &agent.UpdatedAt)
 	if err != nil {
 		return fmt.Errorf("insert agent: %w", err)
@@ -114,6 +116,28 @@ func (s *Store) GetAgentByDBID(ctx context.Context, id uuid.UUID) (*Agent, error
 		return nil, fmt.Errorf("get agent by db id: %w", err)
 	}
 	return a, nil
+}
+
+func (s *Store) GetAgentByTokenID(ctx context.Context, tokenID int64) (*Agent, error) {
+	row := s.pool.QueryRow(ctx, `SELECT `+agentSelectCols+` FROM agents WHERE erc8004_token_id = $1`, tokenID)
+	a, err := scanAgent(row.Scan)
+	if err != nil {
+		return nil, fmt.Errorf("get agent by token id: %w", err)
+	}
+	return a, nil
+}
+
+func (s *Store) LinkERC8004(ctx context.Context, id uuid.UUID, tokenID int64, agentURI, registry, evmAddress string) error {
+	_, err := s.pool.Exec(ctx, `
+		UPDATE agents
+		SET erc8004_token_id = $2, agent_uri = $3, identity_registry = $4,
+			evm_address = $5, verified_at = NOW(), updated_at = NOW()
+		WHERE id = $1
+	`, id, tokenID, agentURI, registry, evmAddress)
+	if err != nil {
+		return fmt.Errorf("link erc8004: %w", err)
+	}
+	return nil
 }
 
 func (s *Store) UpdateAgentStats(ctx context.Context, id uuid.UUID, requests int, revenue float64) error {
@@ -275,6 +299,25 @@ func (s *Store) UpdateOriginEndpoint(ctx context.Context, id uuid.UUID, endpoint
 		return fmt.Errorf("update origin endpoint: %w", err)
 	}
 	return nil
+}
+
+// GetAgentsByEVMAddress returns all agents linked to a given EVM wallet address.
+func (s *Store) GetAgentsByEVMAddress(ctx context.Context, evmAddress string) ([]Agent, error) {
+	rows, err := s.pool.Query(ctx, `SELECT `+agentSelectCols+` FROM agents WHERE LOWER(evm_address) = LOWER($1) AND status = 'active'`, evmAddress)
+	if err != nil {
+		return nil, fmt.Errorf("get agents by evm address: %w", err)
+	}
+	defer rows.Close()
+
+	var agents []Agent
+	for rows.Next() {
+		a, err := scanAgent(rows.Scan)
+		if err != nil {
+			return nil, fmt.Errorf("scan agent: %w", err)
+		}
+		agents = append(agents, *a)
+	}
+	return agents, nil
 }
 
 // DeregisterAgent marks an agent as deregistered by setting its status to 'deregistered'

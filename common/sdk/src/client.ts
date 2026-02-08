@@ -33,14 +33,38 @@ export interface RegisterResult {
 }
 
 export interface RegisterServiceParams {
-  agent_id: string;
-  name?: string;
   origin_endpoint: string;
+  agent_id?: string;
+  name?: string;
   protocols?: string[];
   category?: string;
   pricing?: { model: string; amount: string; currency: string };
   tier?: 'open' | 'lite' | 'pro';
-  erc8004?: { token_id: number; registry: string };
+  // ERC-8004 (optional)
+  erc8004_token_id?: number;
+  challenge?: string;
+  signature?: string;
+}
+
+export interface LinkERC8004Params {
+  erc8004_token_id: number;
+  challenge: string;
+  signature: string;
+}
+
+export interface LinkERC8004Result {
+  verified: boolean;
+  evm_address: string;
+  erc8004_token_id: number;
+  agent_uri: string;
+}
+
+export interface TokenVerification {
+  exists: boolean;
+  token_id: number;
+  owner?: string;
+  agent_uri?: string;
+  error?: string;
 }
 
 export interface RegisterServiceResult extends RegisterResult {
@@ -171,6 +195,29 @@ export class GT8004Client {
   async deregister(agentId: string): Promise<{ status: string }> {
     return this.request(`/v1/services/${agentId}`, {
       method: 'DELETE',
+    });
+  }
+
+  // === ERC-8004 Identity ===
+
+  /** Request a challenge for wallet signature verification. */
+  async authChallenge(agentId: string): Promise<{ challenge: string; expires_at: string }> {
+    return this.request('/v1/auth/challenge', {
+      method: 'POST',
+      body: JSON.stringify({ agent_id: agentId }),
+    });
+  }
+
+  /** Verify an ERC-8004 token on-chain (public, no auth). */
+  async verifyToken(tokenId: number): Promise<TokenVerification> {
+    return this.request(`/v1/erc8004/token/${tokenId}`);
+  }
+
+  /** Link an ERC-8004 token to an existing agent. */
+  async linkERC8004(agentId: string, params: LinkERC8004Params): Promise<LinkERC8004Result> {
+    return this.request(`/v1/services/${agentId}/link-erc8004`, {
+      method: 'PUT',
+      body: JSON.stringify(params),
     });
   }
 }

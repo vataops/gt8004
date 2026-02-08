@@ -10,16 +10,12 @@ const publicNav = [
 ];
 
 const privateNav = [
-  { href: "/customers", label: "Customers" },
-  { href: "/revenue", label: "Revenue" },
-  { href: "/performance", label: "Performance" },
-  { href: "/alerts", label: "Alerts" },
-  { href: "/logs", label: "Logs" },
-  { href: "/settings", label: "Settings" },
+  { href: "/my-agents", label: "My Agents" },
 ];
 
 export function Sidebar() {
-  const { agent, logout } = useAuth();
+  const { agent, walletAddress, logout } = useAuth();
+  const isConnected = !!(agent || walletAddress);
 
   return (
     <aside className="w-56 bg-gray-900 border-r border-gray-800 flex flex-col">
@@ -41,7 +37,7 @@ export function Sidebar() {
           </Link>
         ))}
 
-        {agent ? (
+        {isConnected ? (
           <>
             <p className="px-3 pt-4 pb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
               My Agent
@@ -74,10 +70,14 @@ export function Sidebar() {
         )}
       </nav>
       <div className="p-4 border-t border-gray-800">
-        {agent ? (
+        {isConnected ? (
           <div>
             <p className="text-xs text-gray-400 truncate">
-              {agent.name || agent.agent_id}
+              {agent
+                ? agent.name || agent.agent_id
+                : walletAddress
+                  ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
+                  : ""}
             </p>
             <button
               onClick={logout}

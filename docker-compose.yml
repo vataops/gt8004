@@ -31,8 +31,8 @@ services:
       LOG_LEVEL: debug
       DATABASE_URL: postgres://ael:ael@postgres:5432/gt8004?sslmode=disable
       ADMIN_API_KEY: ${ADMIN_API_KEY:-changeme}
-      IDENTITY_REGISTRY_ADDRESS: ${IDENTITY_REGISTRY_ADDRESS:-}
-      IDENTITY_REGISTRY_RPC: ${IDENTITY_REGISTRY_RPC:-https://eth.llamarpc.com}
+      IDENTITY_REGISTRY_ADDRESS: ${IDENTITY_REGISTRY_ADDRESS:-0x8004A169FB4a3325136EB29fA0ceB6D2e539a432}
+      IDENTITY_REGISTRY_RPC: ${IDENTITY_REGISTRY_RPC:-https://sepolia.base.org}
       GT8004_TOKEN_ID: ${GT8004_TOKEN_ID:-0}
       GT8004_AGENT_URI: ${GT8004_AGENT_URI:-https://api.gt8004.network}
     depends_on:

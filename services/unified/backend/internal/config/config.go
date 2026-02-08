@@ -2,6 +2,19 @@ package config
 
 import "github.com/spf13/viper"
 
+// NetworkConfig holds ERC-8004 registry info for a specific chain.
+type NetworkConfig struct {
+	ChainID      int
+	RegistryAddr string
+	RegistryRPC  string
+}
+
+// SupportedNetworks maps chain ID to its ERC-8004 registry configuration.
+var SupportedNetworks = map[int]NetworkConfig{
+	84532:    {ChainID: 84532, RegistryAddr: "0x8004A818BFB912233c491871b3d84c89A494BD9e", RegistryRPC: "https://base-sepolia-rpc.publicnode.com"},
+	11155111: {ChainID: 11155111, RegistryAddr: "0x8004A818BFB912233c491871b3d84c89A494BD9e", RegistryRPC: "https://ethereum-sepolia-rpc.publicnode.com"},
+}
+
 type Config struct {
 	Port        int    `mapstructure:"PORT"`
 	MetricsPort int    `mapstructure:"METRICS_PORT"`
@@ -16,9 +29,8 @@ type Config struct {
 	IngestWorkers    int `mapstructure:"INGEST_WORKERS"`
 	IngestBufferSize int `mapstructure:"INGEST_BUFFER_SIZE"`
 
-	// Alert + Benchmark
-	AlertCheckInterval int `mapstructure:"ALERT_CHECK_INTERVAL"`
-	BenchmarkInterval  int `mapstructure:"BENCHMARK_INTERVAL"`
+	// Benchmark
+	BenchmarkInterval int `mapstructure:"BENCHMARK_INTERVAL"`
 
 	// Admin
 	AdminAPIKey string `mapstructure:"ADMIN_API_KEY"`
@@ -34,10 +46,10 @@ func Load() (*Config, error) {
 	viper.SetDefault("PORT", 8080)
 	viper.SetDefault("METRICS_PORT", 8081)
 	viper.SetDefault("LOG_LEVEL", "debug")
-	viper.SetDefault("IDENTITY_REGISTRY_RPC", "https://eth.llamarpc.com")
+	viper.SetDefault("IDENTITY_REGISTRY_RPC", "https://sepolia.base.org")
+	viper.SetDefault("IDENTITY_REGISTRY_ADDRESS", "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432")
 	viper.SetDefault("INGEST_WORKERS", 4)
 	viper.SetDefault("INGEST_BUFFER_SIZE", 1000)
-	viper.SetDefault("ALERT_CHECK_INTERVAL", 60)
 	viper.SetDefault("BENCHMARK_INTERVAL", 300)
 
 	cfg := &Config{}
@@ -49,7 +61,6 @@ func Load() (*Config, error) {
 	cfg.IdentityRegistryRPC = viper.GetString("IDENTITY_REGISTRY_RPC")
 	cfg.IngestWorkers = viper.GetInt("INGEST_WORKERS")
 	cfg.IngestBufferSize = viper.GetInt("INGEST_BUFFER_SIZE")
-	cfg.AlertCheckInterval = viper.GetInt("ALERT_CHECK_INTERVAL")
 	cfg.BenchmarkInterval = viper.GetInt("BENCHMARK_INTERVAL")
 	cfg.AdminAPIKey = viper.GetString("ADMIN_API_KEY")
 	cfg.GT8004TokenID = viper.GetInt64("GT8004_TOKEN_ID")

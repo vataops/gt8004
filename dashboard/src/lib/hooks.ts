@@ -66,6 +66,22 @@ export function useBenchmark(category: string) {
 
 // ========== Authenticated Hooks ==========
 
+export function useAgentStats(agentId: string, apiKey: string) {
+  const fn = useCallback(
+    () => openApi.getStats(agentId, apiKey),
+    [agentId, apiKey]
+  );
+  return usePolling(fn, 15_000);
+}
+
+export function useDailyStats(agentId: string, apiKey: string, days = 30) {
+  const fn = useCallback(
+    () => openApi.getDailyStats(agentId, apiKey, days),
+    [agentId, apiKey, days]
+  );
+  return usePolling(fn, 60_000);
+}
+
 export function useCustomers(agentId: string, apiKey: string) {
   const fn = useCallback(
     () => openApi.getCustomers(agentId, apiKey),
@@ -88,22 +104,6 @@ export function usePerformance(agentId: string, apiKey: string, window = "24h") 
     [agentId, apiKey, window]
   );
   return usePolling(fn, 15_000);
-}
-
-export function useAlerts(agentId: string, apiKey: string) {
-  const fn = useCallback(
-    () => openApi.getAlerts(agentId, apiKey),
-    [agentId, apiKey]
-  );
-  return usePolling(fn, 30_000);
-}
-
-export function useAlertHistory(agentId: string, apiKey: string) {
-  const fn = useCallback(
-    () => openApi.getAlertHistory(agentId, apiKey),
-    [agentId, apiKey]
-  );
-  return usePolling(fn, 30_000);
 }
 
 export function useLogs(agentId: string, apiKey: string, limit = 50) {
