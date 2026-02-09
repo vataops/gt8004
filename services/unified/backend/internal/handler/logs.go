@@ -1,8 +1,11 @@
 package handler
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -29,6 +32,13 @@ func (h *Handler) ListLogs(c *gin.Context) {
 		}
 	}
 
+	cacheKey := fmt.Sprintf("agent:%s:logs:%d", c.Param("agent_id"), limit)
+
+	if cached := h.cache.Get(c.Request.Context(), cacheKey); cached != nil {
+		c.Data(http.StatusOK, "application/json", cached)
+		return
+	}
+
 	logs, err := h.store.GetRecentRequests(c.Request.Context(), dbID, limit)
 	if err != nil {
 		h.logger.Error("failed to list logs", zap.Error(err))
@@ -36,8 +46,11 @@ func (h *Handler) ListLogs(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	resp := gin.H{
 		"logs":  logs,
 		"total": len(logs),
-	})
+	}
+	data, _ := json.Marshal(resp)
+	h.cache.Set(c.Request.Context(), cacheKey, data, 5*time.Second)
+	c.Data(http.StatusOK, "application/json", data)
 }

@@ -6,6 +6,7 @@ import (
 	"github.com/GT8004/gt8004-common/identity"
 	"github.com/GT8004/gt8004-common/ws"
 	"github.com/GT8004/gt8004/internal/analytics"
+	"github.com/GT8004/gt8004/internal/cache"
 	"github.com/GT8004/gt8004/internal/erc8004"
 	"github.com/GT8004/gt8004/internal/gateway"
 	"github.com/GT8004/gt8004/internal/ingest"
@@ -17,6 +18,7 @@ type Handler struct {
 	store    *store.Store
 	identity *identity.Verifier
 	hub      *ws.Hub
+	cache    *cache.Cache
 	logger   *zap.Logger
 
 	// Open features
@@ -42,12 +44,14 @@ func New(
 	proxy *gateway.Proxy,
 	rateLimiter *gateway.RateLimiter,
 	erc8004Registry *erc8004.Registry,
+	redisCache *cache.Cache,
 	logger *zap.Logger,
 ) *Handler {
 	return &Handler{
 		store:             s,
 		identity:          id,
 		hub:               hub,
+		cache:             redisCache,
 		worker:            worker,
 		customerAnalytics: custAnalytics,
 		revenueAnalytics:  revAnalytics,

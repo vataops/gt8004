@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -28,11 +30,11 @@ type RegisterRequest struct {
 }
 
 type RegisterResponse struct {
-	AgentID      string `json:"agent_id"`
-	GT8004Endpoint  string `json:"gt8004_endpoint"`
-	DashboardURL string `json:"dashboard_url"`
-	APIKey       string `json:"api_key"`
-	Status       string `json:"status"`
+	AgentID        string `json:"agent_id"`
+	GT8004Endpoint string `json:"gt8004_endpoint"`
+	DashboardURL   string `json:"dashboard_url"`
+	APIKey         string `json:"api_key"`
+	Status         string `json:"status"`
 }
 
 // RegisterAgent handles POST /v1/agents/register.
@@ -75,11 +77,11 @@ func (h *Handler) RegisterAgent(c *gin.Context) {
 	}
 
 	resp := RegisterResponse{
-		AgentID:      req.AgentID,
-		GT8004Endpoint:  gt8004Endpoint,
-		DashboardURL: fmt.Sprintf("/dashboard/agents/%s", req.AgentID),
-		APIKey:       rawKey,
-		Status:       "active",
+		AgentID:        req.AgentID,
+		GT8004Endpoint: gt8004Endpoint,
+		DashboardURL:   fmt.Sprintf("/dashboard/agents/%s", req.AgentID),
+		APIKey:         rawKey,
+		Status:         "active",
 	}
 
 	c.JSON(http.StatusCreated, resp)
@@ -99,6 +101,13 @@ func (h *Handler) AgentStats(c *gin.Context) {
 		return
 	}
 
+	cacheKey := fmt.Sprintf("agent:%s:stats", c.Param("agent_id"))
+
+	if cached := h.cache.Get(c.Request.Context(), cacheKey); cached != nil {
+		c.Data(http.StatusOK, "application/json", cached)
+		return
+	}
+
 	stats, err := h.store.GetAgentStats(c.Request.Context(), dbID)
 	if err != nil {
 		h.logger.Error("failed to get agent stats", zap.Error(err))
@@ -106,7 +115,9 @@ func (h *Handler) AgentStats(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, stats)
+	data, _ := json.Marshal(stats)
+	h.cache.Set(c.Request.Context(), cacheKey, data, 10*time.Second)
+	c.Data(http.StatusOK, "application/json", data)
 }
 
 // AgentDailyStats handles GET /v1/agents/:agent_id/stats/daily.
@@ -131,6 +142,13 @@ func (h *Handler) AgentDailyStats(c *gin.Context) {
 		}
 	}
 
+	cacheKey := fmt.Sprintf("agent:%s:daily:%d", c.Param("agent_id"), days)
+
+	if cached := h.cache.Get(c.Request.Context(), cacheKey); cached != nil {
+		c.Data(http.StatusOK, "application/json", cached)
+		return
+	}
+
 	stats, err := h.store.GetDailyStats(c.Request.Context(), dbID, days)
 	if err != nil {
 		h.logger.Error("failed to get daily stats", zap.Error(err))
@@ -138,7 +156,10 @@ func (h *Handler) AgentDailyStats(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"stats": stats})
+	resp := gin.H{"stats": stats}
+	data, _ := json.Marshal(resp)
+	h.cache.Set(c.Request.Context(), cacheKey, data, 60*time.Second)
+	c.Data(http.StatusOK, "application/json", data)
 }
 
 // GetMe handles GET /v1/agents/me — returns the authenticated agent's profile.
@@ -212,6 +233,13 @@ func (h *Handler) ListWalletAgents(c *gin.Context) {
 		return
 	}
 
+	cacheKey := fmt.Sprintf("wallet:%s", address)
+
+	if cached := h.cache.Get(c.Request.Context(), cacheKey); cached != nil {
+		c.Data(http.StatusOK, "application/json", cached)
+		return
+	}
+
 	agents, err := h.store.GetAgentsByEVMAddress(c.Request.Context(), address)
 	if err != nil {
 		h.logger.Error("failed to list wallet agents", zap.Error(err))
@@ -222,10 +250,13 @@ func (h *Handler) ListWalletAgents(c *gin.Context) {
 		agents = []store.Agent{}
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	resp := gin.H{
 		"agents": agents,
 		"total":  len(agents),
-	})
+	}
+	data, _ := json.Marshal(resp)
+	h.cache.Set(c.Request.Context(), cacheKey, data, 60*time.Second)
+	c.Data(http.StatusOK, "application/json", data)
 }
 
 // SearchAgents handles GET /v1/agents/search (Phase 1D - public).
@@ -244,6 +275,13 @@ func (h *Handler) SearchAgents(c *gin.Context) {
 		minReputation = parsed
 	}
 
+	cacheKey := fmt.Sprintf("search:%s:%s:%s", category, protocol, sortParam)
+
+	if cached := h.cache.Get(c.Request.Context(), cacheKey); cached != nil {
+		c.Data(http.StatusOK, "application/json", cached)
+		return
+	}
+
 	agents, err := h.store.SearchAgentsAdvanced(c.Request.Context(), category, protocol, minReputation, sortParam)
 	if err != nil {
 		h.logger.Error("failed to search agents", zap.Error(err))
@@ -251,8 +289,11 @@ func (h *Handler) SearchAgents(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	resp := gin.H{
 		"agents": agents,
 		"total":  len(agents),
-	})
+	}
+	data, _ := json.Marshal(resp)
+	h.cache.Set(c.Request.Context(), cacheKey, data, 60*time.Second)
+	c.Data(http.StatusOK, "application/json", data)
 }

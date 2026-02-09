@@ -2,32 +2,38 @@ package ingest
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+
+	"github.com/GT8004/gt8004/internal/cache"
 )
 
 type IngestJob struct {
 	AgentDBID uuid.UUID
+	AgentID   string
 	Batch     *LogBatch
 }
 
 type Worker struct {
 	ch       chan *IngestJob
 	enricher *Enricher
+	cache    *cache.Cache
 	workers  int
 	wg       sync.WaitGroup
 	logger   *zap.Logger
 }
 
-func NewWorker(enricher *Enricher, workers, bufferSize int, logger *zap.Logger) *Worker {
+func NewWorker(enricher *Enricher, c *cache.Cache, workers, bufferSize int, logger *zap.Logger) *Worker {
 	if workers <= 0 {
 		workers = 4
 	}
 	return &Worker{
 		ch:       make(chan *IngestJob, bufferSize),
 		enricher: enricher,
+		cache:    c,
 		workers:  workers,
 		logger:   logger,
 	}
@@ -73,6 +79,10 @@ func (w *Worker) run(id int) {
 				zap.String("batch_id", job.Batch.BatchID),
 				zap.Error(err),
 			)
+			continue
 		}
+		// Invalidate cached data for this agent after successful ingest
+		w.cache.DelPattern(ctx, fmt.Sprintf("agent:%s:*", job.AgentID))
+		w.cache.Del(ctx, "overview")
 	}
 }

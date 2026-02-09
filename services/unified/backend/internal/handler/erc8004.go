@@ -1,9 +1,12 @@
 package handler
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -56,6 +59,12 @@ func (h *Handler) VerifyToken(c *gin.Context) {
 		return
 	}
 
+	cacheKey := fmt.Sprintf("erc8004:token:%d:%d", tokenID, chainID)
+	if cached := h.cache.Get(c.Request.Context(), cacheKey); cached != nil {
+		c.Data(http.StatusOK, "application/json", cached)
+		return
+	}
+
 	owner, err := client.VerifyOwnership(c.Request.Context(), tokenID)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
@@ -68,12 +77,10 @@ func (h *Handler) VerifyToken(c *gin.Context) {
 
 	agentURI, _ := client.GetAgentURI(c.Request.Context(), tokenID)
 
-	c.JSON(http.StatusOK, gin.H{
-		"exists":    true,
-		"token_id":  tokenID,
-		"owner":     owner,
-		"agent_uri": agentURI,
-	})
+	resp := gin.H{"exists": true, "token_id": tokenID, "owner": owner, "agent_uri": agentURI}
+	data, _ := json.Marshal(resp)
+	h.cache.Set(c.Request.Context(), cacheKey, data, 1*time.Hour)
+	c.Data(http.StatusOK, "application/json", data)
 }
 
 // ListTokensByOwner handles GET /v1/erc8004/tokens/:address
@@ -97,11 +104,20 @@ func (h *Handler) ListTokensByOwner(c *gin.Context) {
 		return
 	}
 
+	cacheKey := fmt.Sprintf("erc8004:tokens:%s:%d", address, chainID)
+	if cached := h.cache.Get(c.Request.Context(), cacheKey); cached != nil {
+		c.Data(http.StatusOK, "application/json", cached)
+		return
+	}
+
 	tokens, err := client.GetTokensByOwner(c.Request.Context(), address)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{"tokens": []any{}, "error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"tokens": tokens})
+	resp := gin.H{"tokens": tokens}
+	data, _ := json.Marshal(resp)
+	h.cache.Set(c.Request.Context(), cacheKey, data, 30*time.Minute)
+	c.Data(http.StatusOK, "application/json", data)
 }

@@ -1,7 +1,10 @@
 package handler
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -11,15 +14,23 @@ import (
 func (h *Handler) GetBenchmark(c *gin.Context) {
 	category := c.Query("category")
 
+	cacheKey := fmt.Sprintf("benchmark:%s", category)
+	if cached := h.cache.Get(c.Request.Context(), cacheKey); cached != nil {
+		c.Data(http.StatusOK, "application/json", cached)
+		return
+	}
+
 	if category == "" {
-		// Return list of categories.
 		categories, err := h.store.GetBenchmarkCategories(c.Request.Context())
 		if err != nil {
 			h.logger.Error("failed to get benchmark categories", zap.Error(err))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get categories"})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"categories": categories})
+		resp := gin.H{"categories": categories}
+		data, _ := json.Marshal(resp)
+		h.cache.Set(c.Request.Context(), cacheKey, data, 5*time.Minute)
+		c.Data(http.StatusOK, "application/json", data)
 		return
 	}
 
@@ -30,9 +41,8 @@ func (h *Handler) GetBenchmark(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"category": category,
-		"rankings": entries,
-		"total":    len(entries),
-	})
+	resp := gin.H{"category": category, "rankings": entries, "total": len(entries)}
+	data, _ := json.Marshal(resp)
+	h.cache.Set(c.Request.Context(), cacheKey, data, 5*time.Minute)
+	c.Data(http.StatusOK, "application/json", data)
 }

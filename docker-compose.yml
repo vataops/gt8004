@@ -1,4 +1,17 @@
 services:
+  # ── Redis ─────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   # ── PostgreSQL ─────────────────────────────────
   postgres:
     image: postgres:16-alpine
@@ -31,12 +44,15 @@ services:
       LOG_LEVEL: debug
       DATABASE_URL: postgres://ael:ael@postgres:5432/gt8004?sslmode=disable
       ADMIN_API_KEY: ${ADMIN_API_KEY:-changeme}
+      REDIS_URL: redis://redis:6379/0
       IDENTITY_REGISTRY_ADDRESS: ${IDENTITY_REGISTRY_ADDRESS:-0x8004A169FB4a3325136EB29fA0ceB6D2e539a432}
       IDENTITY_REGISTRY_RPC: ${IDENTITY_REGISTRY_RPC:-https://sepolia.base.org}
       GT8004_TOKEN_ID: ${GT8004_TOKEN_ID:-0}
       GT8004_AGENT_URI: ${GT8004_AGENT_URI:-https://api.gt8004.network}
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: unless-stopped
 
@@ -81,3 +97,4 @@ services:
 
 volumes:
   pgdata:
+  redisdata:

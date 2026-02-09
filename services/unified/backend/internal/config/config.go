@@ -32,6 +32,9 @@ type Config struct {
 	// Benchmark
 	BenchmarkInterval int `mapstructure:"BENCHMARK_INTERVAL"`
 
+	// Redis
+	RedisURL string `mapstructure:"REDIS_URL"`
+
 	// Admin
 	AdminAPIKey string `mapstructure:"ADMIN_API_KEY"`
 
@@ -62,6 +65,7 @@ func Load() (*Config, error) {
 	cfg.IngestWorkers = viper.GetInt("INGEST_WORKERS")
 	cfg.IngestBufferSize = viper.GetInt("INGEST_BUFFER_SIZE")
 	cfg.BenchmarkInterval = viper.GetInt("BENCHMARK_INTERVAL")
+	cfg.RedisURL = viper.GetString("REDIS_URL")
 	cfg.AdminAPIKey = viper.GetString("ADMIN_API_KEY")
 	cfg.GT8004TokenID = viper.GetInt64("GT8004_TOKEN_ID")
 	cfg.GT8004AgentURI = viper.GetString("GT8004_AGENT_URI")

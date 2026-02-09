@@ -37,8 +37,10 @@ func (h *Handler) IngestLogs(c *gin.Context) {
 		return
 	}
 
+	agentID, _ := c.Get("agent_id")
 	h.worker.Submit(&ingest.IngestJob{
 		AgentDBID: dbID,
+		AgentID:   agentID.(string),
 		Batch:     batch,
 	})
 

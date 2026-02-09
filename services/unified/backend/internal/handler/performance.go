@@ -1,9 +1,12 @@
 package handler
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -30,6 +33,13 @@ func (h *Handler) PerformanceReport(c *gin.Context) {
 		windowHours = parseWindowHours(w)
 	}
 
+	cacheKey := fmt.Sprintf("agent:%s:perf:%d", c.Param("agent_id"), windowHours)
+
+	if cached := h.cache.Get(c.Request.Context(), cacheKey); cached != nil {
+		c.Data(http.StatusOK, "application/json", cached)
+		return
+	}
+
 	report, err := h.perfAnalytics.GetPerformanceReport(c.Request.Context(), dbID, windowHours)
 	if err != nil {
 		h.logger.Error("failed to get performance report", zap.Error(err))
@@ -37,7 +47,9 @@ func (h *Handler) PerformanceReport(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, report)
+	data, _ := json.Marshal(report)
+	h.cache.Set(c.Request.Context(), cacheKey, data, 10*time.Second)
+	c.Data(http.StatusOK, "application/json", data)
 }
 
 // parseWindowHours parses a window string like "24h", "1h", "72h" into hours.

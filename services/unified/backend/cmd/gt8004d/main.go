@@ -15,6 +15,7 @@ import (
 	"github.com/GT8004/gt8004-common/identity"
 	"github.com/GT8004/gt8004-common/ws"
 	"github.com/GT8004/gt8004/internal/analytics"
+	"github.com/GT8004/gt8004/internal/cache"
 	"github.com/GT8004/gt8004/internal/config"
 	"github.com/GT8004/gt8004/internal/erc8004"
 	"github.com/GT8004/gt8004/internal/gateway"
@@ -47,6 +48,15 @@ func main() {
 	}
 	defer db.Close()
 
+	// Redis cache (optional — nil cache = no-op fallback)
+	redisCache, err := cache.New(cfg.RedisURL, logger)
+	if err != nil {
+		logger.Warn("failed to connect to redis, caching disabled", zap.Error(err))
+	}
+	if redisCache != nil {
+		defer redisCache.Close()
+	}
+
 	// === Shared components ===
 
 	// ERC-8004 identity verifier (from common)
@@ -59,7 +69,7 @@ func main() {
 
 	// Ingest pipeline
 	enricher := ingest.NewEnricher(db, logger)
-	worker := ingest.NewWorker(enricher, cfg.IngestWorkers, cfg.IngestBufferSize, logger)
+	worker := ingest.NewWorker(enricher, redisCache, cfg.IngestWorkers, cfg.IngestBufferSize, logger)
 	worker.Start()
 
 	// Analytics
@@ -94,6 +104,7 @@ func main() {
 		custAnalytics, revAnalytics, perfAnalytics,
 		proxy, rateLimiter,
 		erc8004Registry,
+		redisCache,
 		logger,
 	)
 	srv := server.New(cfg, h, logger)

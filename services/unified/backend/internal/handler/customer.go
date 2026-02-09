@@ -1,8 +1,11 @@
 package handler
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -37,6 +40,12 @@ func (h *Handler) ListCustomers(c *gin.Context) {
 		}
 	}
 
+	cacheKey := fmt.Sprintf("agent:%s:customers:%d:%d", c.Param("agent_id"), limit, offset)
+	if cached := h.cache.Get(c.Request.Context(), cacheKey); cached != nil {
+		c.Data(http.StatusOK, "application/json", cached)
+		return
+	}
+
 	customers, total, err := h.store.GetCustomers(c.Request.Context(), dbID, limit, offset)
 	if err != nil {
 		h.logger.Error("failed to list customers", zap.Error(err))
@@ -44,10 +53,10 @@ func (h *Handler) ListCustomers(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"customers": customers,
-		"total":     total,
-	})
+	resp := gin.H{"customers": customers, "total": total}
+	data, _ := json.Marshal(resp)
+	h.cache.Set(c.Request.Context(), cacheKey, data, 30*time.Second)
+	c.Data(http.StatusOK, "application/json", data)
 }
 
 // GetCustomer handles GET /v1/agents/:agent_id/customers/:customer_id.

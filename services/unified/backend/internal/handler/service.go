@@ -148,6 +148,13 @@ func (h *Handler) RegisterService(c *gin.Context) {
 		return
 	}
 
+	// Invalidate search/overview caches after new registration
+	h.cache.DelPattern(c.Request.Context(), "search:*")
+	h.cache.Del(c.Request.Context(), "overview")
+	if agent.EVMAddress != "" {
+		h.cache.Del(c.Request.Context(), fmt.Sprintf("wallet:%s", agent.EVMAddress))
+	}
+
 	c.JSON(http.StatusCreated, RegisterServiceResponse{
 		AgentID:        agentID,
 		GT8004Endpoint: agent.GT8004Endpoint,
@@ -345,6 +352,10 @@ func (h *Handler) LinkERC8004(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to link ERC-8004"})
 		return
 	}
+
+	// Invalidate wallet + search caches after ERC-8004 link
+	h.cache.Del(c.Request.Context(), fmt.Sprintf("wallet:%s", info.EVMAddress))
+	h.cache.DelPattern(c.Request.Context(), "search:*")
 
 	c.JSON(http.StatusOK, gin.H{
 		"verified":         true,
