@@ -23,6 +23,7 @@ import (
 	"github.com/GT8004/gt8004/internal/ingest"
 	"github.com/GT8004/gt8004/internal/server"
 	"github.com/GT8004/gt8004/internal/store"
+	netsync "github.com/GT8004/gt8004/internal/sync"
 )
 
 func main() {
@@ -97,6 +98,11 @@ func main() {
 	}
 	erc8004Registry := erc8004.NewRegistry(networkConfigs, logger)
 
+	// === Network agent sync (on-chain discovery) ===
+
+	syncJob := netsync.NewJob(db, erc8004Registry, logger, time.Duration(cfg.ScanSyncInterval)*time.Second)
+	syncJob.Start()
+
 	// === Unified handler and server ===
 
 	h := handler.New(
@@ -142,6 +148,7 @@ func main() {
 
 	worker.Stop()
 	benchCalc.Stop()
+	syncJob.Stop()
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()

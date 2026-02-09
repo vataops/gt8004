@@ -39,7 +39,7 @@ export interface RegisterServiceParams {
   protocols?: string[];
   category?: string;
   pricing?: { model: string; amount: string; currency: string };
-  tier?: 'open' | 'lite' | 'pro';
+  tier?: 'open' | 'lite';
   // ERC-8004 (optional)
   erc8004_token_id?: number;
   challenge?: string;
@@ -184,7 +184,7 @@ export class GT8004Client {
   }
 
   /** Upgrade or downgrade the service tier for an agent. */
-  async updateTier(agentId: string, tier: 'open' | 'lite' | 'pro', evmAddress?: string): Promise<TierUpdateResult> {
+  async updateTier(agentId: string, tier: 'open' | 'lite', evmAddress?: string): Promise<TierUpdateResult> {
     return this.request(`/v1/services/${agentId}/tier`, {
       method: 'PUT',
       body: JSON.stringify({ tier, evm_address: evmAddress }),

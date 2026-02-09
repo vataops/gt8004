@@ -35,7 +35,7 @@ const escrowABIJSON = `[
 			{"name":"channelId","type":"bytes32"},
 			{"name":"agents","type":"address[]"},
 			{"name":"creditBalances","type":"uint256[]"},
-			{"name":"hydraStateProof","type":"bytes"}
+			{"name":"proof","type":"bytes"}
 		],
 		"name": "settle",
 		"outputs": [],
@@ -160,7 +160,6 @@ func (e *EscrowClient) Settle(ctx context.Context, channelID string, agents []co
 	}
 
 	chID := channelIDToBytes32(channelID)
-	// Lite mode: empty proof (no Hydra state proof needed)
 	proof := []byte{}
 	data, err := e.contractABI.Pack("settle", chID, agents, creditBalances, proof)
 	if err != nil {

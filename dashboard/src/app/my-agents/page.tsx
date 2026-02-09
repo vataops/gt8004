@@ -23,7 +23,7 @@ interface AgentRow {
 }
 
 export default function MyAgentsPage() {
-  const { walletAddress, loading: authLoading } = useAuth();
+  const { walletAddress, loading: authLoading, logout } = useAuth();
   const router = useRouter();
   const [agents, setAgents] = useState<AgentRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -167,12 +167,20 @@ export default function MyAgentsPage() {
             Manage your agents registered on the ERC-8004 registry
           </p>
         </div>
-        <Link
-          href="/register"
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium transition-colors"
-        >
-          Create Agent
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={logout}
+            className="px-4 py-2 rounded-md text-sm font-medium text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 transition-colors"
+          >
+            Disconnect
+          </button>
+          <Link
+            href="/register"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium transition-colors"
+          >
+            Create Agent
+          </Link>
+        </div>
       </div>
 
       {/* Wallet address */}

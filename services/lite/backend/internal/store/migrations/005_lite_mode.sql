@@ -15,6 +15,3 @@ CREATE TABLE IF NOT EXISTS credit_balances (
 CREATE INDEX idx_cb_channel ON credit_balances(channel_id);
 CREATE INDEX idx_cb_agent ON credit_balances(agent_id);
 
--- Make cardano fields optional for Lite mode (they were NOT NULL before via implicit schema)
-ALTER TABLE channel_participants ALTER COLUMN cardano_address SET DEFAULT '';
-ALTER TABLE channel_participants ALTER COLUMN cardano_vkey_hash SET DEFAULT '';

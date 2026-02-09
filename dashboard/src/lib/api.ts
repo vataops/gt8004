@@ -216,6 +216,23 @@ export interface DailyStats {
   errors: number;
 }
 
+// ---------- Network Agents (on-chain discovery) ----------
+
+export interface NetworkAgent {
+  id: string;
+  chain_id: number;
+  token_id: number;
+  owner_address: string;
+  agent_uri: string;
+  created_at: string;
+  synced_at: string;
+}
+
+export interface NetworkStats {
+  total: number;
+  by_chain: Record<number, number>;
+}
+
 // ---------- 8004scan API (proxied via /api/scan) ----------
 
 export interface ScanAgent {
@@ -392,4 +409,19 @@ export const openApi = {
   // Agent settings (auth required)
   updateOriginEndpoint: (apiKey: string, endpoint: string) =>
     openFetcherPut<Agent>("/v1/agents/me/endpoint", { origin_endpoint: endpoint }, apiKey),
+
+  // Network agents (public — on-chain discovery)
+  getNetworkAgents: (params: { chain_id?: number; search?: string; limit?: number; offset?: number } = {}) => {
+    const query = new URLSearchParams();
+    if (params.chain_id) query.set("chain_id", String(params.chain_id));
+    if (params.search) query.set("search", params.search);
+    if (params.limit) query.set("limit", String(params.limit));
+    if (params.offset) query.set("offset", String(params.offset));
+    const qs = query.toString();
+    return openFetcher<{ agents: NetworkAgent[]; total: number }>(
+      `/v1/network/agents${qs ? `?${qs}` : ""}`
+    );
+  },
+  getNetworkStats: () =>
+    openFetcher<NetworkStats>("/v1/network/stats"),
 };

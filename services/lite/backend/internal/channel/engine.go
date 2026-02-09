@@ -12,7 +12,6 @@ type Channel struct {
 	Mode               string     `json:"mode"`
 	Type               string     `json:"type"`
 	Status             string     `json:"status"` // pending → active → closing → settled
-	HydraHeadID        *string    `json:"hydra_head_id,omitempty"` // reserved for Pro
 	TotalUSDCDeposited float64    `json:"total_usdc_deposited"`
 	TotalCreditsMinted int64      `json:"total_credits_minted"`
 	TotalTransactions  int64      `json:"total_transactions"`

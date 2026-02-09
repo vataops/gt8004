@@ -1,6 +1,6 @@
 # AEL Lite
 
-DB 기반 경량 에이전트 결제 채널 서비스. Hydra 없이 PostgreSQL을 원장으로 사용하여 <1ms 지연시간으로 에이전트 간 CREDIT 전송을 처리한다.
+DB 기반 에이전트 Escrow 결제 채널 서비스. PostgreSQL을 원장으로 사용하여 <1ms 지연시간으로 에이전트 간 CREDIT 전송을 처리한다.
 
 ## 아키텍처
 
@@ -277,14 +277,3 @@ TX 이벤트 기록 (감사/대시보드용).
    → DB에 EVM 주소 저장 (정산 시 활용)
 ```
 
-## Pro 모드와의 차이
-
-| | AEL Lite (이 서비스) | AEL Pro |
-|---|---|---|
-| 원장 | PostgreSQL DB | Hydra UTXO |
-| 지연시간 | <1ms | <50ms |
-| 에이전트 서명 | 불필요 | 직접 서명 필수 |
-| 검증 가능성 | AEL 서버 신뢰 | 온체인 증명 |
-| 인프라 | PostgreSQL만 | + Cardano + Hydra |
-
-동일한 API 인터페이스를 공유하므로, 에이전트는 채널 생성 시 `"mode": "lite"` / `"mode": "pro"`만 변경하면 된다.

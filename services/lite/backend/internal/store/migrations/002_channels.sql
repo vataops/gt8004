@@ -5,19 +5,13 @@ CREATE TABLE channels (
     status               VARCHAR(16) NOT NULL DEFAULT 'pending',
     trust_mode           VARCHAR(16) NOT NULL DEFAULT 'managed',
 
-    -- Hydra Head
-    hydra_head_id        VARCHAR(128),
-    hydra_node_url       VARCHAR(256),
-
     -- Escrow (Base chain)
     escrow_channel_hash  BYTEA,
     escrow_deposit_tx    VARCHAR(66),
     total_usdc_deposited NUMERIC(20,6) DEFAULT 0,
 
-    -- CREDIT (Cardano)
-    credit_policy_id     VARCHAR(56),
+    -- CREDIT
     total_credits_minted BIGINT DEFAULT 0,
-    mint_tx_hash         VARCHAR(64),
 
     -- Stats
     total_transactions   BIGINT DEFAULT 0,

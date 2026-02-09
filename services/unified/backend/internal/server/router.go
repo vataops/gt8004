@@ -52,6 +52,10 @@ func NewRouter(cfg *config.Config, h *handler.Handler, logger *zap.Logger) *gin.
 	v1.GET("/erc8004/token/:token_id", h.VerifyToken)
 	v1.GET("/erc8004/tokens/:address", h.ListTokensByOwner)
 
+	// Network agents (public — all on-chain ERC-8004 agents)
+	v1.GET("/network/agents", h.ListNetworkAgents)
+	v1.GET("/network/stats", h.GetNetworkStats)
+
 	// === Service Lifecycle ===
 	v1.POST("/services/register", h.RegisterService)
 

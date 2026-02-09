@@ -25,11 +25,7 @@ CREATE TABLE channel_participants (
     agent_id            UUID NOT NULL REFERENCES agents(id),
     role                VARCHAR(16) NOT NULL DEFAULT 'client',
 
-    -- Cardano keypair for this channel session
-    cardano_address     VARCHAR(128) NOT NULL,
-    cardano_vkey_hash   VARCHAR(56) NOT NULL,
-
-    -- Credit tracking (snapshot from Hydra)
+    -- Credit tracking
     initial_credits     BIGINT DEFAULT 0,
     current_credits     BIGINT DEFAULT 0,
 

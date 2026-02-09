@@ -3,14 +3,11 @@ package erc8004
 // BuildDescriptor returns the GT8004 agent registration file content for /.well-known/agent.json.
 func (c *Client) BuildDescriptor() map[string]interface{} {
 	tiers := map[string]interface{}{
-		"open": map[string]interface{}{
+		"platform": map[string]interface{}{
 			"price":    "free",
 			"features": []string{"analytics", "dashboard", "discovery", "gateway", "alerts", "benchmarks"},
 		},
-		"lite": map[string]interface{}{
-			"status": "coming_soon",
-		},
-		"pro": map[string]interface{}{
+		"escrow": map[string]interface{}{
 			"status": "coming_soon",
 		},
 	}

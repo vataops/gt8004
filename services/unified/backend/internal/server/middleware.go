@@ -50,7 +50,7 @@ func APIKeyAuthMiddleware(h *handler.Handler) gin.HandlerFunc {
 
 // TierRequiredMiddleware checks that the authenticated agent has at least the required tier.
 func TierRequiredMiddleware(requiredTier string, h *handler.Handler) gin.HandlerFunc {
-	tierLevels := map[string]int{"open": 1, "lite": 2, "pro": 3}
+	tierLevels := map[string]int{"open": 1, "lite": 2}
 
 	return func(c *gin.Context) {
 		agentDBID, exists := c.Get(ContextKeyAgentDBID)

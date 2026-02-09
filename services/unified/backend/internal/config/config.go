@@ -41,6 +41,9 @@ type Config struct {
 	// ERC-8004 Registration
 	GT8004TokenID  int64  `mapstructure:"GT8004_TOKEN_ID"`
 	GT8004AgentURI string `mapstructure:"GT8004_AGENT_URI"`
+
+	// Network agent sync
+	ScanSyncInterval int `mapstructure:"SCAN_SYNC_INTERVAL"`
 }
 
 func Load() (*Config, error) {
@@ -54,6 +57,7 @@ func Load() (*Config, error) {
 	viper.SetDefault("INGEST_WORKERS", 4)
 	viper.SetDefault("INGEST_BUFFER_SIZE", 1000)
 	viper.SetDefault("BENCHMARK_INTERVAL", 300)
+	viper.SetDefault("SCAN_SYNC_INTERVAL", 300)
 
 	cfg := &Config{}
 	cfg.Port = viper.GetInt("PORT")
@@ -69,6 +73,7 @@ func Load() (*Config, error) {
 	cfg.AdminAPIKey = viper.GetString("ADMIN_API_KEY")
 	cfg.GT8004TokenID = viper.GetInt64("GT8004_TOKEN_ID")
 	cfg.GT8004AgentURI = viper.GetString("GT8004_AGENT_URI")
+	cfg.ScanSyncInterval = viper.GetInt("SCAN_SYNC_INTERVAL")
 
 	return cfg, nil
 }

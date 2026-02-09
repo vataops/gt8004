@@ -270,7 +270,7 @@ function RegisterPageInner() {
   const handleContinue = async () => {
     try {
       await login(apiKey);
-      router.push("/settings");
+      router.push("/my-agents");
     } catch {
       router.push("/login");
     }
@@ -405,7 +405,7 @@ function RegisterPageInner() {
       <h2 className="text-xl font-bold mb-2">Agent Registered</h2>
       <p className="text-sm text-gray-400 mb-6">
         Your agent <span className="text-white font-medium">{registeredAgentId}</span> has been
-        successfully registered. You can view your API key in Settings.
+        successfully registered. You can manage it from your agent dashboard.
       </p>
 
       <button

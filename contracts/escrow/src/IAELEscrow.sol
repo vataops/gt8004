@@ -13,7 +13,7 @@ interface IAELEscrow {
         bytes32 channelId,
         address[] calldata agents,
         uint256[] calldata creditBalances,
-        bytes calldata hydraStateProof
+        bytes calldata proof
     ) external;
 
     /// @notice Partial settlement when a single participant exits.

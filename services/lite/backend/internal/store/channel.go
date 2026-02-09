@@ -11,7 +11,6 @@ type Channel struct {
 	Type                string     `json:"type"`
 	Status              string     `json:"status"`
 	Mode                string     `json:"mode"`
-	HydraHeadID         *string    `json:"hydra_head_id,omitempty"`
 	TotalUSDCDeposited  float64    `json:"total_usdc_deposited"`
 	TotalCreditsMinted  int64      `json:"total_credits_minted"`
 	TotalTransactions   int64      `json:"total_transactions"`
@@ -26,13 +25,13 @@ type Channel struct {
 func (s *Store) GetChannel(ctx context.Context, channelID string) (*Channel, error) {
 	ch := &Channel{}
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, channel_id, type, status, mode, hydra_head_id,
+		SELECT id, channel_id, type, status, mode,
 		       total_usdc_deposited, total_credits_minted, total_transactions,
 		       avg_latency_ms, max_participants, created_at, opened_at, closed_at
 		FROM channels WHERE channel_id = $1
 	`, channelID).Scan(
 		&ch.ID, &ch.ChannelID, &ch.Type, &ch.Status, &ch.Mode,
-		&ch.HydraHeadID, &ch.TotalUSDCDeposited, &ch.TotalCreditsMinted,
+		&ch.TotalUSDCDeposited, &ch.TotalCreditsMinted,
 		&ch.TotalTransactions, &ch.AvgLatencyMs, &ch.MaxParticipants,
 		&ch.CreatedAt, &ch.OpenedAt, &ch.ClosedAt,
 	)
@@ -44,7 +43,7 @@ func (s *Store) GetChannel(ctx context.Context, channelID string) (*Channel, err
 
 func (s *Store) ListChannels(ctx context.Context) ([]Channel, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT c.id, c.channel_id, c.type, c.status, c.mode, c.hydra_head_id,
+		SELECT c.id, c.channel_id, c.type, c.status, c.mode,
 		       c.total_usdc_deposited, c.total_credits_minted, c.total_transactions,
 		       c.avg_latency_ms, c.max_participants, c.created_at, c.opened_at, c.closed_at,
 		       (SELECT COUNT(*) FROM channel_participants cp WHERE cp.channel_id = c.id) as participant_count
@@ -62,7 +61,7 @@ func (s *Store) ListChannels(ctx context.Context) ([]Channel, error) {
 		var ch Channel
 		if err := rows.Scan(
 			&ch.ID, &ch.ChannelID, &ch.Type, &ch.Status, &ch.Mode,
-			&ch.HydraHeadID, &ch.TotalUSDCDeposited, &ch.TotalCreditsMinted,
+			&ch.TotalUSDCDeposited, &ch.TotalCreditsMinted,
 			&ch.TotalTransactions, &ch.AvgLatencyMs, &ch.MaxParticipants,
 			&ch.CreatedAt, &ch.OpenedAt, &ch.ClosedAt, &ch.ParticipantCount,
 		); err != nil {

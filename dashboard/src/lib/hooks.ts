@@ -55,6 +55,25 @@ export function useDiscovery(
   return usePolling(fn, 30_000);
 }
 
+export function useNetworkAgents(
+  params: {
+    chain_id?: number;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  } = {}
+) {
+  const fn = useCallback(
+    () => openApi.getNetworkAgents(params),
+    [params.chain_id, params.search, params.limit, params.offset]
+  );
+  return usePolling(fn, 30_000);
+}
+
+export function useNetworkStats() {
+  return usePolling(openApi.getNetworkStats, 30_000);
+}
+
 export function useBenchmarkCategories() {
   return usePolling(openApi.getBenchmarkCategories, 60_000);
 }

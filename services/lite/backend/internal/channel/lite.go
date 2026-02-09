@@ -12,7 +12,7 @@ import (
 )
 
 // LiteEngine implements Engine using PostgreSQL as the ledger.
-// All balance updates are atomic DB transactions — no Hydra, no agent signing.
+// All balance updates are atomic DB transactions.
 type LiteEngine struct {
 	pool   *pgxpool.Pool
 	logger *zap.Logger
@@ -71,8 +71,8 @@ func (e *LiteEngine) CreateChannel(ctx context.Context, req CreateChannelRequest
 
 		// Add participant
 		_, err = tx.Exec(ctx, `
-			INSERT INTO channel_participants (channel_id, agent_id, role, cardano_address, cardano_vkey_hash, initial_credits, current_credits, status)
-			VALUES ($1, $2, 'client', '', '', $3, $3, 'active')
+			INSERT INTO channel_participants (channel_id, agent_id, role, initial_credits, current_credits, status)
+			VALUES ($1, $2, 'client', $3, $3, 'active')
 		`, dbID, agentDBID, creditsPerAgent)
 		if err != nil {
 			return nil, fmt.Errorf("insert participant: %w", err)
@@ -122,13 +122,13 @@ func (e *LiteEngine) CreateChannel(ctx context.Context, req CreateChannelRequest
 func (e *LiteEngine) GetChannel(ctx context.Context, channelID string) (*Channel, error) {
 	ch := &Channel{}
 	err := e.pool.QueryRow(ctx, `
-		SELECT id, channel_id, mode, type, status, hydra_head_id,
+		SELECT id, channel_id, mode, type, status,
 		       total_usdc_deposited, total_credits_minted, total_transactions,
 		       avg_latency_ms, max_participants, created_at, opened_at, closed_at
 		FROM channels WHERE channel_id = $1
 	`, channelID).Scan(
 		&ch.ID, &ch.ChannelID, &ch.Mode, &ch.Type, &ch.Status,
-		&ch.HydraHeadID, &ch.TotalUSDCDeposited, &ch.TotalCreditsMinted,
+		&ch.TotalUSDCDeposited, &ch.TotalCreditsMinted,
 		&ch.TotalTransactions, &ch.AvgLatencyMs, &ch.MaxParticipants,
 		&ch.CreatedAt, &ch.OpenedAt, &ch.ClosedAt,
 	)

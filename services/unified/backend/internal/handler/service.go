@@ -53,8 +53,8 @@ func (h *Handler) RegisterService(c *gin.Context) {
 	if tier == "" {
 		tier = "open"
 	}
-	if tier != "open" && tier != "lite" && tier != "pro" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tier: must be open, lite, or pro"})
+	if tier != "open" && tier != "lite" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tier: must be open or lite"})
 		return
 	}
 
@@ -217,7 +217,7 @@ func (h *Handler) UpdateTier(c *gin.Context) {
 		return
 	}
 
-	if req.Tier != "open" && req.Tier != "lite" && req.Tier != "pro" {
+	if req.Tier != "open" && req.Tier != "lite" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tier"})
 		return
 	}
@@ -228,8 +228,8 @@ func (h *Handler) UpdateTier(c *gin.Context) {
 		return
 	}
 
-	// Upgrade to lite/pro requires verified EVM address
-	if (req.Tier == "lite" || req.Tier == "pro") && agent.EVMAddress == "" {
+	// Upgrade to lite requires verified EVM address
+	if req.Tier == "lite" && agent.EVMAddress == "" {
 		if req.EVMAddress == "" {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": "EVM address required for tier upgrade. Complete auth/verify first or provide evm_address.",

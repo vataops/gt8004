@@ -1,6 +1,6 @@
 # Database Schema
 
-AEL은 세 개의 서비스(Unified, Open, Lite)가 각각 독립적인 PostgreSQL 스키마를 가진다. **Unified**가 Open + Lite를 통합한 최종 스키마이다.
+GT8004은 세 개의 서비스(Unified, Open, Lite)가 각각 독립적인 PostgreSQL 스키마를 가진다. **Unified**가 Open + Lite를 통합한 최종 스키마이다.
 
 ---
 
@@ -35,7 +35,7 @@ AEL은 세 개의 서비스(Unified, Open, Lite)가 각각 독립적인 PostgreS
 | `capabilities` | JSONB | `'[]'` | 에이전트 능력 |
 | `identity_registry` | VARCHAR(42) | - | 등록된 레지스트리 컨트랙트 주소 |
 | `verified_at` | TIMESTAMPTZ | - | 온체인 검증 시각 |
-| `current_tier` | VARCHAR(8) | `'open'` | 티어 (open, lite, pro) |
+| `current_tier` | VARCHAR(8) | `'open'` | 티어 (open, lite) |
 | `tier_updated_at` | TIMESTAMPTZ | - | 티어 변경 시각 |
 | `created_at` | TIMESTAMPTZ | `NOW()` | 생성 시각 |
 | `updated_at` | TIMESTAMPTZ | `NOW()` | 수정 시각 |
@@ -165,23 +165,19 @@ Unified에 아직 통합되지 않은 Lite 전용 테이블.
 
 ### channels
 
-Hydra Head 기반 오프체인 결제 채널.
+Escrow 결제 채널. PostgreSQL을 원장으로 사용하여 에이전트 간 CREDIT 전송을 처리.
 
 | Column | Type | Default | Description |
 |--------|------|---------|-------------|
 | `id` | UUID PK | `uuid_generate_v4()` | - |
 | `channel_id` | VARCHAR(64) UNIQUE | - | 채널 식별자 |
+| `mode` | VARCHAR(16) | `'lite'` | 모드 |
 | `type` | VARCHAR(16) | `'private'` | 채널 타입 |
-| `status` | VARCHAR(16) | `'pending'` | 상태 (pending, open, closing, closed, settled) |
-| `trust_mode` | VARCHAR(16) | `'managed'` | 신뢰 모드 |
-| `hydra_head_id` | VARCHAR(128) | - | Hydra Head ID |
-| `hydra_node_url` | VARCHAR(256) | - | Hydra 노드 URL |
+| `status` | VARCHAR(16) | `'pending'` | 상태 (pending, active, closing, settled) |
 | `escrow_channel_hash` | BYTEA | - | 에스크로 채널 해시 |
 | `escrow_deposit_tx` | VARCHAR(66) | - | 에스크로 입금 트랜잭션 |
 | `total_usdc_deposited` | NUMERIC(20,6) | `0` | 총 USDC 입금액 |
-| `credit_policy_id` | VARCHAR(56) | - | CREDIT 토큰 Policy ID (Cardano) |
 | `total_credits_minted` | BIGINT | `0` | 발행된 CREDIT 수량 |
-| `mint_tx_hash` | VARCHAR(64) | - | 민트 트랜잭션 해시 |
 | `total_transactions` | BIGINT | `0` | 총 트랜잭션 수 |
 | `avg_latency_ms` | REAL | `0` | 평균 지연 시간 |
 | `created_at` | TIMESTAMPTZ | `NOW()` | - |
@@ -197,7 +193,7 @@ Hydra Head 기반 오프체인 결제 채널.
 
 ### channel_participants
 
-채널 참가자. Cardano 키페어 + CREDIT 잔액 추적.
+채널 참가자. CREDIT 잔액 추적.
 
 | Column | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -205,8 +201,6 @@ Hydra Head 기반 오프체인 결제 채널.
 | `channel_id` | UUID FK → channels(id) | - | - |
 | `agent_id` | UUID FK → agents(id) | - | - |
 | `role` | VARCHAR(16) | `'client'` | 역할 (provider, client) |
-| `cardano_address` | VARCHAR(128) | - | Cardano 주소 |
-| `cardano_vkey_hash` | VARCHAR(56) | - | 검증 키 해시 |
 | `initial_credits` | BIGINT | `0` | 초기 CREDIT 수량 |
 | `current_credits` | BIGINT | `0` | 현재 CREDIT 잔액 |
 | `settled_usdc` | NUMERIC(20,6) | - | 정산된 USDC |

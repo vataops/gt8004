@@ -1,9 +1,9 @@
-# AEL — Agent Economy Layer
+# GT8004 — Agent Economy Layer
 
 > **AI 에이전트를 위한 비즈니스 인텔리전스 플랫폼**
 >
 > 에이전트를 등록하면 API Gateway, 요청 기록, 고객 분석, 수익 리포트를 무료로 제공합니다.
-> 규모가 커지면 Escrow 결제 보호와 Hydra 상태 채널로 확장합니다.
+> 규모가 커지면 Escrow 결제 보호로 대규모 작업도 안전하게 처리합니다.
 
 ---
 
@@ -25,17 +25,16 @@ AI 에이전트(ERC-8004)가 서비스를 제공하고 x402로 수익을 만드�
 
 - 고객이 $500짜리 작업을 요청 → 작업 완료 후 미지급 리스크
 - 에이전트가 선불 받고 작업 미완료 → 고객 피해
-- 고빈도 에이전트 간 상호작용 → 건당 L2 정산도 비용/속도 한계
 
 ---
 
 ## 솔루션
 
-AEL는 **에이전트의 비즈니스 운영 플랫폼**입니다. SDK 5줄이면 즉시 비즈니스 인텔리전스를 무료로 받습니다. 기존 인프라 변경 없음. 규모가 커지면 Gateway 보호, Escrow 결제, Hydra 채널로 확장합니다.
+GT8004는 **에이전트의 비즈니스 운영 플랫폼**입니다. SDK 5줄이면 즉시 비즈니스 인텔리전스를 무료로 받습니다. 기존 인프라 변경 없음. 규모가 커지면 Escrow 결제 보호로 확장합니다.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  AEL Open (무료)                                             │
+│  GT8004 플랫폼                                               │
 │                                                              │
 │  "에이전트의 Stripe Dashboard"                               │
 │                                                              │
@@ -47,24 +46,20 @@ AEL는 **에이전트의 비즈니스 운영 플랫폼**입니다. SDK 5줄이�
 │    SDK 모드 (기본) — 코드 5줄, 레이턴시 제로, 비동기 로그    │
 │    Gateway 모드 (옵션) — DDoS 보호, 레이트 리밋, 라우팅      │
 │                                                              │
-│  결제는 고객 → 에이전트 직접 (x402). AEL는 돈을 안 만짐.    │
+│  결제는 고객 → 에이전트 직접 (x402). GT8004는 돈을 안 만짐.  │
 ├─────────────────────────────────────────────────────────────┤
-│  AEL Lite (Escrow 모드)                                      │
+│  Escrow (결제 보호)                                          │
 │                                                              │
 │  "대규모 작업의 결제 보호"                                   │
 │                                                              │
 │  USDC → Escrow → CREDIT. 마일스톤 기반 정산.                │
-│  + Open의 모든 기능                                          │
-├─────────────────────────────────────────────────────────────┤
-│  AEL Pro (Hydra 모드) — coming soon                          │
-│                                                              │
-│  트러스트리스 고빈도 채널. 온체인 검증. 상세 스펙 추후 공개. │
+│  + 플랫폼의 모든 기능                                        │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## AEL Open — 무료 비즈니스 인텔리전스
+## 플랫폼 기능
 
 SDK 5줄이면 **즉시 무료로** 비즈니스 인텔리전스를 받습니다. 기존 인프라 변경 없음.
 
@@ -75,21 +70,21 @@ SDK 5줄이면 **즉시 무료로** 비즈니스 인텔리전스를 받습니다
 
     고객 ──→ 에이전트 (기존 그대로)
                 │
-                └──→ AEL SDK: 비동기 로그 전송
+                └──→ GT8004 SDK: 비동기 로그 전송
 
     ✅ 레이턴시 제로 (기존 경로 그대로)
     ✅ 내 트래픽은 내가 소유
-    ✅ AEL 장애 = 로그만 안 보임, 서비스 정상
-    ✅ Lite/Pro에서도 사용 가능 (결제 API만 별도 호출)
+    ✅ GT8004 장애 = 로그만 안 보임, 서비스 정상
+    ✅ Escrow와 동시 사용 가능 (결제 API만 별도 호출)
 ```
 
 ```javascript
 // SDK 모드 — 기존 에이전트 코드에 5줄 추가
-import { AELLogger } from '@ael-network/sdk';
+import { GT8004Logger } from '@gt8004/sdk';
 
-const logger = new AELLogger({
+const logger = new GT8004Logger({
   agentId: 'erc8004:0xJames',
-  apiKey: process.env.AEL_API_KEY
+  apiKey: process.env.GT8004_API_KEY
 });
 
 app.use(logger.middleware());  // 요청/응답 자동 캡처, 비동기 전송
@@ -99,17 +94,17 @@ app.use(logger.middleware());  // 요청/응답 자동 캡처, 비동기 전송
 ```
   Gateway 모드 (옵션) — 추가 보호가 필요할 때
 
-    고객 ──→ AEL Gateway ──→ 에이전트
-         ←──              ←──
+    고객 ──→ GT8004 Gateway ──→ 에이전트
+         ←──                ←──
 
     ✅ DDoS 보호, 레이트 리밋
-    ✅ AEL 엔드포인트로 트래픽 통합
+    ✅ GT8004 엔드포인트로 트래픽 통합
     ❌ 레이턴시 추가 (+20~50ms)
-    ❌ 트래픽이 AEL를 경유
+    ❌ 트래픽이 GT8004를 경유
 
   Gateway 활성화 시 받는 것:
     원래 엔드포인트:  https://meerkat.up.railway.app/mcp/meerkat-19
-    AEL 엔드포인트:   https://ael.network/agents/meerkat-19/mcp
+    GT8004 엔드포인트: https://gt8004.network/agents/meerkat-19/mcp
 ```
 
 SDK든 Gateway든 대시보드, 분석, 디스커버리 기능은 동일하게 제공됩니다.
@@ -120,7 +115,7 @@ SDK든 Gateway든 대시보드, 분석, 디스커버리 기능은 동일하게 �
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  AEL Dashboard — James (meerkat-19)                             │
+│  GT8004 Dashboard — James (meerkat-19)                           │
 │                                                                  │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐       │
 │  │ 오늘 요청 │  │ 이번 주   │  │ 이번 달   │  │ 총 수익   │       │
@@ -232,7 +227,7 @@ x402 결제를 자동으로 추적해서 수익 리포트를 생성합니다.
 
 ### 7. 에이전트 디스커버리
 
-AEL에 등록된 에이전트들을 검색할 수 있는 마켓플레이스입니다.
+GT8004에 등록된 에이전트들을 검색할 수 있는 마켓플레이스입니다.
 
 ```
   GET /v1/agents?category=nlp&min_reputation=4.0&sort=price_asc
@@ -247,20 +242,20 @@ AEL에 등록된 에이전트들을 검색할 수 있는 마켓플레이스입�
       "avg_response_ms": 142,
       "total_served": 34521,
       "uptime": "99.7%",
-      "ael_endpoint": "https://ael.network/agents/meerkat-19/mcp"
+      "gt8004_endpoint": "https://gt8004.network/agents/meerkat-19/mcp"
     },
     ...
   ]
 ```
 
-고객 에이전트가 AEL 마켓플레이스에서 서비스 에이전트를 찾고, AEL 엔드포인트로 바로 호출할 수 있습니다.
+고객 에이전트가 GT8004 마켓플레이스에서 서비스 에이전트를 찾고, GT8004 엔드포인트로 바로 호출할 수 있습니다.
 
 ---
 
-## AEL Open이 에이전트에게 주는 가치
+## GT8004가 에이전트에게 주는 가치
 
 ```
-AEL Open 없이 (직접 구축):              AEL Open (무료):
+GT8004 없이 (직접 구축):               GT8004 (무료):
 
 ✍️  로깅 시스템 직접 개발               ✅  자동 기록
 📊  대시보드 직접 개발                   ✅  즉시 제공
@@ -271,12 +266,12 @@ AEL Open 없이 (직접 구축):              AEL Open (무료):
 🏪  마켓플레이스 노출 없음               ✅  에이전트 디스커버리
 
 예상 자체 구축 비용: 2~4주 개발 + $50~200/월 인프라
-AEL Open: 무료, SDK 5줄, 2분
+GT8004: 무료, SDK 5줄, 2분
 ```
 
 ---
 
-## AEL Lite — 대규모 작업의 결제 보호
+## Escrow — 대규모 작업의 결제 보호
 
 에이전트가 $100 이상의 대규모 작업을 수주할 때, 고객과 에이전트 모두를 보호합니다.
 
@@ -297,7 +292,7 @@ AEL Open: 무료, SDK 5줄, 2분
 ### Escrow로 해결
 
 ```
-고객                    AEL Escrow               에이전트
+고객                    GT8004 Escrow            에이전트
   │                        │                        │
   │  $200 USDC 예치        │                        │
   │  ──────────────────→  │  Escrow에 잠김          │
@@ -320,7 +315,7 @@ AEL Open: 무료, SDK 5줄, 2분
   에이전트 보호: 자금이 이미 예치되어 있으므로 미지급 불가
 ```
 
-### Lite 모드 가격
+### Escrow 가격
 
 ```
   채널 개설비: $5~$20 (1회)
@@ -328,30 +323,14 @@ AEL Open: 무료, SDK 5줄, 2분
   크레딧 충전: 실비만
 ```
 
-### Lite 모드의 원장
+### Escrow 원장
 
-Lite에서는 **서버 DB가 원장**입니다. AEL가 잔액을 관리하고 트랜잭션을 처리합니다. 이건 AEL를 신뢰해야 한다는 뜻이지만, Open 대시보드의 모든 기록이 증빙 자료로 기능합니다.
+GT8004 서버 DB가 원장입니다. GT8004가 잔액을 관리하고 트랜잭션을 처리합니다. 플랫폼의 모든 기록이 증빙 자료로 기능합니다.
 
 ```
   장점: 빠름 (<1ms), 단순, 개발 쉬움
-  단점: AEL를 신뢰해야 함
+  단점: GT8004를 신뢰해야 함
   적합: $100~$10,000 수준의 작업
-```
-
----
-
-## AEL Pro — 트러스트리스 고빈도 채널 (coming soon)
-
-Lite의 Escrow는 AEL를 신뢰해야 합니다. 기관급 에이전트나 고액 거래($10K+)에서 이게 부담이 될 수 있습니다.
-
-Pro 모드는 **Cardano Hydra 상태 채널**을 사용해서 에이전트가 직접 서명하고, 모든 상태를 온체인으로 검증합니다. AEL가 자금을 조작할 수 없는 트러스트리스 구조입니다.
-
-```
-  핵심 차이:
-    Lite — 서버 DB 원장, AEL 신뢰 필요, <1ms, $100~$10K
-    Pro  — Hydra UTXO 원장, 온체인 증명, <50ms, $10K+, 기관급
-
-  상세 스펙과 가격은 추후 공개됩니다.
 ```
 
 ---
@@ -360,7 +339,7 @@ Pro 모드는 **Cardano Hydra 상태 채널**을 사용해서 에이전트가 �
 
 ### Base URL
 ```
-https://api.ael.network/v1
+https://api.gt8004.network/v1
 ```
 
 ### 인증
@@ -371,7 +350,7 @@ Authorization: Bearer <agent_api_key>
 
 ---
 
-### 에이전트 등록 (Open, 무료)
+### 에이전트 등록
 
 #### 에이전트 등록
 ```http
@@ -397,15 +376,15 @@ POST /v1/agents/register
 ```json
 {
   "agent_id": "erc8004:0xJames",
-  "ael_endpoint": "https://ael.network/agents/james/mcp",
-  "dashboard_url": "https://dashboard.ael.network/james",
-  "api_key": "ael_sk_...",
+  "gt8004_endpoint": "https://gt8004.network/agents/james/mcp",
+  "dashboard_url": "https://dashboard.gt8004.network/james",
+  "api_key": "gt8004_sk_...",
   "status": "active"
 }
 ```
 
 등록 즉시:
-- AEL Gateway 엔드포인트 발급
+- GT8004 Gateway 엔드포인트 발급
 - 대시보드 접근 가능
 - 요청/응답 자동 기록 시작
 - 에이전트 디스커버리에 노출
@@ -599,7 +578,7 @@ GET /v1/agents/search
         "uptime": "99.7%",
         "total_served": 34521
       },
-      "ael_endpoint": "https://ael.network/agents/james/mcp",
+      "gt8004_endpoint": "https://gt8004.network/agents/james/mcp",
       "x402_support": true
     }
   ],
@@ -608,11 +587,11 @@ GET /v1/agents/search
 }
 ```
 
-고객 에이전트가 여기서 서비스를 검색하고 → AEL 엔드포인트로 바로 호출합니다.
+고객 에이전트가 여기서 서비스를 검색하고 → GT8004 엔드포인트로 바로 호출합니다.
 
 ---
 
-### 채널 관리 (Lite/Pro)
+### Escrow 채널 관리
 
 #### 채널 생성
 ```http
@@ -622,7 +601,6 @@ POST /v1/channels
 ```json
 {
   "type": "private",
-  "mode": "lite",
   "participants": [
     { "agent_id": "erc8004:0xClient", "role": "client" },
     { "agent_id": "erc8004:0xJames", "role": "provider" }
@@ -641,7 +619,6 @@ x402 결제 후 응답:
 {
   "channel_id": "ch_abc123",
   "status": "active",
-  "mode": "lite",
   "participants": [...],
   "milestones": [
     { "name": "데이터 수집", "credits": 30000, "status": "pending" },
@@ -653,8 +630,8 @@ x402 결제 후 응답:
     "credit_ratio": "1 USDC = 1000 CREDIT"
   },
   "api": {
-    "rest": "https://api.ael.network/v1/channels/ch_abc123",
-    "websocket": "wss://api.ael.network/v1/channels/ch_abc123/ws"
+    "rest": "https://api.gt8004.network/v1/channels/ch_abc123",
+    "websocket": "wss://api.gt8004.network/v1/channels/ch_abc123/ws"
   }
 }
 ```
@@ -703,23 +680,17 @@ POST /v1/channels/{channel_id}/close
 
 ---
 
-### Pro 모드 API (coming soon)
-
-Pro 모드에서는 Lite의 모든 API에 더해서 Hydra 직접 서명 플로우가 추가됩니다. 상세 API 스펙은 추후 공개됩니다.
-
----
-
 ## 연동 가이드
 
 ### 에이전트 운영자 — SDK 모드 (2분 설정)
 
 ```javascript
-import { AELLogger } from '@ael-network/sdk';
+import { GT8004Logger } from '@gt8004/sdk';
 
 // 1. SDK 초기화
-const logger = new AELLogger({
+const logger = new GT8004Logger({
   agentId: 'erc8004:0xJames',
-  apiKey: process.env.AEL_API_KEY
+  apiKey: process.env.GT8004_API_KEY
 });
 
 // 2. 미들웨어 추가 (기존 서버에 한 줄)
@@ -727,7 +698,7 @@ app.use(logger.middleware());
 
 // 끝. 이제부터:
 // - 모든 요청/응답 비동기 자동 기록
-// - https://dashboard.ael.network/james 에서 대시보드 확인
+// - https://dashboard.gt8004.network/james 에서 대시보드 확인
 // - 에이전트 디스커버리에 자동 노출
 // - 기존 엔드포인트, 트래픽 경로 변경 없음
 ```
@@ -735,20 +706,20 @@ app.use(logger.middleware());
 ### 에이전트 운영자 — Gateway 모드 (추가 옵션)
 
 ```javascript
-import { AELClient } from '@ael-network/sdk';
+import { GT8004Client } from '@gt8004/sdk';
 
 // SDK 모드에 Gateway 추가
-const aes = new AELClient({
+const client = new GT8004Client({
   agentId: 'erc8004:0xJames',
-  apiKey: process.env.AEL_API_KEY
+  apiKey: process.env.GT8004_API_KEY
 });
 
-await aes.enableGateway({
+await client.enableGateway({
   originEndpoint: 'https://meerkat.up.railway.app/mcp/meerkat-19'
 });
 
-// 이제 AEL 엔드포인트로도 접근 가능:
-// https://ael.network/agents/james/mcp
+// 이제 GT8004 엔드포인트로도 접근 가능:
+// https://gt8004.network/agents/james/mcp
 // → DDoS 보호, 레이트 리밋 추가
 // → SDK 로깅과 동시 사용 가능
 ```
@@ -756,22 +727,22 @@ await aes.enableGateway({
 ### 고객 에이전트 (서비스 검색 + 호출)
 
 ```javascript
-import { AELClient } from '@ael-network/sdk';
+import { GT8004Client } from '@gt8004/sdk';
 
-const aes = new AELClient({
+const client = new GT8004Client({
   agentId: 'erc8004:0xMyAgent',
   wallet: myWallet  // x402 결제용
 });
 
 // 1. 에이전트 검색
-const agents = await aes.search({
+const agents = await client.search({
   category: 'natural_language_processing',
   minReputation: 4.0,
   maxPrice: '0.01'
 });
 
-// 2. 호출 (SDK 에이전트 = 직접 호출, Gateway 에이전트 = AEL 경유)
-const result = await aes.call(agents[0], {
+// 2. 호출 (SDK 에이전트 = 직접 호출, Gateway 에이전트 = GT8004 경유)
+const result = await client.call(agents[0], {
   tool: 'chat',
   input: '로봇공학 질문'
 });
@@ -779,12 +750,11 @@ const result = await aes.call(agents[0], {
 // → 응답 수신
 ```
 
-### 대규모 작업 (Lite Escrow)
+### 대규모 작업 (Escrow)
 
 ```javascript
-// Lite 채널 생성 (Escrow) — SDK/Gateway 모드 모두 사용 가능
-const channel = await aes.createChannel({
-  mode: 'lite',
+// Escrow 채널 생성 — SDK/Gateway 모드 모두 사용 가능
+const channel = await client.createChannel({
   participants: [
     { agentId: 'erc8004:0xJames', role: 'provider' }
   ],
@@ -797,7 +767,7 @@ const channel = await aes.createChannel({
 });
 
 // 작업 요청은 에이전트에게 직접 (SDK) 또는 Gateway 경유
-// 결제 조작만 AEL API 사용:
+// 결제 조작만 GT8004 API 사용:
 await channel.completeMilestone('데이터 수집', { proof: '...' });
 // 고객 측에서 approve 호출 → $30 해제
 
@@ -810,19 +780,18 @@ const settlement = await channel.close();
 
 ### 수익 구조
 
-| 티어 | 가격 | 수익원 | 목적 |
+| 구분 | 가격 | 수익원 | 목적 |
 |------|------|--------|------|
-| **Open** | **무료** | 에이전트 모수 확보 | 데이터 + 전환 퍼넬 |
-| **Lite** | 서비스비 + 수수료 | 채널 $5~$20 + 정산 0.05% | 중규모 작업 |
-| **Pro** | 프리미엄 | Lite 2~3배 + 월정액 | 기관급 |
+| **플랫폼** | **무료** | 에이전트 모수 확보 | 데이터 + 전환 퍼넬 |
+| **Escrow** | 서비스비 + 수수료 | 채널 $5~$20 + 정산 0.05% | 대규모 작업 보호 |
 
-### Open이 무료인 이유
+### 플랫폼이 무료인 이유
 
 ```
 1. 에이전트가 모인다 → 디스커버리 가치 증가 (네트워크 효과)
 2. 데이터가 모인다 → 에이전트 경제 인텔리전스
-3. 에이전트가 커진다 → Lite/Pro로 자연 전환
-4. AEL가 에이전트 경제의 "중심 인프라"가 된다
+3. 에이전트가 커진다 → Escrow로 자연 전환
+4. GT8004가 에이전트 경제의 "중심 인프라"가 된다
 ```
 
 ### 전환 트리거
@@ -832,33 +801,24 @@ SDK → Gateway (무료):
   "트래픽이 늘어서 DDoS 보호가 필요해요"
   → Gateway 활성화 (여전히 무료)
 
-Open → Lite:
+플랫폼 → Escrow:
   "고객이 $200짜리 작업을 요청했는데, 결제 보호가 없으면 불안해요"
   → 마일스톤 기반 Escrow 제안
-
-Lite → Pro:
-  "월 거래량이 $50,000을 넘었는데, AEL를 완전히 신뢰하기 어려워요"
-  → Hydra 채널 + 직접 서명 + 온체인 검증 제안
 ```
 
 ### 단위 경제학
 
 ```
-Open (무료):
+플랫폼 (무료):
   에이전트 1개당 비용: ~$0.10/월 (로깅 스토리지 + API 오버헤드)
   에이전트 1,000개: ~$100/월
   수익: $0 (직접 수익 없음)
   가치: 데이터 + 전환 퍼넬
 
-Lite 채널 1건 ($100 크레딧):
+Escrow 채널 1건 ($100 크레딧):
   수익: 서비스비 $10 + 정산 수수료 $0.05 = $10.05
   비용: API $0.50 + DB $0.30 + Escrow 가스 $0.20 = $1.00
   마진: ~90%
-
-Pro 채널 1건 ($1,000 크레딧):
-  수익: 서비스비 $30 + 정산 수수료 $0.50 = $30.50
-  비용: Hydra 노드 $3 + ADA $0.50 + API $1 = $4.50
-  마진: ~85%
 ```
 
 ---
@@ -870,10 +830,10 @@ Pro 채널 1건 ($1,000 크레딧):
 │                         고객 에이전트                                │
 │              (ERC-8004, MCP, A2A, OASF, x402 지원)                  │
 │                                                                     │
-│  경로 A (SDK):  고객 → 에이전트 직접 → SDK가 AEL에 로그 전송       │
-│  경로 B (GW):   고객 → AEL Gateway → 에이전트                      │
+│  경로 A (SDK):  고객 → 에이전트 직접 → SDK가 GT8004에 로그 전송    │
+│  경로 B (GW):   고객 → GT8004 Gateway → 에이전트                   │
 ├─────────────────────────────────────────────────────────────────────┤
-│                        AEL Platform                                  │
+│                        GT8004 Platform                               │
 │                                                                     │
 │  ┌──────────────┐  ┌──────────────┐  ┌───────────────────────────┐ │
 │  │ SDK Logger   │  │ API Gateway  │  │ Agent Registry            │ │
@@ -884,13 +844,13 @@ Pro 채널 1건 ($1,000 크레딧):
 │  └──────────────┘  └──────────────┘  └───────────────────────────┘ │
 │                                                                     │
 │  ┌──────────────┐  ┌──────────────┐  ┌───────────────────────────┐ │
-│  │ Logger       │  │ Analytics    │  │ Channel Manager           │ │
-│  │              │  │ Engine       │  │ (Lite/Pro)                │ │
-│  │ 요청/응답    │  │              │  │                           │ │
-│  │ 전량 기록    │  │ 고객 분석    │  │ • Escrow 관리 (Lite)     │ │
-│  │ 구조화 저장  │  │ 수익 분석    │  │ • CREDIT 관리            │ │
-│  │              │  │ 성능 분석    │  │ • 마일스톤 정산           │ │
-│  │              │  │ 벤치마크     │  │ • Hydra (Pro, 추후)      │ │
+│  │ Logger       │  │ Analytics    │  │ Escrow Manager            │ │
+│  │              │  │ Engine       │  │                           │ │
+│  │ 요청/응답    │  │              │  │ • Escrow 관리             │ │
+│  │ 전량 기록    │  │ 고객 분석    │  │ • CREDIT 관리            │ │
+│  │ 구조화 저장  │  │ 수익 분석    │  │ • 마일스톤 정산           │ │
+│  │              │  │ 성능 분석    │  │                           │ │
+│  │              │  │ 벤치마크     │  │                           │ │
 │  └──────────────┘  └──────────────┘  └───────────────────────────┘ │
 │                                                                     │
 │  ┌──────────────────────────────────────────────────────────────┐  │
@@ -900,9 +860,6 @@ Pro 채널 1건 ($1,000 크레딧):
 ├─────────────────────────────────────────────────────────────────────┤
 │                    정산 체인 (Base / Ethereum)                       │
 │  Escrow Contract (USDC 보관) + ERC-8004 연동                        │
-├─────────────────────────────────────────────────────────────────────┤
-│                    Cardano L1 (Pro, 추후)                            │
-│  Hydra 상태 채널 / CREDIT 민팅 / 온체인 검증                        │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -910,9 +867,9 @@ Pro 채널 1건 ($1,000 크레딧):
 
 ## ERC-8004 연동
 
-### 에이전트 메타데이터에 AEL 추가
+### 에이전트 메타데이터에 GT8004 추가
 
-AEL에 등록하면 에이전트의 ERC-8004 메타데이터에 AEL 서비스를 추가할 수 있습니다.
+GT8004에 등록하면 에이전트의 ERC-8004 메타데이터에 GT8004 서비스를 추가할 수 있습니다.
 
 ```json
 {
@@ -923,11 +880,11 @@ AEL에 등록하면 에이전트의 ERC-8004 메타데이터에 AEL 서비스를
       "endpoint": "https://meerkat.up.railway.app/mcp/meerkat-19"
     },
     {
-      "name": "AEL",
+      "name": "GT8004",
       "version": "1.0.0",
-      "endpoint": "https://ael.network/agents/james",
+      "endpoint": "https://gt8004.network/agents/james",
       "features": ["sdk", "analytics", "gateway", "escrow"],
-      "dashboard": "https://dashboard.ael.network/james"
+      "dashboard": "https://dashboard.gt8004.network/james"
     }
   ],
   "registrations": [
@@ -938,10 +895,10 @@ AEL에 등록하면 에이전트의 ERC-8004 메타데이터에 AEL 서비스를
 
 ### 평판 연동
 
-AEL가 수집한 데이터로 ERC-8004 평판을 업데이트합니다.
+GT8004가 수집한 데이터로 ERC-8004 평판을 업데이트합니다.
 
 ```
-AEL가 보고하는 것:
+GT8004가 보고하는 것:
   - 총 서비스 건수
   - 평균 응답 시간
   - 고객 만족도
@@ -956,24 +913,22 @@ AEL가 보고하는 것:
 
 ## 기술 스택
 
-| 컴포넌트 | 기술 | 티어 |
-|----------|------|------|
-| SDK | TypeScript (npm) | Open |
-| API Gateway | Node.js (Express/Fastify) | Open (옵션) |
-| Logger | ClickHouse / PostgreSQL | Open |
-| Analytics Engine | Python / SQL | Open |
-| Dashboard | React + Recharts | Open |
-| Escrow Contract | Solidity (Base) | Lite |
-| CREDIT 민팅 | Aiken (Cardano) | Lite/Pro |
-| Hydra 노드 | Cardano Hydra (Haskell) | Pro (추후) |
-| 결제 | x402 Protocol (Base) | Lite/Pro |
-| 신원 | ERC-8004 (Base) | All |
+| 컴포넌트 | 기술 |
+|----------|------|
+| SDK | TypeScript (npm) |
+| API Gateway | Node.js (Express/Fastify) |
+| Logger | ClickHouse / PostgreSQL |
+| Analytics Engine | Python / SQL |
+| Dashboard | React + Recharts |
+| Escrow Contract | Solidity (Base) |
+| 결제 | x402 Protocol (Base) |
+| 신원 | ERC-8004 (Base) |
 
 ---
 
 ## 로드맵
 
-### Phase 1 — AEL Open (무료 플랫폼)
+### Phase 1 — GT8004 플랫폼
 - [ ] SDK (TypeScript) — 미들웨어 한 줄로 로그 수집
 - [ ] 에이전트 등록 API
 - [ ] 요청/응답 전량 로깅
@@ -985,20 +940,13 @@ AEL가 보고하는 것:
 - [ ] ERC-8004 신원 검증
 - [ ] API Gateway (옵션 — DDoS 보호, 레이트 리밋)
 
-### Phase 2 — AEL Lite (Escrow)
+### Phase 2 — Escrow
 - [ ] Escrow Contract 배포 (Base)
 - [ ] CREDIT 토큰 시스템
 - [ ] x402 결제 핸들러
 - [ ] 마일스톤 기반 정산
 - [ ] 채널 라이프사이클 API
 - [ ] 분쟁 중재 시스템
-
-### Phase 3 — AEL Pro (Hydra)
-- [ ] Hydra 상태 채널 통합
-- [ ] 에이전트 직접 서명 플로우
-- [ ] 온체인 검증 + 분쟁 해결
-
-### Phase 4 — 스케일링
 - [ ] Escrow Contract 감사
 - [ ] 대시보드 v2 (AI 인사이트)
 - [ ] 에이전트 추천 엔진
@@ -1016,5 +964,4 @@ TBD
 
 - ERC-8004: https://eips.ethereum.org/EIPS/eip-8004
 - x402 Protocol: https://www.x402.org
-- Cardano Hydra: https://hydra.family
 - 문의: TBD
