@@ -80,12 +80,15 @@ export interface Agent {
   status: string;
   total_requests: number;
   total_revenue_usdc: number;
+  total_customers: number;
   avg_response_ms: number;
   gateway_enabled: boolean;
   evm_address?: string;
   reputation_score?: number;
   erc8004_token_id?: number;
+  chain_id?: number;
   agent_uri?: string;
+  current_tier?: string;
   created_at: string;
 }
 
@@ -214,6 +217,7 @@ export interface DailyStats {
   requests: number;
   revenue: number;
   errors: number;
+  unique_customers: number;
 }
 
 // ---------- Network Agents (on-chain discovery) ----------
@@ -224,6 +228,9 @@ export interface AgentService {
   version?: string;
   skills?: string[];
   domains?: string[];
+  mcpTools?: string[];
+  mcpPrompts?: string[];
+  mcpResources?: string[];
 }
 
 export interface AgentMetadata {
@@ -232,10 +239,14 @@ export interface AgentMetadata {
   description?: string;
   image?: string;
   services?: AgentService[];
+  endpoints?: AgentService[];
   x402Support?: boolean;
+  x402support?: boolean;
   active?: boolean;
   registrations?: { agentId: number; agentRegistry: string }[];
   supportedTrust?: string[];
+  supportedTrusts?: string[];
+  [key: string]: unknown;
 }
 
 export interface NetworkAgent {
@@ -332,42 +343,34 @@ export const openApi = {
       total: number;
     }>(`/v1/benchmark?category=${encodeURIComponent(category)}`),
 
-  // Authenticated (apiKey required)
-  getCustomers: (agentId: string, apiKey: string, limit = 50, offset = 0) =>
+  // Agent analytics (public, resolved by agent_id)
+  getCustomers: (agentId: string, limit = 50, offset = 0) =>
     openFetcher<{ customers: Customer[]; total: number }>(
-      `/v1/agents/${agentId}/customers?limit=${limit}&offset=${offset}`,
-      apiKey
+      `/v1/agents/${agentId}/customers?limit=${limit}&offset=${offset}`
     ),
-  getCustomer: (agentId: string, apiKey: string, customerId: string) =>
+  getCustomer: (agentId: string, customerId: string) =>
     openFetcher<Customer>(
-      `/v1/agents/${agentId}/customers/${customerId}`,
-      apiKey
+      `/v1/agents/${agentId}/customers/${customerId}`
     ),
-  getRevenue: (agentId: string, apiKey: string, period = "monthly") =>
+  getRevenue: (agentId: string, period = "monthly") =>
     openFetcher<RevenueReport>(
-      `/v1/agents/${agentId}/revenue?period=${period}`,
-      apiKey
+      `/v1/agents/${agentId}/revenue?period=${period}`
     ),
-  getPerformance: (agentId: string, apiKey: string, window = "24h") =>
+  getPerformance: (agentId: string, window = "24h") =>
     openFetcher<PerformanceReport>(
-      `/v1/agents/${agentId}/performance?window=${window}`,
-      apiKey
+      `/v1/agents/${agentId}/performance?window=${window}`
     ),
-  getLogs: (agentId: string, apiKey: string, limit = 50) =>
+  getLogs: (agentId: string, limit = 50) =>
     openFetcher<{ logs: RequestLog[]; total: number }>(
-      `/v1/agents/${agentId}/logs?limit=${limit}`,
-      apiKey
+      `/v1/agents/${agentId}/logs?limit=${limit}`
     ),
-
-  getStats: (agentId: string, apiKey: string) =>
+  getStats: (agentId: string) =>
     openFetcher<AgentStats>(
-      `/v1/agents/${agentId}/stats`,
-      apiKey
+      `/v1/agents/${agentId}/stats`
     ),
-  getDailyStats: (agentId: string, apiKey: string, days = 30) =>
+  getDailyStats: (agentId: string, days = 30) =>
     openFetcher<{ stats: DailyStats[] }>(
-      `/v1/agents/${agentId}/stats/daily?days=${days}`,
-      apiKey
+      `/v1/agents/${agentId}/stats/daily?days=${days}`
     ),
 
   // Registration (no auth)

@@ -23,6 +23,8 @@ export interface RequestLogEntry {
   x402Payer?: string;
   requestBodySize?: number;
   responseBodySize?: number;
+  requestBody?: string;
+  responseBody?: string;
   timestamp: string;
 }
 

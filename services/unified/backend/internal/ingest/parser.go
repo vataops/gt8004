@@ -27,6 +27,8 @@ type LogEntry struct {
 	X402Payer        *string  `json:"x402Payer,omitempty"`
 	RequestBodySize  *int     `json:"requestBodySize,omitempty"`
 	ResponseBodySize *int     `json:"responseBodySize,omitempty"`
+	RequestBody      *string  `json:"requestBody,omitempty"`
+	ResponseBody     *string  `json:"responseBody,omitempty"`
 	Timestamp        string   `json:"timestamp"`
 }
 

@@ -21,7 +21,6 @@ export function Sidebar() {
     <aside className="w-56 bg-gray-900 border-r border-gray-800 flex flex-col">
       <div className="p-4 border-b border-gray-800">
         <h1 className="text-lg font-bold tracking-tight">GT8004</h1>
-        <p className="text-xs text-gray-500">Unified Dashboard</p>
       </div>
       <nav className="flex-1 p-2 space-y-1 overflow-auto">
         <p className="px-3 pt-2 pb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">

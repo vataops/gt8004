@@ -68,7 +68,7 @@ export default function CustomersPage() {
 
 function CustomersContent() {
   const { agent, apiKey } = useAuth();
-  const { data, loading } = useCustomers(agent!.agent_id, apiKey!);
+  const { data, loading } = useCustomers(agent!.agent_id);
 
   if (loading || !data) {
     return <p className="text-gray-500">Loading...</p>;

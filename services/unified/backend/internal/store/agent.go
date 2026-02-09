@@ -36,6 +36,7 @@ type Agent struct {
 
 	// ERC-8004 Identity fields (merged from Lite)
 	ERC8004TokenID   *int64     `json:"erc8004_token_id,omitempty"`
+	ChainID          int        `json:"chain_id"`
 	AgentURI         string     `json:"agent_uri,omitempty"`
 	Capabilities     []string   `json:"capabilities,omitempty"`
 	IdentityRegistry string     `json:"identity_registry,omitempty"`
@@ -50,7 +51,7 @@ const agentSelectCols = `
 	total_requests, COALESCE(total_revenue_usdc, 0), total_customers, avg_response_ms,
 	created_at, updated_at,
 	COALESCE(current_tier, 'open'), tier_updated_at,
-	erc8004_token_id, COALESCE(agent_uri, ''), COALESCE(capabilities, '[]'::jsonb),
+	erc8004_token_id, COALESCE(chain_id, 0), COALESCE(agent_uri, ''), COALESCE(capabilities, '[]'::jsonb),
 	COALESCE(identity_registry, ''), verified_at
 `
 
@@ -64,7 +65,7 @@ func scanAgent(scan func(dest ...any) error) (*Agent, error) {
 		&a.TotalRequests, &a.TotalRevenueUSDC, &a.TotalCustomers, &a.AvgResponseMs,
 		&a.CreatedAt, &a.UpdatedAt,
 		&a.CurrentTier, &a.TierUpdatedAt,
-		&a.ERC8004TokenID, &a.AgentURI, &a.Capabilities,
+		&a.ERC8004TokenID, &a.ChainID, &a.AgentURI, &a.Capabilities,
 		&a.IdentityRegistry, &a.VerifiedAt,
 	)
 	if err != nil {
@@ -83,15 +84,15 @@ func (s *Store) CreateAgent(ctx context.Context, agent *Agent) error {
 	err := s.pool.QueryRow(ctx, `
 		INSERT INTO agents (agent_id, name, origin_endpoint, gt8004_endpoint, protocols, category,
 			pricing_model, pricing_currency, status, current_tier,
-			erc8004_token_id, agent_uri, capabilities, identity_registry,
+			erc8004_token_id, chain_id, agent_uri, capabilities, identity_registry,
 			evm_address, verified_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
 		RETURNING id, created_at, updated_at
 	`,
 		agent.AgentID, agent.Name, agent.OriginEndpoint, agent.GT8004Endpoint,
 		agent.Protocols, agent.Category, agent.PricingModel, agent.PricingCurrency,
 		agent.Status, agent.CurrentTier,
-		agent.ERC8004TokenID, agent.AgentURI, agent.Capabilities, agent.IdentityRegistry,
+		agent.ERC8004TokenID, agent.ChainID, agent.AgentURI, agent.Capabilities, agent.IdentityRegistry,
 		agent.EVMAddress, agent.VerifiedAt,
 	).Scan(&agent.ID, &agent.CreatedAt, &agent.UpdatedAt)
 	if err != nil {
@@ -127,13 +128,13 @@ func (s *Store) GetAgentByTokenID(ctx context.Context, tokenID int64) (*Agent, e
 	return a, nil
 }
 
-func (s *Store) LinkERC8004(ctx context.Context, id uuid.UUID, tokenID int64, agentURI, registry, evmAddress string) error {
+func (s *Store) LinkERC8004(ctx context.Context, id uuid.UUID, tokenID int64, chainID int, agentURI, registry, evmAddress string) error {
 	_, err := s.pool.Exec(ctx, `
 		UPDATE agents
-		SET erc8004_token_id = $2, agent_uri = $3, identity_registry = $4,
-			evm_address = $5, verified_at = NOW(), updated_at = NOW()
+		SET erc8004_token_id = $2, chain_id = $3, agent_uri = $4, identity_registry = $5,
+			evm_address = $6, verified_at = NOW(), updated_at = NOW()
 		WHERE id = $1
-	`, id, tokenID, agentURI, registry, evmAddress)
+	`, id, tokenID, chainID, agentURI, registry, evmAddress)
 	if err != nil {
 		return fmt.Errorf("link erc8004: %w", err)
 	}

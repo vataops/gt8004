@@ -30,9 +30,13 @@ func (s *Store) UpsertNetworkAgent(ctx context.Context, agent *NetworkAgent) err
 	if len(meta) == 0 {
 		meta = json.RawMessage(`{}`)
 	}
+	createdAt := agent.CreatedAt
+	if createdAt.IsZero() {
+		createdAt = time.Now()
+	}
 	_, err := s.pool.Exec(ctx, `
-		INSERT INTO network_agents (chain_id, token_id, owner_address, agent_uri, name, description, image_url, metadata, synced_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+		INSERT INTO network_agents (chain_id, token_id, owner_address, agent_uri, name, description, image_url, metadata, created_at, synced_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
 		ON CONFLICT (chain_id, token_id) DO UPDATE SET
 			owner_address = EXCLUDED.owner_address,
 			agent_uri     = EXCLUDED.agent_uri,
@@ -40,9 +44,10 @@ func (s *Store) UpsertNetworkAgent(ctx context.Context, agent *NetworkAgent) err
 			description   = EXCLUDED.description,
 			image_url     = EXCLUDED.image_url,
 			metadata      = EXCLUDED.metadata,
+			created_at    = EXCLUDED.created_at,
 			synced_at     = NOW()
 	`, agent.ChainID, agent.TokenID, agent.OwnerAddress, agent.AgentURI,
-		agent.Name, agent.Description, agent.ImageURL, meta)
+		agent.Name, agent.Description, agent.ImageURL, meta, createdAt)
 	if err != nil {
 		return fmt.Errorf("upsert network agent: %w", err)
 	}

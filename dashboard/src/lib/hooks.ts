@@ -91,52 +91,52 @@ export function useBenchmark(category: string) {
   return usePolling(fn, 60_000);
 }
 
-// ========== Authenticated Hooks ==========
+// ========== Agent Analytics Hooks (public, by agent_id) ==========
 
-export function useAgentStats(agentId: string, apiKey: string) {
+export function useAgentStats(agentId: string) {
   const fn = useCallback(
-    () => openApi.getStats(agentId, apiKey),
-    [agentId, apiKey]
+    () => openApi.getStats(agentId),
+    [agentId]
   );
   return usePolling(fn, 15_000);
 }
 
-export function useDailyStats(agentId: string, apiKey: string, days = 30) {
+export function useDailyStats(agentId: string, days = 30) {
   const fn = useCallback(
-    () => openApi.getDailyStats(agentId, apiKey, days),
-    [agentId, apiKey, days]
+    () => openApi.getDailyStats(agentId, days),
+    [agentId, days]
   );
   return usePolling(fn, 60_000);
 }
 
-export function useCustomers(agentId: string, apiKey: string) {
+export function useCustomers(agentId: string) {
   const fn = useCallback(
-    () => openApi.getCustomers(agentId, apiKey),
-    [agentId, apiKey]
+    () => openApi.getCustomers(agentId),
+    [agentId]
   );
   return usePolling(fn, 30_000);
 }
 
-export function useRevenue(agentId: string, apiKey: string, period = "monthly") {
+export function useRevenue(agentId: string, period = "monthly") {
   const fn = useCallback(
-    () => openApi.getRevenue(agentId, apiKey, period),
-    [agentId, apiKey, period]
+    () => openApi.getRevenue(agentId, period),
+    [agentId, period]
   );
   return usePolling(fn, 30_000);
 }
 
-export function usePerformance(agentId: string, apiKey: string, window = "24h") {
+export function usePerformance(agentId: string, window = "24h") {
   const fn = useCallback(
-    () => openApi.getPerformance(agentId, apiKey, window),
-    [agentId, apiKey, window]
+    () => openApi.getPerformance(agentId, window),
+    [agentId, window]
   );
   return usePolling(fn, 15_000);
 }
 
-export function useLogs(agentId: string, apiKey: string, limit = 50) {
+export function useLogs(agentId: string, limit = 50) {
   const fn = useCallback(
-    () => openApi.getLogs(agentId, apiKey, limit),
-    [agentId, apiKey, limit]
+    () => openApi.getLogs(agentId, limit),
+    [agentId, limit]
   );
   return usePolling(fn, 10_000);
 }

@@ -15,14 +15,8 @@ import (
 
 // EnableGateway handles POST /v1/agents/:agent_id/gateway/enable
 func (h *Handler) EnableGateway(c *gin.Context) {
-	agentDBID, exists := c.Get("agent_db_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-		return
-	}
-	dbID, ok := agentDBID.(uuid.UUID)
+	dbID, ok := h.resolveViewableAgent(c)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid agent context"})
 		return
 	}
 
@@ -37,14 +31,8 @@ func (h *Handler) EnableGateway(c *gin.Context) {
 
 // DisableGateway handles POST /v1/agents/:agent_id/gateway/disable
 func (h *Handler) DisableGateway(c *gin.Context) {
-	agentDBID, exists := c.Get("agent_db_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-		return
-	}
-	dbID, ok := agentDBID.(uuid.UUID)
+	dbID, ok := h.resolveViewableAgent(c)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid agent context"})
 		return
 	}
 

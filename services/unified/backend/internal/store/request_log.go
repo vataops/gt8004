@@ -25,6 +25,8 @@ type RequestLog struct {
 	X402Payer        *string    `json:"x402_payer,omitempty"`
 	RequestBodySize  *int       `json:"request_body_size,omitempty"`
 	ResponseBodySize *int       `json:"response_body_size,omitempty"`
+	RequestBody      *string    `json:"request_body,omitempty"`
+	ResponseBody     *string    `json:"response_body,omitempty"`
 	BatchID          string     `json:"batch_id"`
 	SDKVersion       string     `json:"sdk_version"`
 	CreatedAt        time.Time  `json:"created_at"`
@@ -58,13 +60,17 @@ func (s *Store) InsertRequestLogs(ctx context.Context, agentDBID uuid.UUID, entr
 				agent_id, request_id, customer_id, tool_name, method, path,
 				status_code, response_ms, error_type,
 				x402_amount, x402_tx_hash, x402_token, x402_payer,
-				request_body_size, response_body_size, batch_id, sdk_version
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+				request_body_size, response_body_size,
+				request_body, response_body,
+				batch_id, sdk_version
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 		`,
 			agentDBID, e.RequestID, e.CustomerID, e.ToolName, e.Method, e.Path,
 			e.StatusCode, e.ResponseMs, e.ErrorType,
 			e.X402Amount, e.X402TxHash, e.X402Token, e.X402Payer,
-			e.RequestBodySize, e.ResponseBodySize, e.BatchID, e.SDKVersion,
+			e.RequestBodySize, e.ResponseBodySize,
+			e.RequestBody, e.ResponseBody,
+			e.BatchID, e.SDKVersion,
 		)
 		if err != nil {
 			return fmt.Errorf("insert request log: %w", err)
@@ -115,10 +121,11 @@ func (s *Store) GetAgentStats(ctx context.Context, agentDBID uuid.UUID) (*AgentS
 
 // DailyStats holds per-day aggregated metrics for charts.
 type DailyStats struct {
-	Date     string  `json:"date"`
-	Requests int64   `json:"requests"`
-	Revenue  float64 `json:"revenue"`
-	Errors   int64   `json:"errors"`
+	Date            string  `json:"date"`
+	Requests        int64   `json:"requests"`
+	Revenue         float64 `json:"revenue"`
+	Errors          int64   `json:"errors"`
+	UniqueCustomers int64   `json:"unique_customers"`
 }
 
 // GetDailyStats returns daily request/revenue/error counts for the last N days.
@@ -132,7 +139,8 @@ func (s *Store) GetDailyStats(ctx context.Context, agentDBID uuid.UUID, days int
 			DATE(created_at) AS date,
 			COUNT(*) AS requests,
 			COALESCE(SUM(x402_amount), 0) AS revenue,
-			COUNT(*) FILTER (WHERE status_code >= 400) AS errors
+			COUNT(*) FILTER (WHERE status_code >= 400) AS errors,
+			COUNT(DISTINCT customer_id) FILTER (WHERE customer_id IS NOT NULL) AS unique_customers
 		FROM request_logs
 		WHERE agent_id = $1 AND created_at >= CURRENT_DATE - $2 * INTERVAL '1 day'
 		GROUP BY DATE(created_at)
@@ -147,7 +155,7 @@ func (s *Store) GetDailyStats(ctx context.Context, agentDBID uuid.UUID, days int
 	for rows.Next() {
 		var d DailyStats
 		var date time.Time
-		if err := rows.Scan(&date, &d.Requests, &d.Revenue, &d.Errors); err != nil {
+		if err := rows.Scan(&date, &d.Requests, &d.Revenue, &d.Errors, &d.UniqueCustomers); err != nil {
 			return nil, fmt.Errorf("scan daily stats: %w", err)
 		}
 		d.Date = date.Format("2006-01-02")
@@ -171,7 +179,9 @@ func (s *Store) GetRecentRequests(ctx context.Context, agentDBID uuid.UUID, limi
 		SELECT id, agent_id, request_id, customer_id, tool_name, method, path,
 			status_code, response_ms, error_type,
 			x402_amount, x402_tx_hash, x402_token, x402_payer,
-			request_body_size, response_body_size, batch_id, sdk_version, created_at
+			request_body_size, response_body_size,
+			request_body, response_body,
+			batch_id, sdk_version, created_at
 		FROM request_logs
 		WHERE agent_id = $1
 		ORDER BY created_at DESC
@@ -189,7 +199,9 @@ func (s *Store) GetRecentRequests(ctx context.Context, agentDBID uuid.UUID, limi
 			&l.ID, &l.AgentID, &l.RequestID, &l.CustomerID, &l.ToolName, &l.Method, &l.Path,
 			&l.StatusCode, &l.ResponseMs, &l.ErrorType,
 			&l.X402Amount, &l.X402TxHash, &l.X402Token, &l.X402Payer,
-			&l.RequestBodySize, &l.ResponseBodySize, &l.BatchID, &l.SDKVersion, &l.CreatedAt,
+			&l.RequestBodySize, &l.ResponseBodySize,
+			&l.RequestBody, &l.ResponseBody,
+			&l.BatchID, &l.SDKVersion, &l.CreatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan request log: %w", err)
 		}

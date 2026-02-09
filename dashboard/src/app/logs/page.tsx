@@ -69,7 +69,7 @@ export default function LogsPage() {
 
 function LogsContent() {
   const { agent, apiKey } = useAuth();
-  const { data, loading } = useLogs(agent!.agent_id, apiKey!);
+  const { data, loading } = useLogs(agent!.agent_id);
 
   if (loading) {
     return <p className="text-gray-500">Loading...</p>;

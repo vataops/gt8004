@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useNetworkAgent } from "@/lib/hooks";
-import { NETWORKS } from "@/lib/networks";
+import { NETWORKS, resolveImageUrl } from "@/lib/networks";
 import type { AgentService } from "@/lib/api";
 
 // chain key → chainId mapping
@@ -57,9 +57,9 @@ export default function AgentDetailPage() {
         <div className="space-y-6">
           {/* Header */}
           <div className="flex items-start gap-5">
-            {agent.image_url ? (
+            {resolveImageUrl(agent.image_url) ? (
               <img
-                src={agent.image_url}
+                src={resolveImageUrl(agent.image_url)!}
                 alt={agent.name || `Token #${agent.token_id}`}
                 className="w-16 h-16 rounded-lg object-cover bg-gray-800"
               />
@@ -135,24 +135,27 @@ export default function AgentDetailPage() {
           {/* Metadata */}
           <Section title="Metadata">
             <InfoGrid>
+              {agent.metadata?.type && (
+                <InfoRow label="Type" value={agent.metadata.type} />
+              )}
               <InfoRow
                 label="x402 Support"
-                value={agent.metadata?.x402Support ? "Yes" : "No"}
+                value={agent.metadata?.x402Support || agent.metadata?.x402support ? "Yes" : "No"}
               />
-              {agent.metadata?.supportedTrust && agent.metadata.supportedTrust.length > 0 && (
+              {(agent.metadata?.supportedTrust || agent.metadata?.supportedTrusts) && (
                 <InfoRow
                   label="Supported Trust"
-                  value={agent.metadata.supportedTrust.join(", ")}
+                  value={(agent.metadata.supportedTrust || agent.metadata.supportedTrusts || []).join(", ")}
                 />
               )}
             </InfoGrid>
           </Section>
 
-          {/* Services */}
-          {agent.metadata?.services && agent.metadata.services.length > 0 && (
+          {/* Services / Endpoints */}
+          {((agent.metadata?.services ?? agent.metadata?.endpoints) || []).length > 0 && (
             <Section title="Services">
               <div className="space-y-3">
-                {agent.metadata.services.map((svc: AgentService, i: number) => (
+                {(agent.metadata?.services ?? agent.metadata?.endpoints ?? []).map((svc: AgentService, i: number) => (
                   <div
                     key={i}
                     className="bg-gray-800/50 border border-gray-700/50 rounded-lg p-4"
@@ -180,6 +183,18 @@ export default function AgentDetailPage() {
                             {skill}
                           </span>
                         ))}
+                      </div>
+                    )}
+                    {svc.mcpTools && svc.mcpTools.length > 0 && (
+                      <div className="mt-2">
+                        <span className="text-xs text-gray-500">Tools:</span>
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {svc.mcpTools.map((tool, j) => (
+                            <span key={j} className="text-xs px-2 py-0.5 bg-emerald-900/20 text-emerald-400 rounded">
+                              {tool}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -210,7 +225,7 @@ export default function AgentDetailPage() {
           )}
 
           {/* No metadata notice */}
-          {!agent.name && !agent.description && (!agent.metadata?.services || agent.metadata.services.length === 0) && (
+          {!agent.name && !agent.description && !(agent.metadata?.services ?? agent.metadata?.endpoints)?.length && (
             <div className="bg-gray-900 border border-gray-800 rounded-lg p-6 text-center">
               <p className="text-gray-500">
                 No metadata available for this agent.

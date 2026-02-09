@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -28,7 +29,15 @@ type agentMeta struct {
 	SupportedTrust []interface{} `json:"supportedTrust"`
 }
 
-var httpClient = &http.Client{Timeout: 10 * time.Second}
+var httpClient = &http.Client{Timeout: 15 * time.Second}
+
+// ipfsGateways is a list of public IPFS gateways to try in order.
+var ipfsGateways = []string{
+	"https://w3s.link/ipfs/",
+	"https://dweb.link/ipfs/",
+	"https://cloudflare-ipfs.com/ipfs/",
+	"https://ipfs.io/ipfs/",
+}
 
 // Job periodically discovers all ERC-8004 tokens on-chain and upserts them
 // into the network_agents table.
@@ -99,28 +108,44 @@ func (j *Job) syncChain(ctx context.Context, chainID int, client *erc8004.Client
 		return
 	}
 
-	// Use a fresh context for DB upserts — the discovery context may be nearly expired.
-	dbCtx, dbCancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer dbCancel()
-
-	upserted := 0
-	for _, t := range tokens {
-		agent := &store.NetworkAgent{
+	// Build agents list and fetch metadata concurrently (20 workers).
+	agents := make([]*store.NetworkAgent, len(tokens))
+	for i, t := range tokens {
+		agents[i] = &store.NetworkAgent{
 			ChainID:      chainID,
 			TokenID:      t.TokenID,
 			OwnerAddress: t.OwnerAddress,
 			AgentURI:     t.AgentURI,
+			CreatedAt:    t.MintedAt,
 		}
+	}
 
-		// Fetch metadata from agentURI if available.
-		if t.AgentURI != "" {
-			j.fetchMetadata(agent)
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 10)
+	for _, agent := range agents {
+		if agent.AgentURI == "" {
+			continue
 		}
+		wg.Add(1)
+		go func(a *store.NetworkAgent) {
+			defer wg.Done()
+			sem <- struct{}{}
+			j.fetchMetadata(a)
+			<-sem
+		}(agent)
+	}
+	wg.Wait()
 
+	// Upsert all agents with fresh DB context.
+	dbCtx, dbCancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer dbCancel()
+
+	upserted := 0
+	for _, agent := range agents {
 		if err := j.store.UpsertNetworkAgent(dbCtx, agent); err != nil {
 			j.logger.Warn("failed to upsert network agent",
 				zap.Int("chain_id", chainID),
-				zap.Int64("token_id", t.TokenID),
+				zap.Int64("token_id", agent.TokenID),
 				zap.Error(err),
 			)
 			continue
@@ -135,8 +160,8 @@ func (j *Job) syncChain(ctx context.Context, chainID int, client *erc8004.Client
 	)
 }
 
-// fetchMetadata resolves the tokenURI and parses the ERC-8004 registration JSON.
-// Supports both data:application/json;base64,... URIs and regular HTTP(S) URLs.
+// fetchMetadata resolves the agentURI and parses the ERC-8004 registration JSON.
+// Supports: data: URIs, http(s), ipfs://, and raw inline JSON.
 func (j *Job) fetchMetadata(agent *store.NetworkAgent) {
 	uri := agent.AgentURI
 
@@ -148,32 +173,38 @@ func (j *Job) fetchMetadata(agent *store.NetworkAgent) {
 		var err error
 		body, err = base64.StdEncoding.DecodeString(b64)
 		if err != nil {
-			j.logger.Debug("failed to decode base64 data URI", zap.Int64("token_id", agent.TokenID), zap.Error(err))
+			// Some URIs claim base64 but contain raw JSON.
+			body = []byte(b64)
+		}
+
+	case strings.HasPrefix(uri, "data:application/json,"):
+		raw := strings.TrimPrefix(uri, "data:application/json,")
+		body = []byte(raw)
+
+	case strings.HasPrefix(uri, "ipfs://"):
+		cid := strings.TrimPrefix(uri, "ipfs://")
+		body = j.ipfsFetch(cid)
+		if body == nil {
 			return
 		}
 
 	case strings.HasPrefix(uri, "http://") || strings.HasPrefix(uri, "https://"):
-		resp, err := httpClient.Get(uri)
-		if err != nil {
-			j.logger.Debug("failed to fetch agentURI", zap.String("uri", uri), zap.Error(err))
-			return
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			return
-		}
-		body, err = io.ReadAll(io.LimitReader(resp.Body, 512*1024))
-		if err != nil {
+		body = j.httpFetch(uri)
+		if body == nil {
 			return
 		}
 
 	default:
-		return
+		// Try parsing as raw inline JSON (some agents store JSON directly).
+		if len(uri) > 2 && uri[0] == '{' {
+			body = []byte(uri)
+		} else {
+			return
+		}
 	}
 
 	var meta agentMeta
 	if err := json.Unmarshal(body, &meta); err != nil {
-		j.logger.Debug("failed to parse agentURI JSON", zap.Int64("token_id", agent.TokenID), zap.Error(err))
 		return
 	}
 
@@ -181,4 +212,30 @@ func (j *Job) fetchMetadata(agent *store.NetworkAgent) {
 	agent.Description = meta.Description
 	agent.ImageURL = meta.Image
 	agent.Metadata = json.RawMessage(body)
+}
+
+// ipfsFetch tries multiple IPFS gateways in order until one succeeds.
+func (j *Job) ipfsFetch(cid string) []byte {
+	for _, gw := range ipfsGateways {
+		if body := j.httpFetch(gw + cid); body != nil {
+			return body
+		}
+	}
+	return nil
+}
+
+func (j *Job) httpFetch(url string) []byte {
+	resp, err := httpClient.Get(url)
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 512*1024))
+	if err != nil {
+		return nil
+	}
+	return body
 }

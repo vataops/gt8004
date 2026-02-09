@@ -9,21 +9,13 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
 // PerformanceReport handles GET /v1/agents/:agent_id/performance?window=24h
 func (h *Handler) PerformanceReport(c *gin.Context) {
-	agentDBID, exists := c.Get("agent_db_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-		return
-	}
-
-	dbID, ok := agentDBID.(uuid.UUID)
+	dbID, ok := h.resolvePublicAgent(c)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid agent context"})
 		return
 	}
 

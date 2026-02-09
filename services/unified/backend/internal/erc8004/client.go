@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -183,8 +184,8 @@ func (c *Client) GetTokensByOwner(ctx context.Context, ownerAddr string) ([]Owne
 
 		const chunkSize uint64 = 49999
 		var startBlock uint64
-		if currentBlock > 500000 {
-			startBlock = currentBlock - 500000
+		if currentBlock > 2000000 {
+			startBlock = currentBlock - 2000000
 		}
 
 		candidateIDs = nil
@@ -258,11 +259,18 @@ func (c *Client) filterTransferLogs(ctx context.Context, paddedTo common.Hash, f
 	return ids, nil
 }
 
+// MintEvent represents a mint log with its block number.
+type MintEvent struct {
+	TokenID     int64
+	BlockNumber uint64
+}
+
 // DiscoveredToken represents an ERC-8004 token discovered on-chain.
 type DiscoveredToken struct {
-	TokenID      int64  `json:"token_id"`
-	OwnerAddress string `json:"owner_address"`
-	AgentURI     string `json:"agent_uri"`
+	TokenID      int64     `json:"token_id"`
+	OwnerAddress string    `json:"owner_address"`
+	AgentURI     string    `json:"agent_uri"`
+	MintedAt     time.Time `json:"minted_at"`
 }
 
 // DiscoverAllTokens scans mint events (Transfer from zero address) to find
@@ -273,7 +281,7 @@ func (c *Client) DiscoverAllTokens(ctx context.Context) ([]DiscoveredToken, erro
 	}
 
 	// Scan Transfer events from zero address (= mints)
-	candidateIDs, err := c.filterMintLogs(ctx, nil, nil)
+	candidates, err := c.filterMintLogs(ctx, nil, nil)
 	if err != nil {
 		c.logger.Info("full-range mint log query failed, falling back to chunked scan", zap.Error(err))
 		currentBlock, blockErr := c.ethClient.BlockNumber(ctx)
@@ -283,11 +291,11 @@ func (c *Client) DiscoverAllTokens(ctx context.Context) ([]DiscoveredToken, erro
 
 		const chunkSize uint64 = 49999
 		var startBlock uint64
-		if currentBlock > 500000 {
-			startBlock = currentBlock - 500000
+		if currentBlock > 2000000 {
+			startBlock = currentBlock - 2000000
 		}
 
-		candidateIDs = nil
+		candidates = nil
 		seen := make(map[int64]bool)
 		for from := startBlock; from <= currentBlock; from += chunkSize {
 			end := from + chunkSize - 1
@@ -296,33 +304,52 @@ func (c *Client) DiscoverAllTokens(ctx context.Context) ([]DiscoveredToken, erro
 			}
 			fromBig := new(big.Int).SetUint64(from)
 			endBig := new(big.Int).SetUint64(end)
-			ids, chunkErr := c.filterMintLogs(ctx, fromBig, endBig)
+			events, chunkErr := c.filterMintLogs(ctx, fromBig, endBig)
 			if chunkErr != nil {
 				c.logger.Warn("chunk mint scan failed, skipping",
 					zap.Uint64("from", from), zap.Uint64("to", end), zap.Error(chunkErr))
 				continue
 			}
-			for _, tid := range ids {
-				if !seen[tid] {
-					seen[tid] = true
-					candidateIDs = append(candidateIDs, tid)
+			for _, ev := range events {
+				if !seen[ev.TokenID] {
+					seen[ev.TokenID] = true
+					candidates = append(candidates, ev)
 				}
 			}
 		}
 	}
 
+	// Fetch block timestamps for mint blocks
+	blockNums := make(map[uint64]bool)
+	mintBlocks := make(map[int64]uint64) // tokenID → blockNumber
+	for _, ev := range candidates {
+		blockNums[ev.BlockNumber] = true
+		mintBlocks[ev.TokenID] = ev.BlockNumber
+	}
+
+	blockTimestamps := make(map[uint64]time.Time)
+	for bn := range blockNums {
+		header, err := c.ethClient.HeaderByNumber(ctx, new(big.Int).SetUint64(bn))
+		if err != nil {
+			c.logger.Warn("failed to fetch block header", zap.Uint64("block", bn), zap.Error(err))
+			continue
+		}
+		blockTimestamps[bn] = time.Unix(int64(header.Time), 0)
+	}
+
 	// For each candidate, verify current owner and get agentURI
-	tokens := make([]DiscoveredToken, 0, len(candidateIDs))
-	for _, tid := range candidateIDs {
-		owner, err := c.VerifyOwnership(ctx, tid)
+	tokens := make([]DiscoveredToken, 0, len(candidates))
+	for _, ev := range candidates {
+		owner, err := c.VerifyOwnership(ctx, ev.TokenID)
 		if err != nil {
 			continue // token may have been burned
 		}
-		agentURI, _ := c.GetAgentURI(ctx, tid)
+		agentURI, _ := c.GetAgentURI(ctx, ev.TokenID)
 		tokens = append(tokens, DiscoveredToken{
-			TokenID:      tid,
+			TokenID:      ev.TokenID,
 			OwnerAddress: owner,
 			AgentURI:     agentURI,
+			MintedAt:     blockTimestamps[mintBlocks[ev.TokenID]],
 		})
 	}
 
@@ -330,7 +357,7 @@ func (c *Client) DiscoverAllTokens(ctx context.Context) ([]DiscoveredToken, erro
 }
 
 // filterMintLogs queries Transfer event logs from the zero address (mints).
-func (c *Client) filterMintLogs(ctx context.Context, fromBlock, toBlock *big.Int) ([]int64, error) {
+func (c *Client) filterMintLogs(ctx context.Context, fromBlock, toBlock *big.Int) ([]MintEvent, error) {
 	zeroHash := common.BytesToHash(common.LeftPadBytes(common.Address{}.Bytes(), 32))
 	query := ethereum.FilterQuery{
 		FromBlock: fromBlock,
@@ -344,7 +371,7 @@ func (c *Client) filterMintLogs(ctx context.Context, fromBlock, toBlock *big.Int
 	}
 
 	seen := make(map[int64]bool)
-	var ids []int64
+	var events []MintEvent
 	for _, log := range logs {
 		if len(log.Topics) < 4 {
 			continue
@@ -353,10 +380,10 @@ func (c *Client) filterMintLogs(ctx context.Context, fromBlock, toBlock *big.Int
 		tid := tokenID.Int64()
 		if !seen[tid] {
 			seen[tid] = true
-			ids = append(ids, tid)
+			events = append(events, MintEvent{TokenID: tid, BlockNumber: log.BlockNumber})
 		}
 	}
-	return ids, nil
+	return events, nil
 }
 
 // ChainID returns the chain ID this client is connected to.

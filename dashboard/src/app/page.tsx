@@ -1,9 +1,16 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import { useOverview, useAgents } from "@/lib/hooks";
 import { StatCard } from "@/components/StatCard";
 import { DataTable, type Column } from "@/components/DataTable";
 import type { Agent } from "@/lib/api";
+import { NETWORK_LIST } from "@/lib/networks";
+
+function getChainName(chainId: number): string {
+  const net = NETWORK_LIST.find((n) => n.chainId === chainId);
+  return net?.shortName ?? "";
+}
 
 const agentColumns: Column<Agent>[] = [
   {
@@ -25,6 +32,28 @@ const agentColumns: Column<Agent>[] = [
     ),
   },
   { key: "category", header: "Category" },
+  {
+    key: "chain_id",
+    header: "Network",
+    render: (row) => {
+      const chainId = row.chain_id ?? 0;
+      const chainName = getChainName(chainId);
+      if (!chainId || !chainName)
+        return <span className="text-gray-600">-</span>;
+      const isBase = chainId === 84532;
+      return (
+        <span
+          className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+            isBase
+              ? "bg-blue-900/30 text-blue-400"
+              : "bg-purple-900/30 text-purple-400"
+          }`}
+        >
+          {chainName}
+        </span>
+      );
+    },
+  },
   {
     key: "protocols",
     header: "Protocols",
@@ -78,9 +107,27 @@ const agentColumns: Column<Agent>[] = [
 export default function OverviewPage() {
   const { data: overview, loading } = useOverview();
   const { data: agentsData } = useAgents();
+  const [chainFilter, setChainFilter] = useState<number | null>(null);
 
   const agents = agentsData?.agents || [];
-  const activeCount = agents.filter((a) => a.status === "active").length;
+
+  // Filtered agents
+  const filteredAgents = chainFilter
+    ? agents.filter((a) => (a.chain_id ?? 0) === chainFilter)
+    : agents;
+
+  const activeCount = filteredAgents.filter(
+    (a) => a.status === "active"
+  ).length;
+
+  // Available chains for filter (only chains that have agents)
+  const availableChains = useMemo(() => {
+    const chainIds = new Set<number>();
+    for (const a of agents) {
+      if (a.chain_id) chainIds.add(a.chain_id);
+    }
+    return NETWORK_LIST.filter((n) => chainIds.has(n.chainId));
+  }, [agents]);
 
   if (loading || !overview) {
     return <p className="text-gray-500">Loading...</p>;
@@ -122,14 +169,53 @@ export default function OverviewPage() {
 
       {/* Agents table */}
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-lg font-semibold">Agents on Network</h3>
+        <div className="flex items-center gap-3">
+          <h3 className="text-lg font-semibold">Agents on Network</h3>
+          {availableChains.length > 0 && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setChainFilter(null)}
+                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                  chainFilter === null
+                    ? "bg-gray-700 text-white"
+                    : "text-gray-500 hover:text-gray-300"
+                }`}
+              >
+                All
+              </button>
+              {availableChains.map((net) => {
+                const isBase = net.chainId === 84532;
+                const isActive = chainFilter === net.chainId;
+                return (
+                  <button
+                    key={net.chainId}
+                    onClick={() =>
+                      setChainFilter(
+                        chainFilter === net.chainId ? null : net.chainId
+                      )
+                    }
+                    className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                      isActive
+                        ? isBase
+                          ? "bg-blue-900/50 text-blue-400"
+                          : "bg-purple-900/50 text-purple-400"
+                        : "text-gray-500 hover:text-gray-300"
+                    }`}
+                  >
+                    {net.shortName}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
         <span className="text-sm text-gray-500">
-          {agents.length} registered &middot; {activeCount} active
+          {filteredAgents.length} registered &middot; {activeCount} active
         </span>
       </div>
       <DataTable
         columns={agentColumns}
-        data={agents}
+        data={filteredAgents}
         emptyMessage="No agents registered on the network yet"
       />
     </div>

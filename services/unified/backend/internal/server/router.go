@@ -82,22 +82,24 @@ func NewRouter(cfg *config.Config, h *handler.Handler, logger *zap.Logger) *gin.
 		dashboard.GET("/overview", h.DashboardOverview)
 	}
 
-	// API key authenticated Open routes
+	// Public agent analytics (read-only, resolved by agent_id slug)
+	v1.GET("/agents/:agent_id/stats", h.AgentStats)
+	v1.GET("/agents/:agent_id/stats/daily", h.AgentDailyStats)
+	v1.GET("/agents/:agent_id/customers", h.ListCustomers)
+	v1.GET("/agents/:agent_id/customers/:customer_id", h.GetCustomer)
+	v1.GET("/agents/:agent_id/revenue", h.RevenueReport)
+	v1.GET("/agents/:agent_id/performance", h.PerformanceReport)
+	v1.GET("/agents/:agent_id/logs", h.ListLogs)
+
+	// API key authenticated routes (write operations)
 	authenticated := v1.Group("")
 	authenticated.Use(APIKeyAuthMiddleware(h))
 	{
 		authenticated.GET("/agents/me", h.GetMe)
 		authenticated.PUT("/agents/me/endpoint", h.UpdateOriginEndpoint)
 		authenticated.POST("/ingest", h.IngestLogs)
-		authenticated.GET("/agents/:agent_id/stats", h.AgentStats)
-		authenticated.GET("/agents/:agent_id/customers", h.ListCustomers)
-		authenticated.GET("/agents/:agent_id/customers/:customer_id", h.GetCustomer)
-		authenticated.GET("/agents/:agent_id/revenue", h.RevenueReport)
-		authenticated.GET("/agents/:agent_id/performance", h.PerformanceReport)
 		authenticated.POST("/agents/:agent_id/gateway/enable", h.EnableGateway)
 		authenticated.POST("/agents/:agent_id/gateway/disable", h.DisableGateway)
-		authenticated.GET("/agents/:agent_id/logs", h.ListLogs)
-		authenticated.GET("/agents/:agent_id/stats/daily", h.AgentDailyStats)
 	}
 
 	// === Admin API ===

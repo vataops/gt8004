@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"strings"
@@ -46,8 +48,17 @@ func (h *Handler) RegisterService(c *gin.Context) {
 		return
 	}
 
-	// Always auto-generate a unique agent_id (used as gateway endpoint + SDK tenant key)
-	agentID := strings.ReplaceAll(uuid.New().String(), "-", "")[:12]
+	// Generate agent_id: {chainId}-{sha256(name-tokenId)[:6]} for ERC-8004 agents,
+	// chain_id prefix enables natural sorting by network.
+	// Fallback to random UUID[:12] for basic registrations.
+	var agentID string
+	if req.ChainID != nil && req.ERC8004TokenID != nil {
+		hashInput := fmt.Sprintf("%s-%d", req.Name, *req.ERC8004TokenID)
+		hash := sha256.Sum256([]byte(hashInput))
+		agentID = fmt.Sprintf("%d-%s", *req.ChainID, hex.EncodeToString(hash[:])[:6])
+	} else {
+		agentID = strings.ReplaceAll(uuid.New().String(), "-", "")[:12]
+	}
 
 	tier := req.Tier
 	if tier == "" {
@@ -125,6 +136,7 @@ func (h *Handler) RegisterService(c *gin.Context) {
 			agentURI, _ := erc8004Client.GetAgentURI(c.Request.Context(), *req.ERC8004TokenID)
 
 			agent.ERC8004TokenID = req.ERC8004TokenID
+			agent.ChainID = chainID
 			agent.AgentURI = agentURI
 			agent.EVMAddress = info.EVMAddress
 			agent.IdentityRegistry = erc8004Client.RegistryAddr()
@@ -152,7 +164,7 @@ func (h *Handler) RegisterService(c *gin.Context) {
 	h.cache.DelPattern(c.Request.Context(), "search:*")
 	h.cache.Del(c.Request.Context(), "overview")
 	if agent.EVMAddress != "" {
-		h.cache.Del(c.Request.Context(), fmt.Sprintf("wallet:%s", agent.EVMAddress))
+		h.cache.Del(c.Request.Context(), fmt.Sprintf("wallet:%s", strings.ToLower(agent.EVMAddress)))
 	}
 
 	c.JSON(http.StatusCreated, RegisterServiceResponse{
@@ -347,14 +359,14 @@ func (h *Handler) LinkERC8004(c *gin.Context) {
 	}
 
 	// Link in DB
-	if err := h.store.LinkERC8004(c.Request.Context(), dbID, req.ERC8004TokenID, agentURI, registryAddr, info.EVMAddress); err != nil {
+	if err := h.store.LinkERC8004(c.Request.Context(), dbID, req.ERC8004TokenID, chainID, agentURI, registryAddr, info.EVMAddress); err != nil {
 		h.logger.Error("failed to link erc8004", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to link ERC-8004"})
 		return
 	}
 
 	// Invalidate wallet + search caches after ERC-8004 link
-	h.cache.Del(c.Request.Context(), fmt.Sprintf("wallet:%s", info.EVMAddress))
+	h.cache.Del(c.Request.Context(), fmt.Sprintf("wallet:%s", strings.ToLower(info.EVMAddress)))
 	h.cache.DelPattern(c.Request.Context(), "search:*")
 
 	c.JSON(http.StatusOK, gin.H{

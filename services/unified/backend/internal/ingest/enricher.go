@@ -56,6 +56,8 @@ func (e *Enricher) Process(ctx context.Context, agentDBID uuid.UUID, batch *LogB
 			X402Payer:        entry.X402Payer,
 			RequestBodySize:  entry.RequestBodySize,
 			ResponseBodySize: entry.ResponseBodySize,
+			RequestBody:      entry.RequestBody,
+			ResponseBody:     entry.ResponseBody,
 			BatchID:          batch.BatchID,
 			SDKVersion:       batch.SDKVersion,
 		}

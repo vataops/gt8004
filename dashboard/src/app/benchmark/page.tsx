@@ -4,6 +4,17 @@ import { useState } from "react";
 import { useBenchmarkCategories, useBenchmark } from "@/lib/hooks";
 import { DataTable, type Column } from "@/components/DataTable";
 import type { BenchmarkEntry } from "@/lib/api";
+import { NETWORK_LIST } from "@/lib/networks";
+
+function resolveNetwork(agentId: string): string {
+  const dash = agentId.indexOf("-");
+  if (dash === -1) return "-";
+  const prefix = agentId.slice(0, dash);
+  if (!/^\d+$/.test(prefix)) return "-";
+  const chainId = Number(prefix);
+  const net = NETWORK_LIST.find((n) => n.chainId === chainId);
+  return net?.shortName ?? String(chainId);
+}
 
 const columns: Column<BenchmarkEntry>[] = [
   {
@@ -28,6 +39,16 @@ const columns: Column<BenchmarkEntry>[] = [
         <p className="text-xs text-gray-500">{row.agent_string_id}</p>
       </div>
     ),
+  },
+  {
+    key: "network",
+    header: "Network",
+    render: (row) => {
+      const name = resolveNetwork(row.agent_string_id);
+      return (
+        <span className="text-xs text-gray-400">{name}</span>
+      );
+    },
   },
   {
     key: "score",

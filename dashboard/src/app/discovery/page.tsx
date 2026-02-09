@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useNetworkAgents, useNetworkStats } from "@/lib/hooks";
-import { NETWORKS, NETWORK_LIST } from "@/lib/networks";
+import { NETWORKS, NETWORK_LIST, resolveImageUrl } from "@/lib/networks";
+import { openApi } from "@/lib/api";
 import type { NetworkAgent } from "@/lib/api";
 
 // Chain ID → display name mapping
@@ -48,6 +49,20 @@ export default function DiscoveryPage() {
     offset: (page - 1) * PAGE_SIZE,
   });
   const { data: stats } = useNetworkStats();
+
+  // Fetch registered agents to show "Registered" badge
+  const [registeredKeys, setRegisteredKeys] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    openApi.searchAgents().then((res) => {
+      const keys = new Set<string>();
+      for (const a of res.agents || []) {
+        if (a.erc8004_token_id != null && a.chain_id != null) {
+          keys.add(`${a.chain_id}-${a.erc8004_token_id}`);
+        }
+      }
+      setRegisteredKeys(keys);
+    }).catch(() => {});
+  }, []);
 
   const agents: NetworkAgent[] = data?.agents ?? [];
   const totalRows = data?.total ?? 0;
@@ -121,6 +136,7 @@ export default function DiscoveryPage() {
               <tr className="border-b border-gray-800 text-gray-500">
                 <th className="text-left p-3">Name</th>
                 <th className="text-left p-3">Chain</th>
+                <th className="text-left p-3">Status</th>
                 <th className="text-left p-3">Owner</th>
                 <th className="text-left p-3">Agent URI</th>
                 <th className="text-left p-3">Created</th>
@@ -135,26 +151,52 @@ export default function DiscoveryPage() {
                 >
                   {/* Name */}
                   <td className="p-3">
-                    <div>
-                      <span className="font-medium text-gray-100">
-                        {agent.name || `Token #${agent.token_id}`}
-                      </span>
-                      {agent.name && (
-                        <span className="text-gray-500 ml-1.5">
-                          #{agent.token_id}
-                        </span>
+                    <div className="flex items-center gap-2.5">
+                      {resolveImageUrl(agent.image_url) ? (
+                        <img
+                          src={resolveImageUrl(agent.image_url)!}
+                          alt=""
+                          className="w-8 h-8 rounded-md object-cover bg-gray-800 shrink-0"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-md bg-gray-800 flex items-center justify-center text-xs text-gray-600 shrink-0">
+                          #
+                        </div>
                       )}
+                      <div className="min-w-0">
+                        <div>
+                          <span className="font-medium text-gray-100">
+                            {agent.name || `Token #${agent.token_id}`}
+                          </span>
+                          {agent.name && (
+                            <span className="text-gray-500 ml-1.5">
+                              #{agent.token_id}
+                            </span>
+                          )}
+                        </div>
+                        {agent.description && (
+                          <p className="text-xs text-gray-600 truncate max-w-[250px] mt-0.5">
+                            {agent.description}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    {agent.description && (
-                      <p className="text-xs text-gray-600 truncate max-w-[250px] mt-0.5">
-                        {agent.description}
-                      </p>
-                    )}
                   </td>
 
                   {/* Chain */}
                   <td className="p-3">
                     <ChainBadge chainId={agent.chain_id} />
+                  </td>
+
+                  {/* Status */}
+                  <td className="p-3">
+                    {registeredKeys.has(`${agent.chain_id}-${agent.token_id}`) ? (
+                      <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-900/30 text-green-400">
+                        Registered
+                      </span>
+                    ) : (
+                      <span className="text-gray-600 text-xs">—</span>
+                    )}
                   </td>
 
                   {/* Owner */}
@@ -188,7 +230,7 @@ export default function DiscoveryPage() {
               {agents.length === 0 && (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="p-6 text-center text-gray-600"
                   >
                     No agents found.

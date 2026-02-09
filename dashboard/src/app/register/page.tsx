@@ -11,6 +11,31 @@ import { NETWORKS, NETWORK_LIST, DEFAULT_NETWORK } from "@/lib/networks";
 const CATEGORIES = ["compute", "data", "inference", "storage", "other"];
 const PROTOCOLS = ["a2a", "mcp", "x402", "custom"];
 
+/** Extract the first service endpoint URL from an agentURI data: payload. */
+function extractEndpointFromURI(uri: string): string {
+  let json: string | null = null;
+  if (uri.startsWith("data:application/json;base64,")) {
+    try {
+      json = atob(uri.slice("data:application/json;base64,".length));
+    } catch { return ""; }
+  } else if (uri.startsWith("data:application/json,")) {
+    json = uri.slice("data:application/json,".length);
+  } else if (uri.startsWith("{")) {
+    json = uri;
+  }
+  if (!json) return "";
+  try {
+    const meta = JSON.parse(json);
+    const svcs = meta.services ?? meta.endpoints ?? [];
+    for (const svc of svcs) {
+      if (svc.endpoint && (svc.endpoint.startsWith("http://") || svc.endpoint.startsWith("https://"))) {
+        return svc.endpoint;
+      }
+    }
+  } catch { /* ignore */ }
+  return "";
+}
+
 export default function RegisterPage() {
   return (
     <Suspense fallback={<p className="text-gray-500">Loading...</p>}>
@@ -78,9 +103,10 @@ function RegisterPageInner() {
     setSelectedToken(token);
     setTokenId(qTokenId);
 
-    // Pre-populate origin endpoint from agent URI
+    // Pre-populate origin endpoint from first service in metadata
     if (token.agent_uri) {
-      setOriginEndpoint(token.agent_uri);
+      const ep = extractEndpointFromURI(token.agent_uri);
+      if (ep) setOriginEndpoint(ep);
     }
 
     // Fetch name from 8004scan
@@ -209,9 +235,10 @@ function RegisterPageInner() {
     setTokenId(String(token.token_id));
     setError("");
 
-    // Pre-populate origin endpoint from agent URI
+    // Pre-populate origin endpoint from first service in metadata
     if (token.agent_uri) {
-      setOriginEndpoint(token.agent_uri);
+      const ep = extractEndpointFromURI(token.agent_uri);
+      if (ep) setOriginEndpoint(ep);
     }
 
     // Fetch name from 8004scan
@@ -296,7 +323,15 @@ function RegisterPageInner() {
       )}
 
       <div>
-        <label className="block text-sm text-gray-400 mb-1">Origin Endpoint *</label>
+        <label className="flex items-center gap-1.5 text-sm text-gray-400 mb-1">
+          Origin Endpoint *
+          <span
+            title="Auto-filled from your token metadata. You can modify this."
+            className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-700 text-[10px] text-gray-400 cursor-help"
+          >
+            !
+          </span>
+        </label>
         <input
           type="url"
           value={originEndpoint}

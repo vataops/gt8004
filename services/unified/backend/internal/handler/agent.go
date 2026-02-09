@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -89,15 +90,8 @@ func (h *Handler) RegisterAgent(c *gin.Context) {
 
 // AgentStats handles GET /v1/agents/:agent_id/stats.
 func (h *Handler) AgentStats(c *gin.Context) {
-	agentDBID, exists := c.Get("agent_db_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-		return
-	}
-
-	dbID, ok := agentDBID.(uuid.UUID)
+	dbID, ok := h.resolvePublicAgent(c)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid agent context"})
 		return
 	}
 
@@ -122,15 +116,8 @@ func (h *Handler) AgentStats(c *gin.Context) {
 
 // AgentDailyStats handles GET /v1/agents/:agent_id/stats/daily.
 func (h *Handler) AgentDailyStats(c *gin.Context) {
-	agentDBID, exists := c.Get("agent_db_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-		return
-	}
-
-	dbID, ok := agentDBID.(uuid.UUID)
+	dbID, ok := h.resolvePublicAgent(c)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid agent context"})
 		return
 	}
 
@@ -233,7 +220,7 @@ func (h *Handler) ListWalletAgents(c *gin.Context) {
 		return
 	}
 
-	cacheKey := fmt.Sprintf("wallet:%s", address)
+	cacheKey := fmt.Sprintf("wallet:%s", strings.ToLower(address))
 
 	if cached := h.cache.Get(c.Request.Context(), cacheKey); cached != nil {
 		c.Data(http.StatusOK, "application/json", cached)

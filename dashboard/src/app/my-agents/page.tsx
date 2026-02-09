@@ -7,6 +7,16 @@ import { useAuth } from "@/lib/auth";
 import { StatCard } from "@/components/StatCard";
 import { openApi, Agent, fetchScanAgents } from "@/lib/api";
 import { NETWORK_LIST } from "@/lib/networks";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+
+const AGENT_COLORS = ["#3b82f6", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#ec4899"];
 
 interface AgentRow {
   agent_id: string;
@@ -16,6 +26,9 @@ interface AgentRow {
   chain_id: number;
   score: number;
   feedback: number;
+  total_requests: number;
+  total_customers: number;
+  total_revenue: number;
   status: string;
   created_at: string;
   agent_uri: string;
@@ -101,6 +114,9 @@ export default function MyAgentsPage() {
           chain_id: token.chain_id,
           score,
           feedback: scanAgent?.total_feedbacks ?? 0,
+          total_requests: platformAgent?.total_requests ?? 0,
+          total_customers: platformAgent?.total_customers ?? 0,
+          total_revenue: platformAgent?.total_revenue_usdc ?? 0,
           status: scanAgent ? (scanAgent.is_active ? "active" : "inactive") : (platformAgent?.status || "active"),
           created_at: scanAgent?.created_at || platformAgent?.created_at || "",
           agent_uri: token.agent_uri,
@@ -122,6 +138,9 @@ export default function MyAgentsPage() {
             chain_id: 0,
             score: agent.reputation_score ?? 0,
             feedback: 0,
+            total_requests: agent.total_requests ?? 0,
+            total_customers: agent.total_customers ?? 0,
+            total_revenue: agent.total_revenue_usdc ?? 0,
             status: agent.status,
             created_at: agent.created_at,
             agent_uri: "",
@@ -143,11 +162,31 @@ export default function MyAgentsPage() {
   }, [loadAgents]);
 
   const totalAgents = agents.length;
+  const totalRequests = agents.reduce((sum, a) => sum + a.total_requests, 0);
+  const totalRevenue = agents.reduce((sum, a) => sum + a.total_revenue, 0);
   const totalFeedback = agents.reduce((sum, a) => sum + a.feedback, 0);
   const avgScore =
     agents.length > 0
       ? agents.reduce((sum, a) => sum + a.score, 0) / agents.length
       : 0;
+
+  // Chart data: each agent as a segment in the stacked bar
+  const chartAgents = agents.map((a, i) => ({
+    key: `a${i}`,
+    label:
+      a.token_id !== null && !a.name.startsWith("Token #")
+        ? `${a.name} #${a.token_id}`
+        : a.name,
+    requests: a.total_requests,
+    revenue: a.total_revenue,
+    color: AGENT_COLORS[i % AGENT_COLORS.length],
+  }));
+  const requestBarData = [
+    { _: "req", ...Object.fromEntries(chartAgents.map((a) => [a.key, a.requests])) },
+  ];
+  const revenueBarData = [
+    { _: "rev", ...Object.fromEntries(chartAgents.map((a) => [a.key, a.revenue])) },
+  ];
 
   if (authLoading || loading) {
     return <p className="text-gray-500">Loading agents...</p>;
@@ -191,14 +230,36 @@ export default function MyAgentsPage() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-5 gap-4 mb-6">
         <StatCard label="Total Agents" value={totalAgents} />
+        <StatCard label="Total Requests" value={totalRequests.toLocaleString()} />
+        <StatCard label="Total Revenue" value={`$${totalRevenue.toFixed(2)}`} sub="USDC" />
         <StatCard label="Total Feedback" value={totalFeedback} />
         <StatCard
           label="Average Score"
           value={avgScore > 0 ? avgScore.toFixed(1) : "0"}
         />
       </div>
+
+      {/* Breakdown Charts */}
+      {agents.length > 0 && (
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <BreakdownChart
+            title="Requests by Agent"
+            data={requestBarData}
+            agents={chartAgents}
+            total={totalRequests}
+            formatValue={(v) => v.toLocaleString()}
+          />
+          <BreakdownChart
+            title="Revenue by Agent"
+            data={revenueBarData}
+            agents={chartAgents}
+            total={totalRevenue}
+            formatValue={(v) => `$${v.toFixed(2)}`}
+          />
+        </div>
+      )}
 
       {/* Agent Table */}
       <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
@@ -209,6 +270,8 @@ export default function MyAgentsPage() {
               <th className="text-left p-3">Chain</th>
               <th className="text-left p-3">Score</th>
               <th className="text-left p-3">Feedback</th>
+              <th className="text-left p-3">Requests</th>
+              <th className="text-left p-3">Customers</th>
               <th className="text-left p-3">Status</th>
               <th className="text-left p-3">Created</th>
               <th className="text-left p-3"></th>
@@ -253,6 +316,12 @@ export default function MyAgentsPage() {
                 {/* Feedback */}
                 <td className="p-3 text-gray-300">{agent.feedback}</td>
 
+                {/* Requests */}
+                <td className="p-3 text-gray-300">{agent.total_requests.toLocaleString()}</td>
+
+                {/* Customers */}
+                <td className="p-3 text-gray-300">{agent.total_customers.toLocaleString()}</td>
+
                 {/* Status */}
                 <td className="p-3">
                   <StatusBadge status={agent.status} />
@@ -288,7 +357,7 @@ export default function MyAgentsPage() {
             {agents.length === 0 && (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={9}
                   className="p-6 text-center text-gray-600"
                 >
                   No agents found. Connect your wallet or register a new agent.
@@ -322,6 +391,116 @@ function ChainBadge({
     >
       {chain}
     </span>
+  );
+}
+
+interface ChartAgent {
+  key: string;
+  label: string;
+  color: string;
+}
+
+function BreakdownChart({
+  title,
+  data,
+  agents,
+  total,
+  formatValue,
+}: {
+  title: string;
+  data: Record<string, unknown>[];
+  agents: ChartAgent[];
+  total: number;
+  formatValue: (v: number) => string;
+}) {
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-gray-400">{title}</h3>
+        <span className="text-sm text-gray-300 font-medium">
+          {formatValue(total)}
+        </span>
+      </div>
+      {total > 0 ? (
+        <div className="rounded-md overflow-hidden">
+          <ResponsiveContainer width="100%" height={32}>
+            <BarChart
+              layout="vertical"
+              data={data}
+              margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
+            >
+              <XAxis type="number" hide />
+              <YAxis type="category" dataKey="_" hide />
+              <Tooltip
+                cursor={false}
+                content={({ payload }) => {
+                  if (!payload?.length) return null;
+                  const items = payload.filter(
+                    (p) => typeof p.value === "number" && p.value > 0
+                  );
+                  if (!items.length) return null;
+                  return (
+                    <div className="bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-xs shadow-lg">
+                      {items.map((p) => {
+                        const agent = agents.find((a) => a.key === p.dataKey);
+                        const val = p.value as number;
+                        const pct =
+                          total > 0 ? ((val / total) * 100).toFixed(1) : "0";
+                        return (
+                          <div
+                            key={String(p.dataKey)}
+                            className="flex items-center gap-2 py-0.5"
+                          >
+                            <div
+                              className="w-2.5 h-2.5 rounded-sm shrink-0"
+                              style={{ backgroundColor: agent?.color }}
+                            />
+                            <span className="text-gray-300">
+                              {agent?.label}
+                            </span>
+                            <span className="text-gray-500 ml-auto pl-3">
+                              {formatValue(val)} ({pct}%)
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                }}
+              />
+              {agents.map((a) => (
+                <Bar
+                  key={a.key}
+                  dataKey={a.key}
+                  stackId="stack"
+                  fill={a.color}
+                />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      ) : (
+        <div className="h-8 bg-gray-800/50 rounded flex items-center justify-center">
+          <span className="text-xs text-gray-600">No data</span>
+        </div>
+      )}
+      {/* Legend */}
+      <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
+        {agents.map((a) => {
+          const val = (data[0]?.[a.key] as number) || 0;
+          return (
+            <div key={a.key} className="flex items-center gap-1.5 text-xs">
+              <div
+                className="w-2.5 h-2.5 rounded-sm shrink-0"
+                style={{ backgroundColor: a.color }}
+              />
+              <span className="text-gray-400">{a.label}</span>
+              <span className="text-gray-600">{formatValue(val)}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
