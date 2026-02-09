@@ -319,7 +319,7 @@ func (c *Client) DiscoverAllTokens(ctx context.Context) ([]DiscoveredToken, erro
 		}
 	}
 
-	// Fetch block timestamps for mint blocks
+	// Fetch block timestamps for mint blocks (use fresh context to avoid scan timeout)
 	blockNums := make(map[uint64]bool)
 	mintBlocks := make(map[int64]uint64) // tokenID → blockNumber
 	for _, ev := range candidates {
@@ -327,9 +327,12 @@ func (c *Client) DiscoverAllTokens(ctx context.Context) ([]DiscoveredToken, erro
 		mintBlocks[ev.TokenID] = ev.BlockNumber
 	}
 
+	headerCtx, headerCancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer headerCancel()
+
 	blockTimestamps := make(map[uint64]time.Time)
 	for bn := range blockNums {
-		header, err := c.ethClient.HeaderByNumber(ctx, new(big.Int).SetUint64(bn))
+		header, err := c.ethClient.HeaderByNumber(headerCtx, new(big.Int).SetUint64(bn))
 		if err != nil {
 			c.logger.Warn("failed to fetch block header", zap.Uint64("block", bn), zap.Error(err))
 			continue
@@ -337,14 +340,17 @@ func (c *Client) DiscoverAllTokens(ctx context.Context) ([]DiscoveredToken, erro
 		blockTimestamps[bn] = time.Unix(int64(header.Time), 0)
 	}
 
-	// For each candidate, verify current owner and get agentURI
+	// For each candidate, verify current owner and get agentURI (fresh context for slow RPCs)
+	verifyCtx, verifyCancel := context.WithTimeout(context.Background(), 8*time.Minute)
+	defer verifyCancel()
+
 	tokens := make([]DiscoveredToken, 0, len(candidates))
 	for _, ev := range candidates {
-		owner, err := c.VerifyOwnership(ctx, ev.TokenID)
+		owner, err := c.VerifyOwnership(verifyCtx, ev.TokenID)
 		if err != nil {
 			continue // token may have been burned
 		}
-		agentURI, _ := c.GetAgentURI(ctx, ev.TokenID)
+		agentURI, _ := c.GetAgentURI(verifyCtx, ev.TokenID)
 		tokens = append(tokens, DiscoveredToken{
 			TokenID:      ev.TokenID,
 			OwnerAddress: owner,

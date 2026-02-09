@@ -89,10 +89,10 @@ func (j *Job) Stop() {
 }
 
 // Sync discovers all tokens from all configured chains and upserts them.
-// Each chain gets its own 5-minute context so one slow chain doesn't starve others.
+// Each chain gets its own 10-minute context for chunk scanning + header fetches + ownership checks.
 func (j *Job) Sync() {
 	for chainID, client := range j.registry.Clients() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 		j.syncChain(ctx, chainID, client)
 		cancel()
 	}

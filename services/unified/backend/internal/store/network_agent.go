@@ -44,7 +44,7 @@ func (s *Store) UpsertNetworkAgent(ctx context.Context, agent *NetworkAgent) err
 			description   = EXCLUDED.description,
 			image_url     = EXCLUDED.image_url,
 			metadata      = EXCLUDED.metadata,
-			created_at    = EXCLUDED.created_at,
+			created_at    = LEAST(EXCLUDED.created_at, network_agents.created_at),
 			synced_at     = NOW()
 	`, agent.ChainID, agent.TokenID, agent.OwnerAddress, agent.AgentURI,
 		agent.Name, agent.Description, agent.ImageURL, meta, createdAt)
