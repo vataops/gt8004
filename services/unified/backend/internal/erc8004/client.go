@@ -44,7 +44,7 @@ type OwnedToken struct {
 // Function selectors (first 4 bytes of keccak256 of function signature)
 var (
 	selectorOwnerOf     = crypto.Keccak256([]byte("ownerOf(uint256)"))[:4]
-	selectorGetAgentURI = crypto.Keccak256([]byte("getAgentURI(uint256)"))[:4]
+	selectorTokenURI = crypto.Keccak256([]byte("tokenURI(uint256)"))[:4]
 
 	// Transfer(address indexed from, address indexed to, uint256 indexed tokenId)
 	topicTransfer = crypto.Keccak256Hash([]byte("Transfer(address,address,uint256)"))
@@ -125,7 +125,7 @@ func (c *Client) GetAgentURI(ctx context.Context, tokenID int64) (string, error)
 	// ABI-encode: selector + uint256(tokenID)
 	tokenIDBig := new(big.Int).SetInt64(tokenID)
 	paddedTokenID := common.LeftPadBytes(tokenIDBig.Bytes(), 32)
-	data := append(selectorGetAgentURI, paddedTokenID...)
+	data := append(selectorTokenURI, paddedTokenID...)
 
 	msg := ethereum.CallMsg{
 		To:   &c.contractAddr,

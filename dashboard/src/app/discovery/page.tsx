@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { StatCard } from "@/components/StatCard";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useNetworkAgents, useNetworkStats } from "@/lib/hooks";
-import { fetchScanAgents, type NetworkAgent, type ScanAgent } from "@/lib/api";
-import { NETWORK_LIST } from "@/lib/networks";
+import { NETWORKS, NETWORK_LIST } from "@/lib/networks";
+import type { NetworkAgent } from "@/lib/api";
 
 // Chain ID → display name mapping
 const CHAIN_NAMES: Record<number, string> = {};
@@ -12,51 +12,54 @@ for (const n of NETWORK_LIST) {
   CHAIN_NAMES[n.chainId] = n.shortName;
 }
 
-interface EnrichedAgent extends NetworkAgent {
-  scan?: ScanAgent;
+// Chain ID → route key mapping
+const CHAIN_ID_TO_KEY: Record<number, string> = {};
+for (const [key, cfg] of Object.entries(NETWORKS)) {
+  CHAIN_ID_TO_KEY[cfg.chainId] = key;
 }
 
+const PAGE_SIZE = 20;
+
+const TABS = [
+  { label: "Total", chainId: 0 },
+  ...NETWORK_LIST.map((n) => ({ label: n.shortName, chainId: n.chainId })),
+];
+
 export default function DiscoveryPage() {
+  const router = useRouter();
   const [chainFilter, setChainFilter] = useState(0);
   const [search, setSearch] = useState("");
-  const [enriched, setEnriched] = useState<EnrichedAgent[]>([]);
+  const [page, setPage] = useState(1);
+
+  // Reset to page 1 when filter/search changes
+  const handleChainFilter = (chainId: number) => {
+    setChainFilter(chainId);
+    setPage(1);
+  };
+  const handleSearch = (val: string) => {
+    setSearch(val);
+    setPage(1);
+  };
 
   const { data, loading } = useNetworkAgents({
     chain_id: chainFilter || undefined,
     search: search || undefined,
-    limit: 200,
+    limit: PAGE_SIZE,
+    offset: (page - 1) * PAGE_SIZE,
   });
   const { data: stats } = useNetworkStats();
 
-  // Enrich with 8004scan metadata
-  const enrich = useCallback(async (agents: NetworkAgent[]) => {
-    if (agents.length === 0) {
-      setEnriched([]);
-      return;
-    }
-
-    const tokens = agents.map((a) => ({
-      token_id: a.token_id,
-      chain_id: a.chain_id,
-    }));
-    const scanData = await fetchScanAgents(tokens);
-
-    setEnriched(
-      agents.map((a) => ({
-        ...a,
-        scan: scanData.get(`${a.chain_id}-${a.token_id}`),
-      }))
-    );
-  }, []);
-
-  useEffect(() => {
-    if (data?.agents) {
-      enrich(data.agents);
-    }
-  }, [data?.agents, enrich]);
+  const agents: NetworkAgent[] = data?.agents ?? [];
+  const totalRows = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
 
   const total = stats?.total ?? 0;
   const chainCounts = stats?.by_chain ?? {};
+
+  const handleAgentClick = (agent: NetworkAgent) => {
+    const chainKey = CHAIN_ID_TO_KEY[agent.chain_id] || String(agent.chain_id);
+    router.push(`/discovery/${chainKey}/${agent.token_id}`);
+  };
 
   return (
     <div>
@@ -68,39 +71,44 @@ export default function DiscoveryPage() {
         </p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <StatCard label="Total Agents" value={total} />
-        {NETWORK_LIST.map((n) => (
-          <StatCard
-            key={n.chainId}
-            label={n.shortName}
-            value={chainCounts[n.chainId] ?? 0}
-          />
-        ))}
+      {/* Chain Tabs */}
+      <div className="flex items-center gap-1 mb-6">
+        {TABS.map((tab) => {
+          const count =
+            tab.chainId === 0 ? total : (chainCounts[tab.chainId] ?? 0);
+          const active = chainFilter === tab.chainId;
+          return (
+            <button
+              key={tab.chainId}
+              onClick={() => handleChainFilter(tab.chainId)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                active
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200"
+              }`}
+            >
+              {tab.label}
+              <span
+                className={`ml-2 text-xs ${
+                  active ? "text-blue-200" : "text-gray-500"
+                }`}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-4 mb-6">
+      {/* Search */}
+      <div className="mb-6">
         <input
           type="text"
-          placeholder="Search by owner, URI, or token ID..."
+          placeholder="Search by name, owner, URI, or token ID..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          onChange={(e) => handleSearch(e.target.value)}
+          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
-        <select
-          value={chainFilter}
-          onChange={(e) => setChainFilter(Number(e.target.value))}
-          className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-sm text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        >
-          <option value={0}>All Chains</option>
-          {NETWORK_LIST.map((n) => (
-            <option key={n.chainId} value={n.chainId}>
-              {n.shortName}
-            </option>
-          ))}
-        </select>
       </div>
 
       {/* Table */}
@@ -113,34 +121,33 @@ export default function DiscoveryPage() {
               <tr className="border-b border-gray-800 text-gray-500">
                 <th className="text-left p-3">Name</th>
                 <th className="text-left p-3">Chain</th>
-                <th className="text-left p-3">Score</th>
-                <th className="text-left p-3">Feedback</th>
                 <th className="text-left p-3">Owner</th>
                 <th className="text-left p-3">Agent URI</th>
                 <th className="text-left p-3">Created</th>
               </tr>
             </thead>
             <tbody>
-              {enriched.map((agent) => (
+              {agents.map((agent) => (
                 <tr
                   key={`${agent.chain_id}-${agent.token_id}`}
-                  className="border-b border-gray-800/50 hover:bg-gray-800/30"
+                  onClick={() => handleAgentClick(agent)}
+                  className="border-b border-gray-800/50 hover:bg-gray-800/30 cursor-pointer"
                 >
                   {/* Name */}
                   <td className="p-3">
                     <div>
                       <span className="font-medium text-gray-100">
-                        {agent.scan?.name || `Token #${agent.token_id}`}
+                        {agent.name || `Token #${agent.token_id}`}
                       </span>
-                      {agent.scan?.name && (
+                      {agent.name && (
                         <span className="text-gray-500 ml-1.5">
                           #{agent.token_id}
                         </span>
                       )}
                     </div>
-                    {agent.scan?.description && (
+                    {agent.description && (
                       <p className="text-xs text-gray-600 truncate max-w-[250px] mt-0.5">
-                        {agent.scan.description}
+                        {agent.description}
                       </p>
                     )}
                   </td>
@@ -148,20 +155,6 @@ export default function DiscoveryPage() {
                   {/* Chain */}
                   <td className="p-3">
                     <ChainBadge chainId={agent.chain_id} />
-                  </td>
-
-                  {/* Score */}
-                  <td className="p-3 text-gray-300">
-                    {agent.scan
-                      ? agent.scan.total_score > 0
-                        ? agent.scan.total_score.toFixed(1)
-                        : "0"
-                      : "—"}
-                  </td>
-
-                  {/* Feedback */}
-                  <td className="p-3 text-gray-300">
-                    {agent.scan?.total_feedbacks ?? "—"}
                   </td>
 
                   {/* Owner */}
@@ -186,31 +179,91 @@ export default function DiscoveryPage() {
 
                   {/* Created */}
                   <td className="p-3 text-gray-400 text-xs">
-                    {agent.scan?.created_at
-                      ? new Date(agent.scan.created_at).toLocaleDateString()
-                      : agent.created_at
-                        ? new Date(agent.created_at).toLocaleDateString()
-                        : "—"}
+                    {agent.created_at
+                      ? new Date(agent.created_at).toLocaleDateString()
+                      : "—"}
                   </td>
                 </tr>
               ))}
-              {enriched.length === 0 && (
+              {agents.length === 0 && (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={5}
                     className="p-6 text-center text-gray-600"
                   >
-                    No agents found. Agents will appear after the sync job
-                    discovers on-chain tokens.
+                    No agents found.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-800">
+              <span className="text-xs text-gray-500">
+                {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, totalRows)} of {totalRows}
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="px-2 py-1 rounded text-xs text-gray-400 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  Prev
+                </button>
+                {pageNumbers(page, totalPages).map((p, i) =>
+                  p === -1 ? (
+                    <span key={`dots-${i}`} className="px-1 text-xs text-gray-600">
+                      ...
+                    </span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => setPage(p)}
+                      className={`min-w-[28px] px-1.5 py-1 rounded text-xs font-medium ${
+                        p === page
+                          ? "bg-blue-600 text-white"
+                          : "text-gray-400 hover:bg-gray-800"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="px-2 py-1 rounded text-xs text-gray-400 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
+}
+
+/** Generate page numbers with ellipsis: [1, 2, 3, -1, 28, 29] */
+function pageNumbers(current: number, total: number): number[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+
+  const pages: number[] = [];
+  pages.push(1);
+
+  if (current > 3) pages.push(-1);
+
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  for (let i = start; i <= end; i++) pages.push(i);
+
+  if (current < total - 2) pages.push(-1);
+
+  pages.push(total);
+  return pages;
 }
 
 function ChainBadge({ chainId }: { chainId: number }) {

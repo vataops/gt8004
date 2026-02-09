@@ -70,6 +70,14 @@ export function useNetworkAgents(
   return usePolling(fn, 30_000);
 }
 
+export function useNetworkAgent(chainId: number, tokenId: number) {
+  const fn = useCallback(
+    () => openApi.getNetworkAgent(chainId, tokenId),
+    [chainId, tokenId]
+  );
+  return usePolling(fn, 30_000);
+}
+
 export function useNetworkStats() {
   return usePolling(openApi.getNetworkStats, 30_000);
 }

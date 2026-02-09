@@ -54,6 +54,7 @@ func NewRouter(cfg *config.Config, h *handler.Handler, logger *zap.Logger) *gin.
 
 	// Network agents (public — all on-chain ERC-8004 agents)
 	v1.GET("/network/agents", h.ListNetworkAgents)
+	v1.GET("/network/agents/:chain_id/:token_id", h.GetNetworkAgent)
 	v1.GET("/network/stats", h.GetNetworkStats)
 
 	// === Service Lifecycle ===

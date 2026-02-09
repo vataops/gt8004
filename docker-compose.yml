@@ -56,45 +56,6 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # ── Open Backend (legacy) ─────────────────────
-  open-backend:
-    build:
-      context: .
-      dockerfile: services/open/backend/Dockerfile
-    ports:
-      - "8084:8080"
-      - "8085:8081"
-    environment:
-      PORT: 8080
-      METRICS_PORT: 8081
-      LOG_LEVEL: debug
-      DATABASE_URL: postgres://ael:ael@postgres:5432/ael_open?sslmode=disable
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
-    profiles: ["legacy"]
-
-  # ── Lite Backend (legacy) ─────────────────────
-  lite-backend:
-    build:
-      context: .
-      dockerfile: services/lite/backend/Dockerfile
-    ports:
-      - "8086:8082"
-      - "8087:8083"
-    environment:
-      PORT: 8082
-      METRICS_PORT: 8083
-      LOG_LEVEL: debug
-      DATABASE_URL: postgres://ael:ael@postgres:5432/ael_lite?sslmode=disable
-      ADMIN_API_KEY: ${ADMIN_API_KEY:-changeme}
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
-    profiles: ["legacy"]
-
 volumes:
   pgdata:
   redisdata:

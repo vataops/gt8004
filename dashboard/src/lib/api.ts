@@ -218,12 +218,36 @@ export interface DailyStats {
 
 // ---------- Network Agents (on-chain discovery) ----------
 
+export interface AgentService {
+  name: string;
+  endpoint: string;
+  version?: string;
+  skills?: string[];
+  domains?: string[];
+}
+
+export interface AgentMetadata {
+  type?: string;
+  name?: string;
+  description?: string;
+  image?: string;
+  services?: AgentService[];
+  x402Support?: boolean;
+  active?: boolean;
+  registrations?: { agentId: number; agentRegistry: string }[];
+  supportedTrust?: string[];
+}
+
 export interface NetworkAgent {
   id: string;
   chain_id: number;
   token_id: number;
   owner_address: string;
   agent_uri: string;
+  name: string;
+  description: string;
+  image_url: string;
+  metadata: AgentMetadata;
   created_at: string;
   synced_at: string;
 }
@@ -422,6 +446,8 @@ export const openApi = {
       `/v1/network/agents${qs ? `?${qs}` : ""}`
     );
   },
+  getNetworkAgent: (chainId: number, tokenId: number) =>
+    openFetcher<NetworkAgent>(`/v1/network/agents/${chainId}/${tokenId}`),
   getNetworkStats: () =>
     openFetcher<NetworkStats>("/v1/network/stats"),
 };

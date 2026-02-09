@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -10,25 +11,38 @@ import (
 
 // NetworkAgent represents an ERC-8004 token discovered on-chain.
 type NetworkAgent struct {
-	ID           uuid.UUID `json:"id"`
-	ChainID      int       `json:"chain_id"`
-	TokenID      int64     `json:"token_id"`
-	OwnerAddress string    `json:"owner_address"`
-	AgentURI     string    `json:"agent_uri"`
-	CreatedAt    time.Time `json:"created_at"`
-	SyncedAt     time.Time `json:"synced_at"`
+	ID           uuid.UUID       `json:"id"`
+	ChainID      int             `json:"chain_id"`
+	TokenID      int64           `json:"token_id"`
+	OwnerAddress string          `json:"owner_address"`
+	AgentURI     string          `json:"agent_uri"`
+	Name         string          `json:"name"`
+	Description  string          `json:"description"`
+	ImageURL     string          `json:"image_url"`
+	Metadata     json.RawMessage `json:"metadata"`
+	CreatedAt    time.Time       `json:"created_at"`
+	SyncedAt     time.Time       `json:"synced_at"`
 }
 
 // UpsertNetworkAgent inserts or updates a network agent record.
 func (s *Store) UpsertNetworkAgent(ctx context.Context, agent *NetworkAgent) error {
+	meta := agent.Metadata
+	if len(meta) == 0 {
+		meta = json.RawMessage(`{}`)
+	}
 	_, err := s.pool.Exec(ctx, `
-		INSERT INTO network_agents (chain_id, token_id, owner_address, agent_uri, synced_at)
-		VALUES ($1, $2, $3, $4, NOW())
+		INSERT INTO network_agents (chain_id, token_id, owner_address, agent_uri, name, description, image_url, metadata, synced_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
 		ON CONFLICT (chain_id, token_id) DO UPDATE SET
 			owner_address = EXCLUDED.owner_address,
 			agent_uri     = EXCLUDED.agent_uri,
+			name          = EXCLUDED.name,
+			description   = EXCLUDED.description,
+			image_url     = EXCLUDED.image_url,
+			metadata      = EXCLUDED.metadata,
 			synced_at     = NOW()
-	`, agent.ChainID, agent.TokenID, agent.OwnerAddress, agent.AgentURI)
+	`, agent.ChainID, agent.TokenID, agent.OwnerAddress, agent.AgentURI,
+		agent.Name, agent.Description, agent.ImageURL, meta)
 	if err != nil {
 		return fmt.Errorf("upsert network agent: %w", err)
 	}
@@ -51,7 +65,7 @@ func (s *Store) ListNetworkAgents(ctx context.Context, chainID int, search strin
 		argIdx++
 	}
 	if search != "" {
-		where += fmt.Sprintf(" AND (owner_address ILIKE $%d OR agent_uri ILIKE $%d OR token_id::text = $%d)", argIdx, argIdx, argIdx+1)
+		where += fmt.Sprintf(" AND (owner_address ILIKE $%d OR agent_uri ILIKE $%d OR name ILIKE $%d OR token_id::text = $%d)", argIdx, argIdx, argIdx, argIdx+1)
 		args = append(args, "%"+search+"%", search)
 		argIdx += 2
 	}
@@ -64,7 +78,9 @@ func (s *Store) ListNetworkAgents(ctx context.Context, chainID int, search strin
 	}
 
 	// Fetch rows
-	query := "SELECT id, chain_id, token_id, COALESCE(owner_address, ''), COALESCE(agent_uri, ''), created_at, synced_at FROM network_agents " +
+	query := `SELECT id, chain_id, token_id, COALESCE(owner_address, ''), COALESCE(agent_uri, ''),
+		COALESCE(name, ''), COALESCE(description, ''), COALESCE(image_url, ''), COALESCE(metadata, '{}'),
+		created_at, synced_at FROM network_agents ` +
 		where + fmt.Sprintf(" ORDER BY token_id ASC LIMIT $%d OFFSET $%d", argIdx, argIdx+1)
 	args = append(args, limit, offset)
 
@@ -77,13 +93,35 @@ func (s *Store) ListNetworkAgents(ctx context.Context, chainID int, search strin
 	agents := []NetworkAgent{}
 	for rows.Next() {
 		var a NetworkAgent
-		if err := rows.Scan(&a.ID, &a.ChainID, &a.TokenID, &a.OwnerAddress, &a.AgentURI, &a.CreatedAt, &a.SyncedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.ChainID, &a.TokenID, &a.OwnerAddress, &a.AgentURI,
+			&a.Name, &a.Description, &a.ImageURL, &a.Metadata,
+			&a.CreatedAt, &a.SyncedAt); err != nil {
 			return nil, 0, fmt.Errorf("scan network agent: %w", err)
 		}
 		agents = append(agents, a)
 	}
 
 	return agents, total, nil
+}
+
+// GetNetworkAgent returns a single network agent by chain ID and token ID.
+func (s *Store) GetNetworkAgent(ctx context.Context, chainID int, tokenID int64) (*NetworkAgent, error) {
+	var a NetworkAgent
+	err := s.pool.QueryRow(ctx, `
+		SELECT id, chain_id, token_id, COALESCE(owner_address, ''), COALESCE(agent_uri, ''),
+			COALESCE(name, ''), COALESCE(description, ''), COALESCE(image_url, ''), COALESCE(metadata, '{}'),
+			created_at, synced_at
+		FROM network_agents
+		WHERE chain_id = $1 AND token_id = $2
+	`, chainID, tokenID).Scan(
+		&a.ID, &a.ChainID, &a.TokenID, &a.OwnerAddress, &a.AgentURI,
+		&a.Name, &a.Description, &a.ImageURL, &a.Metadata,
+		&a.CreatedAt, &a.SyncedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("get network agent: %w", err)
+	}
+	return &a, nil
 }
 
 // NetworkAgentStats holds aggregate stats for network agents.
