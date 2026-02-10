@@ -83,15 +83,15 @@ func (s *Store) CreateAgent(ctx context.Context, agent *Agent) error {
 	}
 	err := s.pool.QueryRow(ctx, `
 		INSERT INTO agents (agent_id, name, origin_endpoint, gt8004_endpoint, protocols, category,
-			pricing_model, pricing_currency, status, current_tier,
+			pricing_model, pricing_currency, gateway_enabled, status, current_tier,
 			erc8004_token_id, chain_id, agent_uri, capabilities, identity_registry,
 			evm_address, verified_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
 		RETURNING id, created_at, updated_at
 	`,
 		agent.AgentID, agent.Name, agent.OriginEndpoint, agent.GT8004Endpoint,
 		agent.Protocols, agent.Category, agent.PricingModel, agent.PricingCurrency,
-		agent.Status, agent.CurrentTier,
+		agent.GatewayEnabled, agent.Status, agent.CurrentTier,
 		agent.ERC8004TokenID, agent.ChainID, agent.AgentURI, agent.Capabilities, agent.IdentityRegistry,
 		agent.EVMAddress, agent.VerifiedAt,
 	).Scan(&agent.ID, &agent.CreatedAt, &agent.UpdatedAt)

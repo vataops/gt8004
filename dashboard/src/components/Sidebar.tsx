@@ -6,7 +6,6 @@ import { useAuth } from "@/lib/auth";
 const publicNav = [
   { href: "/", label: "Overview" },
   { href: "/discovery", label: "Agents" },
-  { href: "/benchmark", label: "Benchmark" },
 ];
 
 const privateNav = [

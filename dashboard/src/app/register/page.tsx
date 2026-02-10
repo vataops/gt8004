@@ -8,9 +8,6 @@ import { useAuth } from "@/lib/auth";
 import { connectWallet, signChallenge } from "@/lib/wallet";
 import { NETWORKS, NETWORK_LIST, DEFAULT_NETWORK } from "@/lib/networks";
 
-const CATEGORIES = ["compute", "data", "inference", "storage", "other"];
-const PROTOCOLS = ["a2a", "mcp", "x402", "custom"];
-
 /** Parse agentURI JSON (data: URI, raw JSON, etc.) into a parsed object. */
 function parseAgentURI(uri: string): Record<string, unknown> | null {
   let json: string | null = null;
@@ -61,20 +58,14 @@ function RegisterPageInner() {
   const searchParams = useSearchParams();
   const { login, walletAddress: storedWallet } = useAuth();
 
-  const [mode, setMode] = useState<"basic" | "erc8004">("erc8004");
   const [phase, setPhase] = useState<string>("wallet");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Form state (shared)
+  // Form state
   const [name, setName] = useState("");
   const [originEndpoint, setOriginEndpoint] = useState("");
-  const [category, setCategory] = useState("compute");
-  const [protocols, setProtocols] = useState<string[]>([]);
-  const [showPricing, setShowPricing] = useState(false);
-  const [pricingModel, setPricingModel] = useState("per_request");
-  const [pricingAmount, setPricingAmount] = useState("");
-  const [pricingCurrency, setPricingCurrency] = useState("USDC");
+  const [integrationMode, setIntegrationMode] = useState<"gateway" | "sdk">("sdk");
 
   // Result state
   const [apiKey, setApiKey] = useState("");
@@ -130,26 +121,9 @@ function RegisterPageInner() {
     setPhase("config");
   }, [searchParams]);
 
-  const toggleProtocol = (p: string) => {
-    setProtocols((prev) =>
-      prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]
-    );
-  };
-
-  const handleModeSwitch = (newMode: "basic" | "erc8004") => {
-    if (newMode === mode) return;
-    setMode(newMode);
-    setError("");
-    if (newMode === "basic") {
-      setPhase("form");
-    } else {
-      setPhase("wallet");
-    }
-  };
-
   // --- Fetch tokens when wallet connects or network changes ---
   useEffect(() => {
-    if (!walletAddress || mode !== "erc8004") return;
+    if (!walletAddress) return;
 
     const network = NETWORKS[selectedNetwork];
     if (!network) return;
@@ -175,14 +149,10 @@ function RegisterPageInner() {
 
     fetchTokens();
     return () => { cancelled = true; };
-  }, [walletAddress, mode, selectedNetwork]);
+  }, [walletAddress, selectedNetwork]);
 
   // --- Step indicator ---
   const getStepInfo = (): { current: number; total: number; label: string } => {
-    if (mode === "basic") {
-      if (phase === "form") return { current: 1, total: 2, label: "Registration" };
-      return { current: 2, total: 2, label: "Complete" };
-    }
     switch (phase) {
       case "wallet":
         return { current: 1, total: 3, label: "Select Token" };
@@ -192,37 +162,6 @@ function RegisterPageInner() {
         return { current: 3, total: 3, label: "Complete" };
       default:
         return { current: 1, total: 3, label: "" };
-    }
-  };
-
-  // --- Basic mode: Register ---
-  const handleBasicRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-
-    try {
-      const req: RegisterRequest = {
-        name: name || undefined,
-        origin_endpoint: originEndpoint,
-        category,
-        protocols: protocols.length > 0 ? protocols : undefined,
-      };
-      if (showPricing && pricingAmount) {
-        req.pricing = {
-          model: pricingModel,
-          amount: parseFloat(pricingAmount),
-          currency: pricingCurrency,
-        };
-      }
-      const res = await openApi.registerAgent(req);
-      setApiKey(res.api_key);
-      setRegisteredAgentId(res.agent_id);
-      setPhase("apikey");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -274,8 +213,8 @@ function RegisterPageInner() {
       const network = NETWORKS[selectedNetwork];
       const req: RegisterRequest = {
         name: name || undefined,
-        origin_endpoint: originEndpoint,
-        protocols: protocols.length > 0 ? protocols : undefined,
+        origin_endpoint: integrationMode === "gateway" ? originEndpoint : undefined,
+        gateway_enabled: integrationMode === "gateway",
         erc8004_token_id: parseInt(tokenId, 10),
         chain_id: network.chainId,
         wallet_address: walletAddress,
@@ -306,221 +245,43 @@ function RegisterPageInner() {
   const stepInfo = getStepInfo();
   const currentNetwork = NETWORKS[selectedNetwork];
 
-  // --- Shared form fields ---
-  const renderFormFields = (showName = true, showPricingOption = true, showCategory = true) => (
-    <>
-      {showName && (
-        <div>
-          <label className="block text-sm text-gray-400 mb-1">Name</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="My Agent"
-            className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500"
-          />
-        </div>
-      )}
-
-      <div>
-        <label className="flex items-center gap-1.5 text-sm text-gray-400 mb-1">
-          Origin Endpoint *
-          <span
-            title="Auto-filled from your token metadata. You can modify this."
-            className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-700 text-[10px] text-gray-400 cursor-help"
-          >
-            !
-          </span>
-        </label>
-        <input
-          type="url"
-          value={originEndpoint}
-          onChange={(e) => setOriginEndpoint(e.target.value)}
-          required
-          placeholder="https://api.example.com"
-          className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500"
-        />
-      </div>
-
-      {showCategory && (
-        <div>
-          <label className="block text-sm text-gray-400 mb-1">Category</label>
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-sm text-white focus:outline-none focus:border-blue-500"
-          >
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c.charAt(0).toUpperCase() + c.slice(1)}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      <div>
-        <label className="block text-sm text-gray-400 mb-1">Protocols</label>
-        <div className="flex flex-wrap gap-2">
-          {PROTOCOLS.map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => toggleProtocol(p)}
-              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                protocols.includes(p)
-                  ? "bg-blue-600 border-blue-500 text-white"
-                  : "bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500"
-              }`}
-            >
-              {p.toUpperCase()}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {showPricingOption && (
-        <div>
-          <button
-            type="button"
-            onClick={() => setShowPricing(!showPricing)}
-            className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
-          >
-            {showPricing ? "- Hide Pricing" : "+ Add Pricing"}
-          </button>
-          {showPricing && (
-            <div className="mt-2 space-y-2 p-3 rounded-lg border border-gray-800 bg-gray-900/50">
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Model</label>
-                  <select
-                    value={pricingModel}
-                    onChange={(e) => setPricingModel(e.target.value)}
-                    className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-xs text-white"
-                  >
-                    <option value="per_request">Per Request</option>
-                    <option value="per_token">Per Token</option>
-                    <option value="flat">Flat</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Amount</label>
-                  <input
-                    type="number"
-                    step="0.0001"
-                    value={pricingAmount}
-                    onChange={(e) => setPricingAmount(e.target.value)}
-                    placeholder="0.01"
-                    className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-xs text-white placeholder-gray-600"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Currency</label>
-                  <select
-                    value={pricingCurrency}
-                    onChange={(e) => setPricingCurrency(e.target.value)}
-                    className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-xs text-white"
-                  >
-                    <option value="USDC">USDC</option>
-                    <option value="ETH">ETH</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </>
-  );
-
-  // --- Success phase (shared) ---
-  const renderSuccessPhase = () => (
-    <div className="max-w-lg mx-auto text-center">
-      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-900/30 border border-green-800 flex items-center justify-center">
-        <svg className="w-8 h-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-        </svg>
-      </div>
-      <h2 className="text-xl font-bold mb-2">Agent Registered</h2>
-      <p className="text-sm text-gray-400 mb-6">
-        Your agent <span className="text-white font-medium">{registeredAgentId}</span> has been
-        successfully registered. You can manage it from your agent dashboard.
-      </p>
-
-      <button
-        onClick={handleContinue}
-        className="w-full py-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors"
-      >
-        Go to Dashboard
-      </button>
-    </div>
-  );
-
   return (
     <div className="max-w-lg mx-auto">
-      {/* Mode Toggle */}
+      {/* Step Indicator */}
       {phase !== "apikey" && (
         <div className="mb-6">
-          <div className="flex rounded-lg overflow-hidden border border-gray-700">
-            <button
-              onClick={() => handleModeSwitch("erc8004")}
-              className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                mode === "erc8004"
-                  ? "bg-purple-600 text-white"
-                  : "bg-gray-900 text-gray-400 hover:text-gray-200"
-              }`}
-            >
-              With ERC-8004
-            </button>
-            <button
-              onClick={() => handleModeSwitch("basic")}
-              className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                mode === "basic"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-900 text-gray-400 hover:text-gray-200"
-              }`}
-            >
-              Basic
-            </button>
-          </div>
-
-          {/* Step Indicator */}
-          <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
+          <div className="flex items-center justify-between text-xs text-gray-500">
             <span>Step {stepInfo.current} of {stepInfo.total}</span>
             <span>{stepInfo.label}</span>
           </div>
         </div>
       )}
 
-      {/* ===== Success Phase (shared) ===== */}
-      {phase === "apikey" && renderSuccessPhase()}
+      {/* ===== Success Phase ===== */}
+      {phase === "apikey" && (
+        <div className="max-w-lg mx-auto text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-900/30 border border-green-800 flex items-center justify-center">
+            <svg className="w-8 h-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold mb-2">Agent Registered</h2>
+          <p className="text-sm text-gray-400 mb-6">
+            Your agent <span className="text-white font-medium">{registeredAgentId}</span> has been
+            successfully registered. You can manage it from your agent dashboard.
+          </p>
 
-      {/* ===== BASIC MODE ===== */}
-      {mode === "basic" && phase === "form" && (
-        <>
-          <h2 className="text-xl font-bold mb-6">Register Agent</h2>
-          <form onSubmit={handleBasicRegister} className="space-y-4">
-            {renderFormFields()}
-
-            {error && (
-              <p className="text-sm text-red-400">{error}</p>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium disabled:opacity-50 transition-colors"
-            >
-              {loading ? "Registering..." : "Register Agent"}
-            </button>
-          </form>
-        </>
+          <button
+            onClick={handleContinue}
+            className="w-full py-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors"
+          >
+            Go to Dashboard
+          </button>
+        </div>
       )}
 
-      {/* ===== ERC-8004 MODE ===== */}
-
       {/* Phase: Wallet + Token Selection */}
-      {mode === "erc8004" && phase === "wallet" && (
+      {phase === "wallet" && (
         <>
           <h2 className="text-xl font-bold mb-2">Select Your Agent</h2>
           <p className="text-sm text-gray-400 mb-4">
@@ -623,7 +384,7 @@ function RegisterPageInner() {
                   <p className="text-sm text-gray-400 mb-2">No ERC-8004 agents found</p>
                   <p className="text-xs text-gray-600">
                     This wallet doesn&apos;t own any ERC-8004 tokens on {currentNetwork?.shortName}.
-                    You can register with Basic mode or mint a token on the ERC-8004 registry contract.
+                    Mint a token on the ERC-8004 registry contract to register your agent.
                   </p>
                 </div>
               )}
@@ -637,7 +398,7 @@ function RegisterPageInner() {
       )}
 
       {/* Phase: Config */}
-      {mode === "erc8004" && phase === "config" && (
+      {phase === "config" && (
         <>
           <h2 className="text-xl font-bold mb-2">Configure Agent</h2>
           {selectedToken && (
@@ -648,24 +409,60 @@ function RegisterPageInner() {
               <span className="text-xs px-2 py-1 rounded bg-gray-800 border border-gray-700 text-gray-400">
                 {currentNetwork?.shortName}
               </span>
-              <button
-                onClick={() => {
-                  setPhase("wallet");
-                  setSelectedToken(null);
-                  setError("");
-                }}
-                className="text-xs text-gray-500 hover:text-gray-300"
-              >
-                Change
-              </button>
             </div>
           )}
           <p className="text-sm text-gray-400 mb-6">
-            Set up your agent details. Fields may be pre-populated from your token&apos;s agent URI.
+            Choose how your agent integrates with the GT8004 platform.
           </p>
 
           <form onSubmit={handleERC8004Register} className="space-y-4">
-            {renderFormFields(false, false, false)}
+            {/* Integration Mode Toggle */}
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Integration</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIntegrationMode("sdk")}
+                  className={`px-3 py-3 rounded-lg text-sm font-medium border transition-colors text-left ${
+                    integrationMode === "sdk"
+                      ? "bg-blue-600/20 border-blue-500 text-blue-300"
+                      : "bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500"
+                  }`}
+                >
+                  <div className="font-medium">SDK</div>
+                  <p className="text-xs mt-0.5 opacity-70">Embed SDK in your service</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIntegrationMode("gateway")}
+                  className={`px-3 py-3 rounded-lg text-sm font-medium border transition-colors text-left ${
+                    integrationMode === "gateway"
+                      ? "bg-purple-600/20 border-purple-500 text-purple-300"
+                      : "bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500"
+                  }`}
+                >
+                  <div className="font-medium">Gateway</div>
+                  <p className="text-xs mt-0.5 opacity-70">Route traffic through proxy</p>
+                </button>
+              </div>
+            </div>
+
+            {/* Origin Endpoint (Gateway only) */}
+            {integrationMode === "gateway" && (
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">
+                  Origin Endpoint *
+                </label>
+                <input
+                  type="url"
+                  value={originEndpoint}
+                  onChange={(e) => setOriginEndpoint(e.target.value)}
+                  required
+                  placeholder="https://api.example.com"
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            )}
 
             {error && (
               <p className="text-sm text-red-400">{error}</p>

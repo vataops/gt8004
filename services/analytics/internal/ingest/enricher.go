@@ -78,7 +78,6 @@ func (e *Enricher) Process(ctx context.Context, agentDBID uuid.UUID, batch *LogB
 		logs[i] = store.RequestLog{
 			AgentID:          agentDBID,
 			RequestID:        entry.RequestID,
-			CustomerID:       entry.CustomerID,
 			ToolName:         entry.ToolName,
 			Method:           entry.Method,
 			Path:             entry.Path,
@@ -192,7 +191,7 @@ func (e *Enricher) Process(ctx context.Context, agentDBID uuid.UUID, batch *LogB
 		if entry.X402Amount != nil && *entry.X402Amount > 0 {
 			re := store.RevenueEntry{
 				AgentID:      agentDBID,
-				CustomerID:   entry.CustomerID,
+				CustomerID:   entry.IPAddress,
 				ToolName:     entry.ToolName,
 				Amount:       *entry.X402Amount,
 				Currency:     "USDC",

@@ -23,7 +23,6 @@ type LogBatch struct {
 // LogEntry matches the ingest.LogEntry format.
 type LogEntry struct {
 	RequestID        string   `json:"requestId"`
-	CustomerID       *string  `json:"customerId,omitempty"`
 	ToolName         *string  `json:"toolName,omitempty"`
 	Method           string   `json:"method"`
 	Path             string   `json:"path"`

@@ -94,10 +94,11 @@ export interface Agent {
 
 export interface RegisterRequest {
   name?: string;
-  origin_endpoint: string;
+  origin_endpoint?: string;
   category?: string;
   protocols?: string[];
   pricing?: { model: string; amount: number; currency: string };
+  gateway_enabled?: boolean;
   // ERC-8004 (optional)
   erc8004_token_id?: number;
   chain_id?: number;

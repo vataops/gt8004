@@ -18,11 +18,12 @@ import (
 
 type RegisterServiceRequest struct {
 	Name           string   `json:"name"`
-	OriginEndpoint string   `json:"origin_endpoint" binding:"required"`
+	OriginEndpoint string   `json:"origin_endpoint"`
 	Protocols      []string `json:"protocols"`
 	Category       string   `json:"category"`
 	Pricing        *Pricing `json:"pricing"`
 	Tier           string   `json:"tier"`
+	GatewayEnabled *bool    `json:"gateway_enabled"`
 
 	// ERC-8004 (optional)
 	ERC8004TokenID *int64 `json:"erc8004_token_id"`
@@ -69,12 +70,19 @@ func (h *Handler) RegisterService(c *gin.Context) {
 		return
 	}
 
+	gatewayEnabled := req.GatewayEnabled != nil && *req.GatewayEnabled
+	if gatewayEnabled && req.OriginEndpoint == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "origin_endpoint required for gateway mode"})
+		return
+	}
+
 	agent := &store.Agent{
 		AgentID:        agentID,
 		Name:           req.Name,
 		OriginEndpoint: req.OriginEndpoint,
 		Protocols:      req.Protocols,
 		Category:       req.Category,
+		GatewayEnabled: gatewayEnabled,
 		Status:         "active",
 		CurrentTier:    tier,
 	}

@@ -60,11 +60,6 @@ func (h *Handler) GatewayProxy(c *gin.Context) {
 		Source:     &gatewaySource,
 	}
 
-	// Use client IP as customer identifier
-	if ip := clientIP(c); ip != "" {
-		entry.CustomerID = &ip
-	}
-
 	// Extract x402 payment info from X-Payment header
 	if paymentHeader := c.GetHeader("X-Payment"); paymentHeader != "" {
 		var payment struct {

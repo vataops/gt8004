@@ -14,7 +14,6 @@ type RequestLog struct {
 	ID               int64      `json:"id"`
 	AgentID          uuid.UUID  `json:"agent_id"`
 	RequestID        string     `json:"request_id"`
-	CustomerID       *string    `json:"customer_id,omitempty"`
 	ToolName         *string    `json:"tool_name,omitempty"`
 	Method           string     `json:"method"`
 	Path             string     `json:"path"`
@@ -69,7 +68,7 @@ func (s *Store) InsertRequestLogs(ctx context.Context, agentDBID uuid.UUID, entr
 	for _, e := range entries {
 		_, err := tx.Exec(ctx, `
 			INSERT INTO request_logs (
-				agent_id, request_id, customer_id, tool_name, method, path,
+				agent_id, request_id, tool_name, method, path,
 				status_code, response_ms, error_type,
 				x402_amount, x402_tx_hash, x402_token, x402_payer,
 				request_body_size, response_body_size,
@@ -77,9 +76,9 @@ func (s *Store) InsertRequestLogs(ctx context.Context, agentDBID uuid.UUID, entr
 				batch_id, sdk_version, protocol, source,
 				ip_address, user_agent, referer, content_type, accept_language,
 				country, city
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29)
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
 		`,
-			agentDBID, e.RequestID, e.CustomerID, e.ToolName, e.Method, e.Path,
+			agentDBID, e.RequestID, e.ToolName, e.Method, e.Path,
 			e.StatusCode, e.ResponseMs, e.ErrorType,
 			e.X402Amount, e.X402TxHash, e.X402Token, e.X402Payer,
 			e.RequestBodySize, e.ResponseBodySize,
@@ -156,7 +155,7 @@ func (s *Store) GetDailyStats(ctx context.Context, agentDBID uuid.UUID, days int
 			COUNT(*) AS requests,
 			COALESCE(SUM(x402_amount), 0) AS revenue,
 			COUNT(*) FILTER (WHERE status_code >= 400) AS errors,
-			COUNT(DISTINCT customer_id) FILTER (WHERE customer_id IS NOT NULL) AS unique_customers
+			COUNT(DISTINCT ip_address) FILTER (WHERE ip_address IS NOT NULL) AS unique_customers
 		FROM request_logs
 		WHERE agent_id = $1 AND created_at >= CURRENT_DATE - $2 * INTERVAL '1 day'
 		GROUP BY DATE(created_at)
@@ -192,7 +191,7 @@ func (s *Store) GetRecentRequests(ctx context.Context, agentDBID uuid.UUID, limi
 	}
 
 	rows, err := s.pool.Query(ctx, `
-		SELECT id, agent_id, request_id, customer_id, tool_name, method, path,
+		SELECT id, agent_id, request_id, tool_name, method, path,
 			status_code, response_ms, error_type,
 			x402_amount, x402_tx_hash, x402_token, x402_payer,
 			request_body_size, response_body_size,
@@ -214,7 +213,7 @@ func (s *Store) GetRecentRequests(ctx context.Context, agentDBID uuid.UUID, limi
 	for rows.Next() {
 		var l RequestLog
 		if err := rows.Scan(
-			&l.ID, &l.AgentID, &l.RequestID, &l.CustomerID, &l.ToolName, &l.Method, &l.Path,
+			&l.ID, &l.AgentID, &l.RequestID, &l.ToolName, &l.Method, &l.Path,
 			&l.StatusCode, &l.ResponseMs, &l.ErrorType,
 			&l.X402Amount, &l.X402TxHash, &l.X402Token, &l.X402Payer,
 			&l.RequestBodySize, &l.ResponseBodySize,
@@ -586,7 +585,7 @@ func (s *Store) GetA2APartnerBreakdown(ctx context.Context, agentDBID uuid.UUID,
 
 	rows, err := s.pool.Query(ctx, `
 		SELECT
-			customer_id,
+			ip_address,
 			COUNT(*) AS call_count,
 			COALESCE(SUM(x402_amount), 0) AS revenue,
 			COALESCE(AVG(response_ms), 0) AS avg_response_ms,
@@ -598,9 +597,9 @@ func (s *Store) GetA2APartnerBreakdown(ctx context.Context, agentDBID uuid.UUID,
 		FROM request_logs
 		WHERE agent_id = $1
 		  AND protocol = 'a2a'
-		  AND customer_id IS NOT NULL
+		  AND ip_address IS NOT NULL
 		  AND created_at >= CURRENT_DATE - $2 * INTERVAL '1 day'
-		GROUP BY customer_id
+		GROUP BY ip_address
 		ORDER BY call_count DESC
 		LIMIT $3
 	`, agentDBID, days, limit)
@@ -702,7 +701,7 @@ func (s *Store) GetCustomerLogs(ctx context.Context, agentDBID uuid.UUID, custom
 	}
 
 	rows, err := s.pool.Query(ctx, `
-		SELECT id, agent_id, request_id, customer_id, tool_name, method, path,
+		SELECT id, agent_id, request_id, tool_name, method, path,
 			status_code, response_ms, error_type,
 			x402_amount, x402_tx_hash, x402_token, x402_payer,
 			request_body_size, response_body_size,
@@ -711,7 +710,7 @@ func (s *Store) GetCustomerLogs(ctx context.Context, agentDBID uuid.UUID, custom
 			ip_address, user_agent, referer, content_type, accept_language,
 			country, city, created_at
 		FROM request_logs
-		WHERE agent_id = $1 AND customer_id = $2
+		WHERE agent_id = $1 AND ip_address = $2
 		ORDER BY created_at DESC
 		LIMIT $3
 	`, agentDBID, customerID, limit)
@@ -724,7 +723,7 @@ func (s *Store) GetCustomerLogs(ctx context.Context, agentDBID uuid.UUID, custom
 	for rows.Next() {
 		var l RequestLog
 		if err := rows.Scan(
-			&l.ID, &l.AgentID, &l.RequestID, &l.CustomerID, &l.ToolName, &l.Method, &l.Path,
+			&l.ID, &l.AgentID, &l.RequestID, &l.ToolName, &l.Method, &l.Path,
 			&l.StatusCode, &l.ResponseMs, &l.ErrorType,
 			&l.X402Amount, &l.X402TxHash, &l.X402Token, &l.X402Payer,
 			&l.RequestBodySize, &l.ResponseBodySize,
@@ -758,7 +757,7 @@ func (s *Store) GetCustomerToolUsage(ctx context.Context, agentDBID uuid.UUID, c
 			END AS error_rate,
 			COALESCE(SUM(x402_amount), 0) AS revenue
 		FROM request_logs
-		WHERE agent_id = $1 AND customer_id = $2
+		WHERE agent_id = $1 AND ip_address = $2
 		GROUP BY COALESCE(tool_name, path)
 		ORDER BY call_count DESC
 		LIMIT 20
@@ -796,7 +795,7 @@ func (s *Store) GetCustomerDailyStats(ctx context.Context, agentDBID uuid.UUID, 
 			COUNT(*) FILTER (WHERE status_code >= 400) AS errors,
 			0 AS unique_customers
 		FROM request_logs
-		WHERE agent_id = $1 AND customer_id = $2
+		WHERE agent_id = $1 AND ip_address = $2
 		  AND created_at >= CURRENT_DATE - $3 * INTERVAL '1 day'
 		GROUP BY DATE(created_at)
 		ORDER BY date
@@ -880,15 +879,15 @@ func (s *Store) GetFunnelSummary(ctx context.Context, agentDBID uuid.UUID, days 
 	err := s.pool.QueryRow(ctx, `
 		WITH customer_protocols AS (
 			SELECT
-				customer_id,
+				ip_address,
 				BOOL_OR(protocol = 'mcp') AS has_mcp,
 				BOOL_OR(protocol = 'a2a') AS has_a2a,
 				BOOL_OR(protocol = 'a2a' AND x402_amount IS NOT NULL AND x402_amount > 0) AS has_a2a_paid
 			FROM request_logs
 			WHERE agent_id = $1
-			  AND customer_id IS NOT NULL
+			  AND ip_address IS NOT NULL
 			  AND created_at >= CURRENT_DATE - $2 * INTERVAL '1 day'
-			GROUP BY customer_id
+			GROUP BY ip_address
 		)
 		SELECT
 			COUNT(*) FILTER (WHERE has_mcp),
@@ -931,21 +930,21 @@ func (s *Store) GetDailyFunnelStats(ctx context.Context, agentDBID uuid.UUID, da
 		WITH daily_cumulative AS (
 			SELECT
 				DATE(created_at) AS date,
-				customer_id,
+				ip_address,
 				BOOL_OR(protocol = 'mcp') AS has_mcp,
 				BOOL_OR(protocol = 'a2a') AS has_a2a,
 				BOOL_OR(protocol = 'a2a' AND x402_amount IS NOT NULL AND x402_amount > 0) AS has_a2a_paid
 			FROM request_logs
 			WHERE agent_id = $1
-			  AND customer_id IS NOT NULL
+			  AND ip_address IS NOT NULL
 			  AND created_at >= CURRENT_DATE - $2 * INTERVAL '1 day'
-			GROUP BY DATE(created_at), customer_id
+			GROUP BY DATE(created_at), ip_address
 		)
 		SELECT
 			date,
-			COUNT(DISTINCT customer_id) FILTER (WHERE has_mcp),
-			COUNT(DISTINCT customer_id) FILTER (WHERE has_a2a),
-			COUNT(DISTINCT customer_id) FILTER (WHERE has_a2a_paid)
+			COUNT(DISTINCT ip_address) FILTER (WHERE has_mcp),
+			COUNT(DISTINCT ip_address) FILTER (WHERE has_a2a),
+			COUNT(DISTINCT ip_address) FILTER (WHERE has_a2a_paid)
 		FROM daily_cumulative
 		GROUP BY date
 		ORDER BY date
@@ -983,7 +982,7 @@ func (s *Store) GetCustomerJourneys(ctx context.Context, agentDBID uuid.UUID, da
 	rows, err := s.pool.Query(ctx, `
 		WITH customer_journey AS (
 			SELECT
-				customer_id,
+				ip_address,
 				COUNT(*) AS total_requests,
 				COALESCE(SUM(x402_amount), 0) AS total_revenue,
 				BOOL_OR(protocol = 'mcp') AS has_mcp,
@@ -995,12 +994,12 @@ func (s *Store) GetCustomerJourneys(ctx context.Context, agentDBID uuid.UUID, da
 				MAX(created_at) AS last_seen_at
 			FROM request_logs
 			WHERE agent_id = $1
-			  AND customer_id IS NOT NULL
+			  AND ip_address IS NOT NULL
 			  AND created_at >= CURRENT_DATE - $2 * INTERVAL '1 day'
-			GROUP BY customer_id
+			GROUP BY ip_address
 		)
 		SELECT
-			customer_id, total_requests, total_revenue,
+			ip_address, total_requests, total_revenue,
 			has_mcp, has_a2a, has_a2a_paid,
 			first_mcp_at, first_a2a_at, first_paid_at,
 			last_seen_at,

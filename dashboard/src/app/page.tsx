@@ -19,19 +19,16 @@ const agentColumns: Column<Agent>[] = [
     render: (row) => (
       <div>
         <span className="font-medium text-white">
-          {row.name || row.agent_id}
+          {row.name || (row.erc8004_token_id != null ? `Token #${row.erc8004_token_id}` : row.agent_id)}
         </span>
-        {row.name && (
-          <p className="text-xs text-gray-500 font-mono mt-0.5">
-            {row.agent_id.length > 20
-              ? `${row.agent_id.slice(0, 10)}...${row.agent_id.slice(-6)}`
-              : row.agent_id}
+        {row.erc8004_token_id != null && (
+          <p className="text-xs text-gray-500 mt-0.5">
+            #{row.erc8004_token_id}
           </p>
         )}
       </div>
     ),
   },
-  { key: "category", header: "Category" },
   {
     key: "chain_id",
     header: "Network",
