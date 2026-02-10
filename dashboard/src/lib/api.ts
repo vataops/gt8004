@@ -135,6 +135,8 @@ export interface Customer {
   avg_response_ms: number;
   error_rate: number;
   churn_risk: string;
+  country: string;
+  city: string;
 }
 
 export interface RevenuePeriod {
@@ -199,6 +201,15 @@ export interface RequestLog {
   x402_amount?: number;
   batch_id: string;
   sdk_version: string;
+  protocol?: string;
+  source?: string;
+  ip_address?: string;
+  user_agent?: string;
+  referer?: string;
+  content_type?: string;
+  accept_language?: string;
+  country?: string;
+  city?: string;
   created_at: string;
 }
 
@@ -218,6 +229,173 @@ export interface DailyStats {
   revenue: number;
   errors: number;
   unique_customers: number;
+}
+
+// ---------- Protocol Analytics ----------
+
+export interface ProtocolStats {
+  source: string;
+  protocol: string;
+  request_count: number;
+  percentage: number;
+  avg_response_ms: number;
+  error_rate: number;
+  p95_response_ms: number;
+}
+
+export interface ToolUsage {
+  tool_name: string;
+  call_count: number;
+  avg_response_ms: number;
+  error_rate: number;
+  revenue: number;
+}
+
+export interface HealthMetrics {
+  error_rate: number;
+  payment_rate: number;
+  timeout_rate: number;
+  success_rate: number;
+  total_requests: number;
+  error_count: number;
+  payment_count: number;
+  timeout_count: number;
+  window_minutes: number;
+}
+
+export interface TopCaller {
+  customer_id: string;
+  request_count: number;
+  revenue: number;
+  last_seen_at: string;
+}
+
+export interface CustomerIntelligence {
+  total_customers: number;
+  new_this_week: number;
+  returning_this_week: number;
+  top_callers: TopCaller[];
+}
+
+export interface AnalyticsRevenueSummary {
+  total_revenue: number;
+  payment_count: number;
+  avg_per_request: number;
+  arpu: number;
+}
+
+export interface DailyProtocolStats {
+  date: string;
+  source: string;
+  protocol: string;
+  requests: number;
+  errors: number;
+  revenue: number;
+}
+
+export interface A2APartner {
+  customer_id: string;
+  call_count: number;
+  revenue: number;
+  avg_response_ms: number;
+  error_rate: number;
+  last_seen_at: string;
+}
+
+export interface EndpointStats {
+  endpoint: string;
+  method: string;
+  call_count: number;
+  avg_response_ms: number;
+  error_rate: number;
+  revenue: number;
+}
+
+export interface ReputationBreakdown {
+  agent_id: string;
+  reliability: number;
+  performance: number;
+  activity: number;
+  revenue_quality: number;
+  customer_retention: number;
+  peer_review: number;
+  onchain_score: number;
+  total_score: number;
+  onchain_count: number;
+  review_count: number;
+  calculated_at: string;
+}
+
+export interface AgentReview {
+  id: string;
+  agent_id: string;
+  reviewer_id: string;
+  score: number;
+  tags: string[];
+  comment: string;
+  created_at: string;
+}
+
+export interface TrustScoreResponse {
+  score: number;
+  breakdown: ReputationBreakdown;
+  reviews: AgentReview[];
+  review_total: number;
+}
+
+export interface AnalyticsReport {
+  protocol: ProtocolStats[];
+  tool_ranking: ToolUsage[];
+  health: HealthMetrics;
+  customers: CustomerIntelligence;
+  revenue: AnalyticsRevenueSummary;
+  daily_by_protocol: DailyProtocolStats[];
+  mcp_tools: ToolUsage[];
+  a2a_partners: A2APartner[];
+  a2a_endpoints: EndpointStats[];
+  trust_score?: ReputationBreakdown;
+}
+
+// ---------- Conversion Funnel ----------
+
+export interface FunnelSummary {
+  mcp_customers: number;
+  mcp_to_a2a: number;
+  mcp_to_a2a_paid: number;
+  a2a_customers: number;
+  a2a_to_paid: number;
+  paid_customers: number;
+  total_customers: number;
+  mcp_to_a2a_rate: number;
+  a2a_to_paid_rate: number;
+  full_funnel_rate: number;
+}
+
+export interface DailyFunnelStats {
+  date: string;
+  mcp_customers: number;
+  a2a_customers: number;
+  paid_customers: number;
+}
+
+export interface CustomerJourney {
+  customer_id: string;
+  total_requests: number;
+  total_revenue: number;
+  has_mcp: boolean;
+  has_a2a: boolean;
+  has_a2a_paid: boolean;
+  first_mcp_at?: string;
+  first_a2a_at?: string;
+  first_paid_at?: string;
+  last_seen_at: string;
+  days_to_convert?: number;
+}
+
+export interface FunnelReport {
+  summary: FunnelSummary;
+  daily_trend: DailyFunnelStats[];
+  journeys: CustomerJourney[];
 }
 
 // ---------- Network Agents (on-chain discovery) ----------
@@ -268,46 +446,14 @@ export interface NetworkStats {
   by_chain: Record<number, number>;
 }
 
-// ---------- 8004scan API (proxied via /api/scan) ----------
+// ---------- Customer Detail Types ----------
 
-export interface ScanAgent {
-  name: string;
-  token_id: string;
-  chain_id: number;
-  total_score: number;
-  total_feedbacks: number;
-  is_active: boolean;
-  rank: number;
-  description: string;
-  image_url: string | null;
-  owner_address: string;
-  created_at: string;
-}
-
-export async function fetchScanAgent(chainId: number, tokenId: number): Promise<ScanAgent | null> {
-  try {
-    const res = await fetch(`/api/scan?chain_id=${chainId}&token_id=${tokenId}`);
-    if (!res.ok) return null;
-    return res.json();
-  } catch {
-    return null;
-  }
-}
-
-export async function fetchScanAgents(
-  tokens: { token_id: number; chain_id: number }[]
-): Promise<Map<string, ScanAgent>> {
-  const results = await Promise.allSettled(
-    tokens.map((t) => fetchScanAgent(t.chain_id, t.token_id))
-  );
-  const map = new Map<string, ScanAgent>();
-  results.forEach((r, i) => {
-    if (r.status === "fulfilled" && r.value) {
-      const key = `${tokens[i].chain_id}-${tokens[i].token_id}`;
-      map.set(key, r.value);
-    }
-  });
-  return map;
+export interface CustomerToolUsage {
+  tool_name: string;
+  call_count: number;
+  avg_response_ms: number;
+  error_rate: number;
+  revenue: number;
 }
 
 // ---------- API methods ----------
@@ -350,7 +496,19 @@ export const openApi = {
     ),
   getCustomer: (agentId: string, customerId: string) =>
     openFetcher<Customer>(
-      `/v1/agents/${agentId}/customers/${customerId}`
+      `/v1/agents/${agentId}/customers/${encodeURIComponent(customerId)}`
+    ),
+  getCustomerLogs: (agentId: string, customerId: string, limit = 50) =>
+    openFetcher<{ logs: RequestLog[]; total: number }>(
+      `/v1/agents/${agentId}/customers/${encodeURIComponent(customerId)}/logs?limit=${limit}`
+    ),
+  getCustomerTools: (agentId: string, customerId: string) =>
+    openFetcher<{ tools: CustomerToolUsage[] }>(
+      `/v1/agents/${agentId}/customers/${encodeURIComponent(customerId)}/tools`
+    ),
+  getCustomerDaily: (agentId: string, customerId: string, days = 30) =>
+    openFetcher<{ stats: DailyStats[] }>(
+      `/v1/agents/${agentId}/customers/${encodeURIComponent(customerId)}/daily?days=${days}`
     ),
   getRevenue: (agentId: string, period = "monthly") =>
     openFetcher<RevenueReport>(
@@ -372,6 +530,22 @@ export const openApi = {
     openFetcher<{ stats: DailyStats[] }>(
       `/v1/agents/${agentId}/stats/daily?days=${days}`
     ),
+  getAnalytics: (agentId: string, days = 30) =>
+    openFetcher<AnalyticsReport>(
+      `/v1/agents/${agentId}/analytics?days=${days}`
+    ),
+  getFunnel: (agentId: string, days = 30) =>
+    openFetcher<FunnelReport>(
+      `/v1/agents/${agentId}/funnel?days=${days}`
+    ),
+  getTrustScore: (agentId: string) =>
+    openFetcher<TrustScoreResponse>(`/v1/agents/${agentId}/trust`),
+  getReviews: (agentId: string, limit = 20, offset = 0) =>
+    openFetcher<{ reviews: AgentReview[]; total: number }>(
+      `/v1/agents/${agentId}/reviews?limit=${limit}&offset=${offset}`
+    ),
+  submitReview: (agentId: string, body: { reviewer_id: string; score: number; tags?: string[]; comment?: string }) =>
+    openFetcherPost<{ status: string }>(`/v1/agents/${agentId}/reviews`, body),
 
   // Registration (no auth)
   registerAgent: (req: RegisterRequest) =>

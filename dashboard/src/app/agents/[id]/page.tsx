@@ -18,7 +18,14 @@ import {
   useRevenue,
   usePerformance,
   useLogs,
+  useAnalytics,
+  useTrustScore,
+  useFunnel,
+  useCustomerLogs,
+  useCustomerTools,
+  useCustomerDaily,
 } from "@/lib/hooks";
+import type { AnalyticsReport, Customer, CustomerToolUsage, RequestLog, DailyStats, TrustScoreResponse, AgentReview, FunnelReport } from "@/lib/api";
 import {
   AreaChart,
   Area,
@@ -34,14 +41,16 @@ import {
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_OPEN_API_URL || "http://localhost:8080";
 
-type Tab = "overview" | "analytics" | "speed" | "observability" | "revenue" | "settings";
+type Tab = "overview" | "analytics" | "speed" | "observability" | "revenue" | "customers" | "trust" | "settings";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "overview", label: "Overview" },
   { key: "analytics", label: "Analytics" },
-  { key: "speed", label: "Speed Insights" },
-  { key: "observability", label: "Observability" },
+  { key: "customers", label: "Customers" },
   { key: "revenue", label: "Revenue" },
+  { key: "observability", label: "Observability" },
+  { key: "speed", label: "Speed Insights" },
+  { key: "trust", label: "Trust" },
   { key: "settings", label: "Settings" },
 ];
 
@@ -113,6 +122,7 @@ export default function AgentDashboardPage() {
   const [endpointSaving, setEndpointSaving] = useState(false);
   const [verifyStatus, setVerifyStatus] = useState("");
   const [verifyError, setVerifyError] = useState("");
+  const [gatewayError, setGatewayError] = useState("");
 
   // Fetch all data in parallel (public endpoints, no auth needed)
   const { data: stats } = useAgentStats(id);
@@ -121,6 +131,9 @@ export default function AgentDashboardPage() {
   const { data: revenue } = useRevenue(id, "monthly");
   const { data: performance } = usePerformance(id, "24h");
   const { data: logs } = useLogs(id, 50);
+  const { data: analytics } = useAnalytics(id, 30);
+  const { data: trustData } = useTrustScore(id);
+  const { data: funnel } = useFunnel(id, 30);
 
   if (authLoading) {
     return <p className="text-gray-500">Loading...</p>;
@@ -150,8 +163,6 @@ export default function AgentDashboardPage() {
     : 0;
 
   const gatewayUrl = `${BACKEND_URL}/gateway/${agent?.agent_id || id}/`;
-
-  const [gatewayError, setGatewayError] = useState("");
 
   const handleGatewayToggle = async () => {
     if (!agent) return;
@@ -252,7 +263,7 @@ export default function AgentDashboardPage() {
               </svg>
             </Link>
             <h2 className="text-xl font-bold">
-              {agent?.name || id}
+              {networkAgent?.name || agent?.name || id}
               {agent?.erc8004_token_id != null && (
                 <span className="text-gray-500 ml-1.5 text-base font-normal">
                   #{agent.erc8004_token_id}
@@ -300,6 +311,8 @@ export default function AgentDashboardPage() {
             thisWeekCustomers={thisWeekCustomers}
             customersDelta={customersDelta}
             totalCustomers={customerTotal}
+            analytics={analytics}
+            funnel={funnel}
           />
         )}
         {activeTab === "speed" && (
@@ -319,6 +332,16 @@ export default function AgentDashboardPage() {
             byTool={byTool}
             chartData={chartData}
           />
+        )}
+        {activeTab === "customers" && (
+          <CustomersTab
+            agentId={id}
+            customers={customers?.customers || []}
+            totalCustomers={customerTotal}
+          />
+        )}
+        {activeTab === "trust" && (
+          <TrustTab agentId={id} trustData={trustData} />
         )}
         {activeTab === "settings" && (
           <SettingsTab
@@ -604,7 +627,7 @@ function OverviewTab({ agent, networkAgent, id }: OverviewTabProps) {
           )}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <h3 className="text-lg font-bold truncate">{agent?.name || networkAgent?.name || id}</h3>
+              <h3 className="text-lg font-bold truncate">{networkAgent?.name || agent?.name || id}</h3>
               {agent?.status && (
                 <Badge label={agent.status} variant={agent.status === "active" ? "low" : "medium"} />
               )}
@@ -660,7 +683,7 @@ function OverviewTab({ agent, networkAgent, id }: OverviewTabProps) {
             <InfoRow label="Reputation Score" value={agent.reputation_score.toFixed(1)} />
           )}
           {agent?.agent_uri && (
-            <InfoRow label="Agent URI" value={agent.agent_uri} mono truncate />
+            <AgentURIRow uri={agent.agent_uri} />
           )}
           {agent?.created_at && (
             <InfoRow label="Registered" value={new Date(agent.created_at).toLocaleDateString()} />
@@ -755,6 +778,40 @@ function OverviewTab({ agent, networkAgent, id }: OverviewTabProps) {
   );
 }
 
+function AgentURIRow({ uri }: { uri: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(uri);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="flex flex-col gap-0.5 min-w-0">
+      <span className="text-xs text-gray-500">Agent URI</span>
+      <div className="flex items-center gap-1.5">
+        <span className="text-sm font-mono text-gray-300 truncate">{uri}</span>
+        <button
+          onClick={handleCopy}
+          title={copied ? "Copied!" : "Copy URI"}
+          className="shrink-0 p-0.5 text-gray-500 hover:text-gray-300 transition-colors"
+        >
+          {copied ? (
+            <svg className="w-3.5 h-3.5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          ) : (
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function InfoRow({
   label,
   value,
@@ -812,6 +869,23 @@ function DeltaBadge({ value }: { value: number }) {
 
 /* ---------- Analytics ---------- */
 
+const PROTOCOL_COLORS: Record<string, string> = {
+  "sdk-mcp": "#3B82F6",
+  "sdk-a2a": "#8B5CF6",
+  "gateway-mcp": "#10B981",
+  "gateway-a2a": "#F59E0B",
+  "sdk-http": "#6B7280",
+  "gateway-http": "#9CA3AF",
+};
+
+function protoKey(source: string, protocol: string): string {
+  return `${source}-${protocol}`;
+}
+
+function protoLabel(source: string, protocol: string): string {
+  return `${source.toUpperCase()} · ${protocol.toUpperCase()}`;
+}
+
 interface AnalyticsTabProps {
   stats: { total_requests: number; today_requests: number; week_requests: number; month_requests: number; total_revenue_usdc: number; avg_response_ms: number; error_rate: number } | null;
   chartData: { label: string; requests: number; unique_customers: number; revenue: number; errors: number; date: string }[];
@@ -820,80 +894,567 @@ interface AnalyticsTabProps {
   thisWeekCustomers: number;
   customersDelta: number;
   totalCustomers: number;
+  analytics: AnalyticsReport | null;
+  funnel: FunnelReport | null;
 }
 
-function AnalyticsTab({ stats, chartData, thisWeekRequests, requestsDelta, thisWeekCustomers, customersDelta, totalCustomers }: AnalyticsTabProps) {
+function AnalyticsTab({ stats, chartData, thisWeekRequests, totalCustomers, analytics, funnel }: AnalyticsTabProps) {
+  // Collect all unique source-protocol keys from data
+  const allKeys = new Set<string>();
+  if (analytics?.daily_by_protocol) {
+    for (const d of analytics.daily_by_protocol) {
+      allKeys.add(protoKey(d.source, d.protocol));
+    }
+  }
+  const sortedKeys = Array.from(allKeys).sort();
+
+  // Build stacked daily chart data from source×protocol breakdown
+  const dailyProtoChart = (() => {
+    if (!analytics?.daily_by_protocol?.length) return null;
+    const byDate: Record<string, Record<string, number> & { date: string; label: string }> = {};
+    for (const d of analytics.daily_by_protocol) {
+      if (!byDate[d.date]) {
+        const label = d.date.slice(5); // MM-DD
+        const init: Record<string, number> & { date: string; label: string } = { date: d.date, label } as never;
+        for (const k of sortedKeys) init[k] = 0;
+        byDate[d.date] = init;
+      }
+      const key = protoKey(d.source, d.protocol);
+      byDate[d.date][key] = d.requests;
+    }
+    return Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date));
+  })();
+
+  const health = analytics?.health;
+  const proto = analytics?.protocol;
+  const tools = analytics?.tool_ranking;
+  const cust = analytics?.customers;
+  const mcpTools = analytics?.mcp_tools;
+  const a2aPartners = analytics?.a2a_partners;
+  const a2aEndpoints = analytics?.a2a_endpoints;
+  const rev = analytics?.revenue;
+
   return (
     <div className="space-y-6">
-      {/* Top-level metric cards */}
-      <div className="grid grid-cols-4 gap-4">
+      {/* Row 1: Summary Cards */}
+      <div className="grid grid-cols-5 gap-4">
         <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
           <p className="text-xs text-gray-500 uppercase tracking-wider">Total Requests</p>
           <p className="text-2xl font-bold mt-1">{stats?.total_requests?.toLocaleString() ?? "—"}</p>
-          <p className="text-xs text-gray-500 mt-1">This month: {stats?.month_requests?.toLocaleString() ?? "—"}</p>
+          <p className="text-xs text-gray-500 mt-1">This week: {thisWeekRequests.toLocaleString()}</p>
         </div>
         <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-          <p className="text-xs text-gray-500 uppercase tracking-wider">This Week</p>
-          <div className="flex items-baseline gap-2 mt-1">
-            <p className="text-2xl font-bold">{thisWeekRequests.toLocaleString()}</p>
-            <DeltaBadge value={requestsDelta} />
-          </div>
-          <p className="text-xs text-gray-500 mt-1">vs previous week</p>
+          <p className="text-xs text-gray-500 uppercase tracking-wider">Success Rate</p>
+          <p className={`text-2xl font-bold mt-1 ${(health?.success_rate ?? 1) >= 0.95 ? "text-green-400" : "text-yellow-400"}`}>
+            {health ? `${(health.success_rate * 100).toFixed(1)}%` : "—"}
+          </p>
+          <p className="text-xs text-gray-500 mt-1">Last {health?.window_minutes ?? 60}m</p>
         </div>
         <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-          <p className="text-xs text-gray-500 uppercase tracking-wider">Unique Visitors</p>
-          <div className="flex items-baseline gap-2 mt-1">
-            <p className="text-2xl font-bold">{thisWeekCustomers.toLocaleString()}</p>
-            <DeltaBadge value={customersDelta} />
-          </div>
-          <p className="text-xs text-gray-500 mt-1">this week</p>
+          <p className="text-xs text-gray-500 uppercase tracking-wider">Error Rate</p>
+          <p className={`text-2xl font-bold mt-1 ${(health?.error_rate ?? 0) > 0.05 ? "text-red-400" : "text-green-400"}`}>
+            {health ? `${(health.error_rate * 100).toFixed(1)}%` : "—"}
+          </p>
+          <p className="text-xs text-gray-500 mt-1">{health?.error_count ?? 0} errors</p>
         </div>
         <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-          <p className="text-xs text-gray-500 uppercase tracking-wider">Total Customers</p>
-          <p className="text-2xl font-bold mt-1">{totalCustomers.toLocaleString()}</p>
-          <p className="text-xs text-gray-500 mt-1">Today: {stats?.today_requests?.toLocaleString() ?? "—"} reqs</p>
+          <p className="text-xs text-gray-500 uppercase tracking-wider">x402 Payments</p>
+          <p className="text-2xl font-bold mt-1 text-emerald-400">
+            {rev ? `$${rev.total_revenue.toFixed(2)}` : "—"}
+          </p>
+          <p className="text-xs text-gray-500 mt-1">{rev?.payment_count ?? 0} payments</p>
+        </div>
+        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wider">Customers</p>
+          <p className="text-2xl font-bold mt-1">{cust?.total_customers ?? totalCustomers}</p>
+          <p className="text-xs text-gray-500 mt-1">
+            {cust ? `+${cust.new_this_week} new this week` : `Today: ${stats?.today_requests?.toLocaleString() ?? 0} reqs`}
+          </p>
         </div>
       </div>
 
-      {/* Requests area chart */}
+      {/* Row 2: Protocol Analytics */}
+      {proto && proto.length > 0 && (
+        <div className="grid grid-cols-2 gap-4">
+          {/* Protocol Distribution */}
+          <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+            <h3 className="text-sm font-medium text-gray-400 mb-4">Protocol Distribution</h3>
+            <div className="space-y-3">
+              {proto.map((p) => {
+                const key = protoKey(p.source, p.protocol);
+                return (
+                  <div key={key}>
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="font-medium text-white">{protoLabel(p.source, p.protocol)}</span>
+                      <span className="text-gray-400">{p.request_count.toLocaleString()} ({p.percentage.toFixed(1)}%)</span>
+                    </div>
+                    <div className="w-full bg-gray-800 rounded-full h-2">
+                      <div
+                        className="h-2 rounded-full transition-all"
+                        style={{
+                          width: `${Math.max(p.percentage, 1)}%`,
+                          backgroundColor: PROTOCOL_COLORS[key] || "#6B7280",
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Protocol Performance */}
+          <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+            <h3 className="text-sm font-medium text-gray-400 mb-4">Protocol Performance</h3>
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-gray-500 border-b border-gray-800">
+                  <th className="text-left pb-2">Source</th>
+                  <th className="text-left pb-2">Protocol</th>
+                  <th className="text-right pb-2">Avg Latency</th>
+                  <th className="text-right pb-2">P95</th>
+                  <th className="text-right pb-2">Error Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {proto.map((p) => (
+                  <tr key={protoKey(p.source, p.protocol)} className="border-b border-gray-800/50">
+                    <td className="py-2 font-medium text-white uppercase">{p.source}</td>
+                    <td className="py-2 font-medium text-white uppercase">{p.protocol}</td>
+                    <td className="py-2 text-right text-gray-300 font-mono">{p.avg_response_ms.toFixed(0)}ms</td>
+                    <td className="py-2 text-right text-gray-300 font-mono">{p.p95_response_ms.toFixed(0)}ms</td>
+                    <td className={`py-2 text-right font-mono ${p.error_rate > 0.05 ? "text-red-400" : "text-green-400"}`}>
+                      {(p.error_rate * 100).toFixed(1)}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Row 3: Daily Chart — source×protocol stacked or fallback */}
       <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
-        <h3 className="text-sm font-medium text-gray-400 mb-4">Requests</h3>
+        <h3 className="text-sm font-medium text-gray-400 mb-4">
+          {dailyProtoChart ? "Requests by Source × Protocol (30 days)" : "Requests (30 days)"}
+        </h3>
         <ResponsiveContainer width="100%" height={280}>
-          <AreaChart data={chartData}>
-            <defs>
-              <linearGradient id="reqGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.3} />
-                <stop offset="100%" stopColor="#3B82F6" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" />
-            <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#6B7280" }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: "#6B7280" }} axisLine={false} tickLine={false} allowDecimals={false} />
-            <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: "#9CA3AF" }} />
-            <Area type="monotone" dataKey="requests" stroke="#3B82F6" strokeWidth={2} fill="url(#reqGrad)" />
-          </AreaChart>
+          {dailyProtoChart ? (
+            <AreaChart data={dailyProtoChart}>
+              <defs>
+                {sortedKeys.map((key) => {
+                  const color = PROTOCOL_COLORS[key] || "#6B7280";
+                  return (
+                    <linearGradient key={key} id={`grad-${key}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={color} stopOpacity={0.3} />
+                      <stop offset="100%" stopColor={color} stopOpacity={0} />
+                    </linearGradient>
+                  );
+                })}
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#6B7280" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: "#6B7280" }} axisLine={false} tickLine={false} allowDecimals={false} />
+              <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: "#9CA3AF" }} />
+              {sortedKeys.map((key) => {
+                const color = PROTOCOL_COLORS[key] || "#6B7280";
+                const [src, proto] = key.split("-");
+                return (
+                  <Area
+                    key={key}
+                    type="monotone"
+                    dataKey={key}
+                    name={`${src.toUpperCase()} · ${proto.toUpperCase()}`}
+                    stackId="1"
+                    stroke={color}
+                    strokeWidth={2}
+                    fill={`url(#grad-${key})`}
+                  />
+                );
+              })}
+            </AreaChart>
+          ) : (
+            <AreaChart data={chartData}>
+              <defs>
+                <linearGradient id="reqGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="#3B82F6" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#6B7280" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: "#6B7280" }} axisLine={false} tickLine={false} allowDecimals={false} />
+              <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: "#9CA3AF" }} />
+              <Area type="monotone" dataKey="requests" stroke="#3B82F6" strokeWidth={2} fill="url(#reqGrad)" />
+            </AreaChart>
+          )}
         </ResponsiveContainer>
       </div>
 
-      {/* Unique Customers area chart */}
+      {/* Protocol Conversion Funnel */}
       <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
-        <h3 className="text-sm font-medium text-gray-400 mb-4">Unique Visitors</h3>
-        <ResponsiveContainer width="100%" height={220}>
-          <AreaChart data={chartData}>
-            <defs>
-              <linearGradient id="custGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#8B5CF6" stopOpacity={0.3} />
-                <stop offset="100%" stopColor="#8B5CF6" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" />
-            <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#6B7280" }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: "#6B7280" }} axisLine={false} tickLine={false} allowDecimals={false} />
-            <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: "#9CA3AF" }} />
-            <Area type="monotone" dataKey="unique_customers" name="Visitors" stroke="#8B5CF6" strokeWidth={2} fill="url(#custGrad)" />
-          </AreaChart>
-        </ResponsiveContainer>
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-sm font-medium text-gray-400">Protocol Conversion Funnel</h3>
+          {funnel?.summary && (
+            <div className="flex gap-4 text-xs text-gray-500">
+              <span>A2A Total: <span className="text-purple-400 font-mono">{funnel.summary.a2a_customers}</span></span>
+              <span>A2A→Paid: <span className="text-green-400 font-mono">{(funnel.summary.a2a_to_paid_rate * 100).toFixed(1)}%</span></span>
+              <span>Paying: <span className="text-emerald-400 font-mono">{funnel.summary.paid_customers}</span></span>
+            </div>
+          )}
+        </div>
+        {funnel?.summary ? (() => {
+          const s = funnel.summary;
+          const maxCount = Math.max(s.mcp_customers, 1);
+          const stages = [
+            { label: "MCP Customers", count: s.mcp_customers, rate: null as number | null, color: "#3B82F6" },
+            { label: "MCP → A2A", count: s.mcp_to_a2a, rate: s.mcp_to_a2a_rate, color: "#8B5CF6" },
+            { label: "MCP → A2A → Paid", count: s.mcp_to_a2a_paid, rate: s.full_funnel_rate, color: "#10B981" },
+          ];
+          return (
+            <div className="space-y-4">
+              {stages.map((st) => (
+                <div key={st.label}>
+                  <div className="flex items-center justify-between text-xs mb-1.5">
+                    <span className="text-gray-400">{st.label}</span>
+                    <span className="text-gray-500 font-mono">
+                      {st.count}{st.rate !== null && ` (${(st.rate * 100).toFixed(1)}%)`}
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-800 rounded-full h-3">
+                    <div
+                      className="h-3 rounded-full transition-all duration-500"
+                      style={{
+                        width: `${Math.max((st.count / maxCount) * 100, st.count > 0 ? 2 : 0)}%`,
+                        backgroundColor: st.color,
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })() : (
+          <p className="text-xs text-gray-600">No funnel data yet. Customers using MCP and A2A protocols will appear here.</p>
+        )}
       </div>
+
+      {/* Conversion Trend (Daily) */}
+      {funnel?.daily_trend && funnel.daily_trend.length > 0 && (
+        <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+          <h3 className="text-sm font-medium text-gray-400 mb-4">Conversion Trend (Daily Unique Customers)</h3>
+          <ResponsiveContainer width="100%" height={260}>
+            <AreaChart data={funnel.daily_trend.map(d => ({ ...d, label: d.date.slice(5).replace("-", "/") }))}>
+              <defs>
+                <linearGradient id="funnelMcp" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="#3B82F6" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="funnelA2a" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#8B5CF6" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="#8B5CF6" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="funnelPaid" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10B981" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="#10B981" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" />
+              <XAxis dataKey="label" tick={{ fill: "#6B7280", fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: "#6B7280", fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+              <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: "#9CA3AF" }} />
+              <Area type="monotone" dataKey="mcp_customers" name="MCP" stroke="#3B82F6" fill="url(#funnelMcp)" strokeWidth={2} />
+              <Area type="monotone" dataKey="a2a_customers" name="A2A" stroke="#8B5CF6" fill="url(#funnelA2a)" strokeWidth={2} />
+              <Area type="monotone" dataKey="paid_customers" name="Paid" stroke="#10B981" fill="url(#funnelPaid)" strokeWidth={2} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Customer Journey Table */}
+      {funnel?.journeys && funnel.journeys.length > 0 && (
+        <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+          <h3 className="text-sm font-medium text-gray-400 mb-4">Customer Journeys (MCP → A2A Converts)</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-gray-500 border-b border-gray-800">
+                  <th className="text-left py-2 pr-4">Customer</th>
+                  <th className="text-center py-2 px-2">MCP</th>
+                  <th className="text-center py-2 px-2">A2A</th>
+                  <th className="text-center py-2 px-2">Paid</th>
+                  <th className="text-right py-2 px-2">Revenue</th>
+                  <th className="text-right py-2 px-2">Days to Convert</th>
+                  <th className="text-right py-2 pl-2">Requests</th>
+                </tr>
+              </thead>
+              <tbody>
+                {funnel.journeys.map((j) => (
+                  <tr key={j.customer_id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                    <td className="py-2 pr-4 font-mono text-gray-300">{j.customer_id}</td>
+                    <td className="py-2 px-2 text-center">{j.has_mcp ? <span className="text-blue-400">&#10003;</span> : <span className="text-gray-700">&mdash;</span>}</td>
+                    <td className="py-2 px-2 text-center">{j.has_a2a ? <span className="text-purple-400">&#10003;</span> : <span className="text-gray-700">&mdash;</span>}</td>
+                    <td className="py-2 px-2 text-center">{j.has_a2a_paid ? <span className="text-green-400">&#10003;</span> : <span className="text-gray-700">&mdash;</span>}</td>
+                    <td className="py-2 px-2 text-right font-mono text-gray-300">${j.total_revenue.toFixed(4)}</td>
+                    <td className="py-2 px-2 text-right font-mono text-gray-400">{j.days_to_convert != null ? `${j.days_to_convert.toFixed(1)}d` : "—"}</td>
+                    <td className="py-2 pl-2 text-right font-mono text-gray-400">{j.total_requests}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Row 4: Tool Ranking + Revenue */}
+      <div className="grid grid-cols-2 gap-4">
+        {/* Tool Usage Ranking */}
+        <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+          <h3 className="text-sm font-medium text-gray-400 mb-4">Tool Usage Ranking</h3>
+          {tools && tools.length > 0 ? (
+            <div className="space-y-1">
+              {tools.slice(0, 10).map((t, i) => (
+                <div key={t.tool_name} className={`flex items-center gap-3 px-3 py-2 rounded ${i % 2 === 0 ? "bg-gray-800/30" : ""}`}>
+                  <span className={`text-xs font-bold w-5 text-right ${i < 3 ? "text-yellow-400" : "text-gray-500"}`}>
+                    {i + 1}
+                  </span>
+                  <span className="text-sm text-white flex-1 font-mono truncate">{t.tool_name}</span>
+                  <span className="text-xs text-gray-400 font-mono">{t.call_count.toLocaleString()} calls</span>
+                  <span className="text-xs text-gray-500 font-mono">{t.avg_response_ms.toFixed(0)}ms</span>
+                  {t.revenue > 0 && (
+                    <span className="text-xs text-emerald-400 font-mono">${t.revenue.toFixed(2)}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-600">No tool usage data yet</p>
+          )}
+        </div>
+
+        {/* Revenue Summary */}
+        <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+          <h3 className="text-sm font-medium text-gray-400 mb-4">Revenue Summary</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-gray-800/50 rounded-lg p-3">
+              <p className="text-xs text-gray-500 uppercase">Total Revenue</p>
+              <p className="text-xl font-bold text-emerald-400 mt-1">${rev?.total_revenue?.toFixed(2) ?? "0.00"}</p>
+            </div>
+            <div className="bg-gray-800/50 rounded-lg p-3">
+              <p className="text-xs text-gray-500 uppercase">Payments</p>
+              <p className="text-xl font-bold mt-1">{rev?.payment_count ?? 0}</p>
+            </div>
+            <div className="bg-gray-800/50 rounded-lg p-3">
+              <p className="text-xs text-gray-500 uppercase">Avg / Request</p>
+              <p className="text-xl font-bold mt-1">${rev?.avg_per_request?.toFixed(4) ?? "0.00"}</p>
+            </div>
+            <div className="bg-gray-800/50 rounded-lg p-3">
+              <p className="text-xs text-gray-500 uppercase">ARPU</p>
+              <p className="text-xl font-bold mt-1">${rev?.arpu?.toFixed(4) ?? "0.00"}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Row 5: MCP Analysis */}
+      {mcpTools && mcpTools.length > 0 && (
+        <div className="grid grid-cols-2 gap-4">
+          {/* MCP Tool Ranking */}
+          <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+            <h3 className="text-sm font-medium text-gray-400 mb-4">MCP Tool Ranking</h3>
+            <div className="space-y-1">
+              {mcpTools.slice(0, 10).map((t, i) => (
+                <div key={t.tool_name} className={`flex items-center gap-3 px-3 py-2 rounded ${i % 2 === 0 ? "bg-gray-800/30" : ""}`}>
+                  <span className={`text-xs font-bold w-5 text-right ${i < 3 ? "text-blue-400" : "text-gray-500"}`}>
+                    {i + 1}
+                  </span>
+                  <span className="text-sm text-white flex-1 font-mono truncate">{t.tool_name}</span>
+                  <span className="text-xs text-gray-400 font-mono">{t.call_count.toLocaleString()}</span>
+                  <span className="text-xs text-gray-500 font-mono">{t.avg_response_ms.toFixed(0)}ms</span>
+                  {t.error_rate > 0 && (
+                    <span className={`text-xs font-mono ${t.error_rate > 0.05 ? "text-red-400" : "text-gray-500"}`}>
+                      {(t.error_rate * 100).toFixed(1)}%
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* MCP Tool Revenue */}
+          <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+            <h3 className="text-sm font-medium text-gray-400 mb-4">MCP Tool Revenue</h3>
+            {mcpTools.some((t) => t.revenue > 0) ? (
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={mcpTools.filter((t) => t.revenue > 0).slice(0, 8)} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 11, fill: "#6B7280" }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} />
+                  <YAxis type="category" dataKey="tool_name" tick={{ fontSize: 11, fill: "#9CA3AF" }} axisLine={false} tickLine={false} width={100} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(value: number | undefined) => [`$${(value ?? 0).toFixed(4)}`, "Revenue"]} />
+                  <Bar dataKey="revenue" fill="#3B82F6" radius={[0, 4, 4, 0]} barSize={20} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[240px]">
+                <p className="text-sm text-gray-600">No x402 payments for MCP tools yet</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Row 6: A2A Network */}
+      {((a2aPartners && a2aPartners.length > 0) || (a2aEndpoints && a2aEndpoints.length > 0)) && (
+        <div className="grid grid-cols-2 gap-4">
+          {/* A2A Partners */}
+          <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+            <h3 className="text-sm font-medium text-gray-400 mb-4">A2A Partners</h3>
+            {a2aPartners && a2aPartners.length > 0 ? (
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-gray-500 border-b border-gray-800">
+                    <th className="text-left pb-2">Agent</th>
+                    <th className="text-right pb-2">Calls</th>
+                    <th className="text-right pb-2">Latency</th>
+                    <th className="text-right pb-2">Revenue</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {a2aPartners.map((p) => (
+                    <tr key={p.customer_id} className="border-b border-gray-800/50">
+                      <td className="py-2 text-white font-mono truncate max-w-[140px]">{p.customer_id}</td>
+                      <td className="py-2 text-right text-gray-300 font-mono">{p.call_count.toLocaleString()}</td>
+                      <td className="py-2 text-right text-gray-400 font-mono">{p.avg_response_ms.toFixed(0)}ms</td>
+                      <td className="py-2 text-right text-emerald-400 font-mono">
+                        {p.revenue > 0 ? `$${p.revenue.toFixed(2)}` : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p className="text-sm text-gray-600">No A2A partners yet</p>
+            )}
+          </div>
+
+          {/* A2A Endpoints */}
+          <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+            <h3 className="text-sm font-medium text-gray-400 mb-4">A2A Endpoints</h3>
+            {a2aEndpoints && a2aEndpoints.length > 0 ? (
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-gray-500 border-b border-gray-800">
+                    <th className="text-left pb-2">Method</th>
+                    <th className="text-left pb-2">Endpoint</th>
+                    <th className="text-right pb-2">Calls</th>
+                    <th className="text-right pb-2">Latency</th>
+                    <th className="text-right pb-2">Errors</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {a2aEndpoints.map((e) => (
+                    <tr key={`${e.method}-${e.endpoint}`} className="border-b border-gray-800/50">
+                      <td className="py-2 text-blue-400 font-mono">{e.method}</td>
+                      <td className="py-2 text-white font-mono truncate max-w-[180px]">{e.endpoint}</td>
+                      <td className="py-2 text-right text-gray-300 font-mono">{e.call_count.toLocaleString()}</td>
+                      <td className="py-2 text-right text-gray-400 font-mono">{e.avg_response_ms.toFixed(0)}ms</td>
+                      <td className={`py-2 text-right font-mono ${e.error_rate > 0.05 ? "text-red-400" : "text-green-400"}`}>
+                        {(e.error_rate * 100).toFixed(1)}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p className="text-sm text-gray-600">No A2A endpoint data yet</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Row 7: Customer Intelligence */}
+      {cust && (
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+            <h3 className="text-sm font-medium text-gray-400 mb-4">Customer Overview</h3>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-gray-800/50 rounded-lg p-3 text-center">
+                <p className="text-xs text-gray-500">New</p>
+                <p className="text-2xl font-bold text-blue-400">{cust.new_this_week}</p>
+                <p className="text-xs text-gray-500">this week</p>
+              </div>
+              <div className="bg-gray-800/50 rounded-lg p-3 text-center">
+                <p className="text-xs text-gray-500">Returning</p>
+                <p className="text-2xl font-bold text-purple-400">{cust.returning_this_week}</p>
+                <p className="text-xs text-gray-500">this week</p>
+              </div>
+              <div className="bg-gray-800/50 rounded-lg p-3 text-center">
+                <p className="text-xs text-gray-500">Total</p>
+                <p className="text-2xl font-bold">{cust.total_customers}</p>
+                <p className="text-xs text-gray-500">all time</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+            <h3 className="text-sm font-medium text-gray-400 mb-4">Top Callers</h3>
+            {cust.top_callers.length > 0 ? (
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-gray-500 border-b border-gray-800">
+                    <th className="text-left pb-2">Customer</th>
+                    <th className="text-right pb-2">Requests</th>
+                    <th className="text-right pb-2">Revenue</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cust.top_callers.map((tc) => (
+                    <tr key={tc.customer_id} className="border-b border-gray-800/50">
+                      <td className="py-2 text-white font-mono truncate max-w-[120px]">{tc.customer_id}</td>
+                      <td className="py-2 text-right text-gray-300 font-mono">{tc.request_count.toLocaleString()}</td>
+                      <td className="py-2 text-right text-emerald-400 font-mono">${tc.revenue.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p className="text-sm text-gray-600">No customer data yet</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Row 8: Health Monitoring */}
+      {health && health.total_requests > 0 && (
+        <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-medium text-gray-400">Health Monitoring</h3>
+            <span className="text-xs text-gray-600">Last {health.window_minutes} minutes</span>
+          </div>
+          <div className="space-y-4">
+            {[
+              { label: "Success", rate: health.success_rate, count: health.total_requests - health.error_count, color: "#22C55E" },
+              { label: "402 Payment", rate: health.payment_rate, count: health.payment_count, color: "#F59E0B" },
+              { label: "Timeout", rate: health.timeout_rate, count: health.timeout_count, color: "#EF4444" },
+            ].map((m) => (
+              <div key={m.label}>
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="text-gray-400">{m.label}</span>
+                  <span className="text-gray-500 font-mono">{(m.rate * 100).toFixed(1)}% ({m.count})</span>
+                </div>
+                <div className="w-full bg-gray-800 rounded-full h-2">
+                  <div
+                    className="h-2 rounded-full transition-all"
+                    style={{ width: `${Math.max(m.rate * 100, 0.5)}%`, backgroundColor: m.color }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
@@ -1294,6 +1855,690 @@ function RevenueTab({ stats, revenue, byTool, chartData }: RevenueTabProps) {
             <p className="text-xs text-gray-600">No period data yet</p>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ================================================
+   Customers Tab
+   ================================================ */
+
+interface CustomersTabProps {
+  agentId: string;
+  customers: Customer[];
+  totalCustomers: number;
+}
+
+function CustomersTab({ agentId, customers, totalCustomers }: CustomersTabProps) {
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<"total_requests" | "total_revenue" | "last_seen_at" | "error_rate">("total_requests");
+
+  // Filter & sort
+  const filtered = customers
+    .filter((c) => {
+      const q = search.toLowerCase();
+      return c.customer_id.toLowerCase().includes(q) ||
+        (c.country && c.country.toLowerCase().includes(q)) ||
+        (c.city && c.city.toLowerCase().includes(q));
+    })
+    .sort((a, b) => {
+      if (sortBy === "total_requests") return b.total_requests - a.total_requests;
+      if (sortBy === "total_revenue") return b.total_revenue - a.total_revenue;
+      if (sortBy === "error_rate") return b.error_rate - a.error_rate;
+      return new Date(b.last_seen_at).getTime() - new Date(a.last_seen_at).getTime();
+    });
+
+  const atRisk = customers.filter((c) => c.churn_risk === "medium" || c.churn_risk === "high").length;
+  const topRevenue = customers.length > 0
+    ? customers.reduce((best, c) => (c.total_revenue > best.total_revenue ? c : best), customers[0])
+    : null;
+
+  if (selectedCustomer) {
+    return (
+      <CustomerDetailView
+        agentId={agentId}
+        customer={selectedCustomer}
+        onBack={() => setSelectedCustomer(null)}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-4 gap-4">
+        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+          <p className="text-xs text-gray-500 mb-1">Total Customers</p>
+          <p className="text-2xl font-bold">{totalCustomers}</p>
+        </div>
+        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+          <p className="text-xs text-gray-500 mb-1">Active (Low Risk)</p>
+          <p className="text-2xl font-bold text-green-400">{totalCustomers - atRisk}</p>
+        </div>
+        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+          <p className="text-xs text-gray-500 mb-1">At Risk</p>
+          <p className="text-2xl font-bold text-yellow-400">{atRisk}</p>
+        </div>
+        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+          <p className="text-xs text-gray-500 mb-1">Top Revenue</p>
+          <p className="text-lg font-bold text-emerald-400 truncate">
+            {topRevenue ? `$${topRevenue.total_revenue.toFixed(2)}` : "-"}
+          </p>
+          {topRevenue && (
+            <p className="text-xs text-gray-500 font-mono truncate">{topRevenue.customer_id}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Search + Sort */}
+      <div className="flex items-center gap-4">
+        <input
+          type="text"
+          placeholder="Search by IP address or location..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+        />
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+          className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300 focus:outline-none focus:border-blue-500"
+        >
+          <option value="total_requests">Sort: Requests</option>
+          <option value="total_revenue">Sort: Revenue</option>
+          <option value="last_seen_at">Sort: Last Seen</option>
+          <option value="error_rate">Sort: Error Rate</option>
+        </select>
+      </div>
+
+      {/* Customer Table */}
+      <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-gray-500 border-b border-gray-800 text-xs">
+              <th className="text-left px-4 py-3">IP Address</th>
+              <th className="text-left px-3 py-3">Location</th>
+              <th className="text-center px-3 py-3">Status</th>
+              <th className="text-right px-3 py-3">Requests</th>
+              <th className="text-right px-3 py-3">Revenue</th>
+              <th className="text-right px-3 py-3">Avg Response</th>
+              <th className="text-right px-3 py-3">Error Rate</th>
+              <th className="text-right px-3 py-3">Last Seen</th>
+              <th className="text-center px-3 py-3">Risk</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length > 0 ? (
+              filtered.map((c) => {
+                const status = getActivityStatus(c.last_seen_at);
+                return (
+                  <tr
+                    key={c.id}
+                    onClick={() => setSelectedCustomer(c)}
+                    className="border-b border-gray-800/50 hover:bg-gray-800/50 cursor-pointer transition-colors"
+                  >
+                    <td className="px-4 py-3">
+                      <span className="font-mono text-white truncate block max-w-[180px]">
+                        {c.customer_id}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3">
+                      {c.country ? (
+                        <span className="text-gray-300 text-xs">
+                          {c.city ? `${c.city}, ${c.country}` : c.country}
+                        </span>
+                      ) : (
+                        <span className="text-gray-600 text-xs">-</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      <span className={`inline-block w-2 h-2 rounded-full ${status.color}`} title={status.label} />
+                    </td>
+                    <td className="px-3 py-3 text-right font-mono text-gray-300">
+                      {c.total_requests.toLocaleString()}
+                    </td>
+                    <td className="px-3 py-3 text-right font-mono text-emerald-400">
+                      ${c.total_revenue.toFixed(2)}
+                    </td>
+                    <td className="px-3 py-3 text-right font-mono text-gray-300">
+                      {c.avg_response_ms.toFixed(0)}ms
+                    </td>
+                    <td className="px-3 py-3 text-right font-mono text-gray-300">
+                      {(c.error_rate * 100).toFixed(1)}%
+                    </td>
+                    <td className="px-3 py-3 text-right text-gray-400">
+                      {timeAgo(c.last_seen_at)}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      <ChurnBadge risk={c.churn_risk} />
+                    </td>
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td colSpan={9} className="px-4 py-8 text-center text-gray-600">
+                  {search ? "No customers match your search" : "No customer data yet"}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ================================================
+   Customer Detail View
+   ================================================ */
+
+interface CustomerDetailViewProps {
+  agentId: string;
+  customer: Customer;
+  onBack: () => void;
+}
+
+function CustomerDetailView({ agentId, customer, onBack }: CustomerDetailViewProps) {
+  const { data: logsData } = useCustomerLogs(agentId, customer.customer_id);
+  const { data: toolsData } = useCustomerTools(agentId, customer.customer_id);
+  const { data: dailyData } = useCustomerDaily(agentId, customer.customer_id, 30);
+
+  const logs = logsData?.logs || [];
+  const tools = toolsData?.tools || [];
+  const dailyStats = dailyData?.stats || [];
+  const status = getActivityStatus(customer.last_seen_at);
+
+  const chartData = dailyStats.map((d) => ({
+    ...d,
+    label: d.date.slice(5).replace("-", "/"),
+  }));
+
+  const activeDays = Math.ceil(
+    (new Date(customer.last_seen_at).getTime() - new Date(customer.first_seen_at).getTime()) / 86400000
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <button
+          onClick={onBack}
+          className="text-gray-400 hover:text-white transition-colors text-sm"
+        >
+          &larr; Back to list
+        </button>
+      </div>
+
+      <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-xl font-bold font-mono">{customer.customer_id}</h2>
+            {customer.country && (
+              <p className="text-sm text-gray-400 mt-1">
+                {customer.city ? `${customer.city}, ${customer.country}` : customer.country}
+              </p>
+            )}
+            <div className="flex items-center gap-3 mt-2">
+              <span className={`inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full border ${
+                status.label === "Active" ? "border-green-800 text-green-400 bg-green-900/20" :
+                status.label === "Idle" ? "border-blue-800 text-blue-400 bg-blue-900/20" :
+                status.label === "Inactive" ? "border-yellow-800 text-yellow-400 bg-yellow-900/20" :
+                "border-red-800 text-red-400 bg-red-900/20"
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${status.color}`} />
+                {status.label}
+              </span>
+              <ChurnBadge risk={customer.churn_risk} />
+            </div>
+          </div>
+        </div>
+
+        {/* Identity Info */}
+        <div className="grid grid-cols-4 gap-4 mt-4 text-xs">
+          <div>
+            <p className="text-gray-500">First Seen</p>
+            <p className="text-gray-300">{new Date(customer.first_seen_at).toLocaleDateString()}</p>
+          </div>
+          <div>
+            <p className="text-gray-500">Last Seen</p>
+            <p className="text-gray-300">{timeAgo(customer.last_seen_at)}</p>
+          </div>
+          <div>
+            <p className="text-gray-500">Active Duration</p>
+            <p className="text-gray-300">{activeDays}d</p>
+          </div>
+          <div>
+            <p className="text-gray-500">Customer Since</p>
+            <p className="text-gray-300">{new Date(customer.first_seen_at).toLocaleDateString()}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-4 gap-4">
+        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+          <p className="text-xs text-gray-500 mb-1">Total Requests</p>
+          <p className="text-2xl font-bold">{customer.total_requests.toLocaleString()}</p>
+        </div>
+        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+          <p className="text-xs text-gray-500 mb-1">Total Revenue</p>
+          <p className="text-2xl font-bold text-emerald-400">${customer.total_revenue.toFixed(2)}</p>
+        </div>
+        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+          <p className="text-xs text-gray-500 mb-1">Avg Response</p>
+          <p className="text-2xl font-bold">{customer.avg_response_ms.toFixed(0)}ms</p>
+        </div>
+        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+          <p className="text-xs text-gray-500 mb-1">Error Rate</p>
+          <p className={`text-2xl font-bold ${customer.error_rate > 0.1 ? "text-red-400" : customer.error_rate > 0.05 ? "text-yellow-400" : "text-green-400"}`}>
+            {(customer.error_rate * 100).toFixed(1)}%
+          </p>
+        </div>
+      </div>
+
+      {/* Daily Activity Chart */}
+      {chartData.length > 0 && (
+        <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+          <h3 className="text-sm font-medium text-gray-400 mb-4">Daily Activity (30d)</h3>
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis dataKey="label" tick={{ fill: "#6B7280", fontSize: 11 }} />
+              <YAxis tick={{ fill: "#6B7280", fontSize: 11 }} />
+              <Tooltip
+                contentStyle={{ backgroundColor: "#1F2937", border: "1px solid #374151", borderRadius: "8px" }}
+                labelStyle={{ color: "#9CA3AF" }}
+              />
+              <Area type="monotone" dataKey="requests" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.1} name="Requests" />
+              <Area type="monotone" dataKey="errors" stroke="#EF4444" fill="#EF4444" fillOpacity={0.1} name="Errors" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Tool/Endpoint Usage */}
+      <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+        <h3 className="text-sm font-medium text-gray-400 mb-4">Tool / Endpoint Usage</h3>
+        {tools.length > 0 ? (
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-gray-500 border-b border-gray-800">
+                <th className="text-left pb-2">Tool / Path</th>
+                <th className="text-right pb-2">Calls</th>
+                <th className="text-right pb-2">Avg Response</th>
+                <th className="text-right pb-2">Error Rate</th>
+                <th className="text-right pb-2">Revenue</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tools.map((t) => (
+                <tr key={t.tool_name} className="border-b border-gray-800/50">
+                  <td className="py-2 text-white font-mono">{t.tool_name}</td>
+                  <td className="py-2 text-right text-gray-300 font-mono">{t.call_count.toLocaleString()}</td>
+                  <td className="py-2 text-right text-gray-300 font-mono">{t.avg_response_ms.toFixed(0)}ms</td>
+                  <td className="py-2 text-right font-mono">
+                    <span className={t.error_rate > 0.1 ? "text-red-400" : t.error_rate > 0.05 ? "text-yellow-400" : "text-gray-300"}>
+                      {(t.error_rate * 100).toFixed(1)}%
+                    </span>
+                  </td>
+                  <td className="py-2 text-right text-emerald-400 font-mono">${t.revenue.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="text-sm text-gray-600">No tool usage data yet</p>
+        )}
+      </div>
+
+      {/* Recent Request Logs */}
+      <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+        <h3 className="text-sm font-medium text-gray-400 mb-4">Recent Requests</h3>
+        {logs.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-gray-500 border-b border-gray-800">
+                  <th className="text-left pb-2">Time</th>
+                  <th className="text-left pb-2">Method</th>
+                  <th className="text-left pb-2">Path</th>
+                  <th className="text-center pb-2">Status</th>
+                  <th className="text-right pb-2">Response</th>
+                  <th className="text-center pb-2">Protocol</th>
+                  <th className="text-right pb-2">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {logs.map((log) => (
+                  <tr key={log.id} className="border-b border-gray-800/50">
+                    <td className="py-2 text-gray-400">{timeAgo(log.created_at)}</td>
+                    <td className="py-2">
+                      <span className="text-blue-400 font-mono">{log.method}</span>
+                    </td>
+                    <td className="py-2 text-gray-300 font-mono truncate max-w-[200px]">{log.path}</td>
+                    <td className="py-2 text-center"><StatusCode code={log.status_code} /></td>
+                    <td className="py-2 text-right text-gray-300 font-mono">{log.response_ms.toFixed(0)}ms</td>
+                    <td className="py-2 text-center">
+                      {log.protocol && (
+                        <span className="text-xs px-1.5 py-0.5 bg-gray-800 rounded text-gray-400">
+                          {log.protocol}
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-2 text-right font-mono">
+                      {log.x402_amount ? (
+                        <span className="text-emerald-400">${log.x402_amount.toFixed(4)}</span>
+                      ) : (
+                        <span className="text-gray-600">-</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-600">No request logs yet</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ================================================
+   Customer Helpers
+   ================================================ */
+
+function getActivityStatus(lastSeenAt: string): { label: string; color: string } {
+  const diffMs = Date.now() - new Date(lastSeenAt).getTime();
+  const hours = diffMs / 3600000;
+  if (hours < 1) return { label: "Active", color: "bg-green-400" };
+  if (hours < 24) return { label: "Idle", color: "bg-blue-400" };
+  if (hours < 168) return { label: "Inactive", color: "bg-yellow-400" };
+  return { label: "Churned", color: "bg-red-400" };
+}
+
+function ChurnBadge({ risk }: { risk: string }) {
+  const colors = {
+    low: "text-green-400 bg-green-900/20 border-green-800",
+    medium: "text-yellow-400 bg-yellow-900/20 border-yellow-800",
+    high: "text-red-400 bg-red-900/20 border-red-800",
+  };
+  const c = colors[risk as keyof typeof colors] || colors.low;
+  return (
+    <span className={`text-xs px-1.5 py-0.5 rounded border ${c}`}>
+      {risk}
+    </span>
+  );
+}
+
+/* ================================================
+   Trust Tab
+   ================================================ */
+
+interface TrustTabProps {
+  agentId: string;
+  trustData: TrustScoreResponse | null;
+}
+
+function TrustTab({ agentId, trustData }: TrustTabProps) {
+  const [reviewScore, setReviewScore] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewerId, setReviewerId] = useState("");
+  const [reviewTags, setReviewTags] = useState<string[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitMsg, setSubmitMsg] = useState("");
+  const [showForm, setShowForm] = useState(false);
+
+  const breakdown = trustData?.breakdown;
+  const reviews = trustData?.reviews || [];
+  const totalScore = breakdown?.total_score ?? 0;
+
+  const scoreColor =
+    totalScore >= 80 ? "text-green-400" : totalScore >= 50 ? "text-yellow-400" : "text-red-400";
+  const ringColor =
+    totalScore >= 80 ? "stroke-green-400" : totalScore >= 50 ? "stroke-yellow-400" : "stroke-red-400";
+
+  const COMPONENTS: { key: keyof Pick<NonNullable<typeof breakdown>, "reliability" | "performance" | "activity" | "revenue_quality" | "customer_retention" | "peer_review" | "onchain_score">; label: string; weight: string }[] = [
+    { key: "reliability", label: "Reliability", weight: "25%" },
+    { key: "performance", label: "Performance", weight: "20%" },
+    { key: "activity", label: "Activity", weight: "15%" },
+    { key: "revenue_quality", label: "Revenue Quality", weight: "10%" },
+    { key: "customer_retention", label: "Customer Retention", weight: "10%" },
+    { key: "peer_review", label: "Peer Reviews", weight: "10%" },
+    { key: "onchain_score", label: "On-chain", weight: "10%" },
+  ];
+
+  const TAG_OPTIONS = ["reliable", "fast", "accurate", "helpful", "innovative", "responsive"];
+
+  const toggleTag = (tag: string) => {
+    setReviewTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
+
+  const handleSubmit = async () => {
+    if (!reviewerId.trim()) {
+      setSubmitMsg("Reviewer ID is required");
+      return;
+    }
+    setSubmitting(true);
+    setSubmitMsg("");
+    try {
+      await openApi.submitReview(agentId, {
+        reviewer_id: reviewerId.trim(),
+        score: reviewScore,
+        tags: reviewTags,
+        comment: reviewComment.trim(),
+      });
+      setSubmitMsg("Review submitted!");
+      setReviewComment("");
+      setReviewTags([]);
+      setReviewScore(5);
+      setShowForm(false);
+    } catch (err) {
+      setSubmitMsg(err instanceof Error ? err.message : "Failed to submit review");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!trustData) {
+    return (
+      <div className="text-center text-gray-500 py-12">
+        <p>Loading trust data...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Overall Score + Breakdown */}
+      <div className="grid grid-cols-3 gap-6">
+        {/* Score Circle */}
+        <div className="bg-gray-900 border border-gray-800 rounded-lg p-6 flex flex-col items-center justify-center">
+          <p className="text-xs text-gray-500 mb-3">Trust Score</p>
+          <div className="relative w-32 h-32">
+            <svg className="w-32 h-32 -rotate-90" viewBox="0 0 120 120">
+              <circle cx="60" cy="60" r="52" fill="none" stroke="#1f2937" strokeWidth="8" />
+              <circle
+                cx="60" cy="60" r="52" fill="none"
+                className={ringColor}
+                strokeWidth="8"
+                strokeLinecap="round"
+                strokeDasharray={`${(totalScore / 100) * 327} 327`}
+              />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className={`text-3xl font-bold ${scoreColor}`}>
+                {totalScore.toFixed(0)}
+              </span>
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            {breakdown?.review_count ?? 0} reviews · {breakdown?.onchain_count ?? 0} on-chain
+          </p>
+        </div>
+
+        {/* Component Breakdown */}
+        <div className="col-span-2 bg-gray-900 border border-gray-800 rounded-lg p-6">
+          <p className="text-sm font-medium text-gray-300 mb-4">Score Breakdown</p>
+          <div className="space-y-3">
+            {COMPONENTS.map((comp) => {
+              const val = breakdown?.[comp.key] ?? 0;
+              const barColor =
+                val >= 80 ? "bg-green-500" : val >= 50 ? "bg-yellow-500" : "bg-red-500";
+              return (
+                <div key={comp.key}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-gray-400">
+                      {comp.label}{" "}
+                      <span className="text-gray-600">({comp.weight})</span>
+                    </span>
+                    <span className="text-xs font-mono text-gray-300">{val.toFixed(1)}</span>
+                  </div>
+                  <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${barColor}`}
+                      style={{ width: `${Math.min(val, 100)}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Reviews */}
+      <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-sm font-medium text-gray-300">
+            Recent Reviews ({trustData.review_total})
+          </p>
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="text-xs px-3 py-1.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
+          >
+            {showForm ? "Cancel" : "Write Review"}
+          </button>
+        </div>
+
+        {/* Submit Review Form */}
+        {showForm && (
+          <div className="mb-6 p-4 border border-gray-700 rounded-lg space-y-3">
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Your Agent ID or EVM Address</label>
+              <input
+                type="text"
+                value={reviewerId}
+                onChange={(e) => setReviewerId(e.target.value)}
+                placeholder="my-agent-slug or 0x..."
+                className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Score</label>
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setReviewScore(s)}
+                    className={`w-8 h-8 rounded text-sm font-medium transition-colors ${
+                      s <= reviewScore
+                        ? "bg-yellow-500/20 text-yellow-400 border border-yellow-600"
+                        : "bg-gray-800 text-gray-600 border border-gray-700"
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Tags</label>
+              <div className="flex flex-wrap gap-1.5">
+                {TAG_OPTIONS.map((tag) => (
+                  <button
+                    key={tag}
+                    onClick={() => toggleTag(tag)}
+                    className={`text-xs px-2 py-1 rounded-full border transition-colors ${
+                      reviewTags.includes(tag)
+                        ? "border-blue-600 text-blue-400 bg-blue-900/20"
+                        : "border-gray-700 text-gray-500 hover:text-gray-300"
+                    }`}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Comment (optional)</label>
+              <textarea
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+                rows={2}
+                className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 resize-none"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg disabled:opacity-50 transition-colors"
+              >
+                {submitting ? "Submitting..." : "Submit Review"}
+              </button>
+              {submitMsg && (
+                <span className={`text-xs ${submitMsg.includes("submitted") ? "text-green-400" : "text-red-400"}`}>
+                  {submitMsg}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Review List */}
+        {reviews.length > 0 ? (
+          <div className="space-y-3">
+            {reviews.map((r) => (
+              <div key={r.id} className="border-b border-gray-800/50 pb-3 last:border-0 last:pb-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs text-gray-400 truncate max-w-[200px]">
+                      {r.reviewer_id}
+                    </span>
+                    <span className="text-yellow-400 text-xs">
+                      {"★".repeat(r.score)}{"☆".repeat(5 - r.score)}
+                    </span>
+                  </div>
+                  <span className="text-xs text-gray-600">{timeAgo(r.created_at)}</span>
+                </div>
+                {r.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {r.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="text-xs px-1.5 py-0.5 rounded-full border border-gray-700 text-gray-500"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {r.comment && (
+                  <p className="text-xs text-gray-400 mt-1.5">{r.comment}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-600 text-center py-4">No reviews yet</p>
+        )}
       </div>
     </div>
   );

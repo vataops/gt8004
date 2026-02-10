@@ -11,17 +11,17 @@ import type { Customer } from "@/lib/api";
 const customerColumns: Column<Customer>[] = [
   {
     key: "customer_id",
-    header: "Customer ID",
+    header: "IP Address",
     render: (row) => (
-      <span className="font-medium text-white">{row.customer_id}</span>
+      <span className="font-mono font-medium text-white">{row.customer_id}</span>
     ),
   },
   {
-    key: "first_seen_at",
-    header: "First Seen",
+    key: "country",
+    header: "Location",
     render: (row) =>
-      row.first_seen_at
-        ? new Date(row.first_seen_at).toLocaleDateString()
+      row.country
+        ? row.city ? `${row.city}, ${row.country}` : row.country
         : "-",
   },
   {

@@ -140,3 +140,53 @@ export function useLogs(agentId: string, limit = 50) {
   );
   return usePolling(fn, 10_000);
 }
+
+export function useAnalytics(agentId: string, days = 30) {
+  const fn = useCallback(
+    () => openApi.getAnalytics(agentId, days),
+    [agentId, days]
+  );
+  return usePolling(fn, 15_000);
+}
+
+export function useFunnel(agentId: string, days = 30) {
+  const fn = useCallback(
+    () => openApi.getFunnel(agentId, days),
+    [agentId, days]
+  );
+  return usePolling(fn, 30_000);
+}
+
+export function useTrustScore(agentId: string) {
+  const fn = useCallback(
+    () => openApi.getTrustScore(agentId),
+    [agentId]
+  );
+  return usePolling(fn, 30_000);
+}
+
+// ========== Customer Detail Hooks ==========
+
+export function useCustomerLogs(agentId: string, customerId: string) {
+  const fn = useCallback(
+    () => openApi.getCustomerLogs(agentId, customerId),
+    [agentId, customerId]
+  );
+  return usePolling(fn, 10_000);
+}
+
+export function useCustomerTools(agentId: string, customerId: string) {
+  const fn = useCallback(
+    () => openApi.getCustomerTools(agentId, customerId),
+    [agentId, customerId]
+  );
+  return usePolling(fn, 30_000);
+}
+
+export function useCustomerDaily(agentId: string, customerId: string, days = 30) {
+  const fn = useCallback(
+    () => openApi.getCustomerDaily(agentId, customerId, days),
+    [agentId, customerId, days]
+  );
+  return usePolling(fn, 60_000);
+}

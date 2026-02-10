@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { StatCard } from "@/components/StatCard";
-import { openApi, Agent, fetchScanAgents } from "@/lib/api";
+import { openApi, Agent } from "@/lib/api";
 import { NETWORK_LIST } from "@/lib/networks";
 import {
   BarChart,
@@ -17,6 +17,21 @@ import {
 } from "recharts";
 
 const AGENT_COLORS = ["#3b82f6", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#ec4899"];
+
+/** Extract agent name from on-chain agentURI (data: URI or raw JSON). */
+function parseAgentURIName(uri: string): string {
+  if (!uri) return "";
+  let json: string | null = null;
+  if (uri.startsWith("data:application/json;base64,")) {
+    try { json = atob(uri.slice("data:application/json;base64,".length)); } catch { return ""; }
+  } else if (uri.startsWith("data:application/json,")) {
+    json = uri.slice("data:application/json,".length);
+  } else if (uri.startsWith("{")) {
+    json = uri;
+  }
+  if (!json) return "";
+  try { return (JSON.parse(json) as { name?: string }).name || ""; } catch { return ""; }
+}
 
 interface AgentRow {
   agent_id: string;
@@ -70,7 +85,7 @@ export default function MyAgentsPage() {
           ? platformResult.value.agents || []
           : [];
 
-      // Collect all on-chain tokens for 8004scan lookup
+      // Collect all on-chain tokens
       const allTokens: { token_id: number; chain_id: number; network: typeof NETWORK_LIST[number]; agent_uri: string }[] = [];
       const seenTokenIds = new Set<string>();
 
@@ -85,26 +100,18 @@ export default function MyAgentsPage() {
         }
       }
 
-      // Fetch metadata from 8004scan for all tokens
-      const scanData = await fetchScanAgents(
-        allTokens.map((t) => ({ token_id: t.token_id, chain_id: t.chain_id }))
-      );
-
-      // Build agent rows from on-chain tokens
+      // Build agent rows from on-chain tokens + platform data
       const rows: AgentRow[] = [];
 
       for (const token of allTokens) {
-        const key = `${token.chain_id}-${token.token_id}`;
-        const scanAgent = scanData.get(key);
-
         // Match with platform agent by token_id
         const platformAgent = platformAgents.find(
           (a) => a.erc8004_token_id === token.token_id
         );
 
-        // Name priority: 8004scan > platform agent > fallback
-        const name = scanAgent?.name || platformAgent?.name || `Token #${token.token_id}`;
-        const score = scanAgent?.total_score ?? platformAgent?.reputation_score ?? 0;
+        // Extract name from on-chain agentURI, fallback to platform agent name
+        const uriName = parseAgentURIName(token.agent_uri);
+        const name = uriName || platformAgent?.name || `Token #${token.token_id}`;
 
         rows.push({
           agent_id: platformAgent?.agent_id || `token-${token.token_id}`,
@@ -112,13 +119,13 @@ export default function MyAgentsPage() {
           token_id: token.token_id,
           chain: token.network.shortName,
           chain_id: token.chain_id,
-          score,
-          feedback: scanAgent?.total_feedbacks ?? 0,
+          score: platformAgent?.reputation_score ?? 0,
+          feedback: 0,
           total_requests: platformAgent?.total_requests ?? 0,
           total_customers: platformAgent?.total_customers ?? 0,
           total_revenue: platformAgent?.total_revenue_usdc ?? 0,
-          status: scanAgent ? (scanAgent.is_active ? "active" : "inactive") : (platformAgent?.status || "active"),
-          created_at: scanAgent?.created_at || platformAgent?.created_at || "",
+          status: platformAgent?.status || "active",
+          created_at: platformAgent?.created_at || "",
           agent_uri: token.agent_uri,
           registered: !!platformAgent,
         });

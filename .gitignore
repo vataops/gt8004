@@ -1,10 +1,18 @@
 # Binaries
 **/aesd
+**/analyticsd
+**/discoveryd
+**/gatewayd
+**/registryd
+**/gt8004d
 **/bin/
 *.exe
 *.dll
 *.so
 *.dylib
+
+# GeoIP
+*.mmdb
 
 # Go
 backend/vendor/

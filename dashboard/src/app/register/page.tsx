@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { openApi, fetchScanAgent } from "@/lib/api";
+import { openApi } from "@/lib/api";
 import type { RegisterRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { connectWallet, signChallenge } from "@/lib/wallet";
@@ -11,29 +11,41 @@ import { NETWORKS, NETWORK_LIST, DEFAULT_NETWORK } from "@/lib/networks";
 const CATEGORIES = ["compute", "data", "inference", "storage", "other"];
 const PROTOCOLS = ["a2a", "mcp", "x402", "custom"];
 
-/** Extract the first service endpoint URL from an agentURI data: payload. */
-function extractEndpointFromURI(uri: string): string {
+/** Parse agentURI JSON (data: URI, raw JSON, etc.) into a parsed object. */
+function parseAgentURI(uri: string): Record<string, unknown> | null {
   let json: string | null = null;
   if (uri.startsWith("data:application/json;base64,")) {
     try {
       json = atob(uri.slice("data:application/json;base64,".length));
-    } catch { return ""; }
+    } catch { return null; }
   } else if (uri.startsWith("data:application/json,")) {
     json = uri.slice("data:application/json,".length);
   } else if (uri.startsWith("{")) {
     json = uri;
   }
-  if (!json) return "";
+  if (!json) return null;
   try {
-    const meta = JSON.parse(json);
-    const svcs = meta.services ?? meta.endpoints ?? [];
-    for (const svc of svcs) {
-      if (svc.endpoint && (svc.endpoint.startsWith("http://") || svc.endpoint.startsWith("https://"))) {
-        return svc.endpoint;
-      }
+    return JSON.parse(json);
+  } catch { return null; }
+}
+
+/** Extract the first service endpoint URL from an agentURI data: payload. */
+function extractEndpointFromURI(uri: string): string {
+  const meta = parseAgentURI(uri);
+  if (!meta) return "";
+  const svcs = (meta.services ?? meta.endpoints ?? []) as { endpoint?: string }[];
+  for (const svc of svcs) {
+    if (svc.endpoint && (svc.endpoint.startsWith("http://") || svc.endpoint.startsWith("https://"))) {
+      return svc.endpoint;
     }
-  } catch { /* ignore */ }
+  }
   return "";
+}
+
+/** Extract agent name from an agentURI data: payload. */
+function extractNameFromURI(uri: string): string {
+  const meta = parseAgentURI(uri);
+  return (meta?.name as string) || "";
 }
 
 export default function RegisterPage() {
@@ -109,12 +121,11 @@ function RegisterPageInner() {
       if (ep) setOriginEndpoint(ep);
     }
 
-    // Fetch name from 8004scan
-    fetchScanAgent(chainId, token.token_id).then((scanAgent) => {
-      if (scanAgent?.name) {
-        setName(scanAgent.name);
-      }
-    });
+    // Extract name from on-chain agentURI
+    if (token.agent_uri) {
+      const uriName = extractNameFromURI(token.agent_uri);
+      if (uriName) setName(uriName);
+    }
 
     setPhase("config");
   }, [searchParams]);
@@ -241,13 +252,10 @@ function RegisterPageInner() {
       if (ep) setOriginEndpoint(ep);
     }
 
-    // Fetch name from 8004scan
-    const network = NETWORKS[selectedNetwork];
-    if (network) {
-      const scanAgent = await fetchScanAgent(network.chainId, token.token_id);
-      if (scanAgent?.name) {
-        setName(scanAgent.name);
-      }
+    // Extract name from on-chain agentURI
+    if (token.agent_uri) {
+      const uriName = extractNameFromURI(token.agent_uri);
+      if (uriName) setName(uriName);
     }
 
     setPhase("config");
@@ -619,8 +627,7 @@ function RegisterPageInner() {
                   <p className="text-sm text-gray-400 mb-2">No ERC-8004 agents found</p>
                   <p className="text-xs text-gray-600">
                     This wallet doesn&apos;t own any ERC-8004 tokens on {currentNetwork?.shortName}.
-                    You can register with Basic mode or mint a token at{" "}
-                    <span className="text-purple-400">8004scan.io</span>
+                    You can register with Basic mode or mint a token on the ERC-8004 registry contract.
                   </p>
                 </div>
               )}
