@@ -275,7 +275,6 @@ function RegisterPageInner() {
       const req: RegisterRequest = {
         name: name || undefined,
         origin_endpoint: originEndpoint,
-        category,
         protocols: protocols.length > 0 ? protocols : undefined,
         erc8004_token_id: parseInt(tokenId, 10),
         chain_id: network.chainId,
@@ -283,13 +282,6 @@ function RegisterPageInner() {
         challenge,
         signature,
       };
-      if (showPricing && pricingAmount) {
-        req.pricing = {
-          model: pricingModel,
-          amount: parseFloat(pricingAmount),
-          currency: pricingCurrency,
-        };
-      }
       const res = await openApi.registerAgent(req);
       setApiKey(res.api_key);
       setRegisteredAgentId(res.agent_id);
@@ -315,7 +307,7 @@ function RegisterPageInner() {
   const currentNetwork = NETWORKS[selectedNetwork];
 
   // --- Shared form fields ---
-  const renderFormFields = (showName = true) => (
+  const renderFormFields = (showName = true, showPricingOption = true, showCategory = true) => (
     <>
       {showName && (
         <div>
@@ -350,20 +342,22 @@ function RegisterPageInner() {
         />
       </div>
 
-      <div>
-        <label className="block text-sm text-gray-400 mb-1">Category</label>
-        <select
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-sm text-white focus:outline-none focus:border-blue-500"
-        >
-          {CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {c.charAt(0).toUpperCase() + c.slice(1)}
-            </option>
-          ))}
-        </select>
-      </div>
+      {showCategory && (
+        <div>
+          <label className="block text-sm text-gray-400 mb-1">Category</label>
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-sm text-white focus:outline-none focus:border-blue-500"
+          >
+            {CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {c.charAt(0).toUpperCase() + c.slice(1)}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div>
         <label className="block text-sm text-gray-400 mb-1">Protocols</label>
@@ -385,55 +379,57 @@ function RegisterPageInner() {
         </div>
       </div>
 
-      <div>
-        <button
-          type="button"
-          onClick={() => setShowPricing(!showPricing)}
-          className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
-        >
-          {showPricing ? "- Hide Pricing" : "+ Add Pricing"}
-        </button>
-        {showPricing && (
-          <div className="mt-2 space-y-2 p-3 rounded-lg border border-gray-800 bg-gray-900/50">
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Model</label>
-                <select
-                  value={pricingModel}
-                  onChange={(e) => setPricingModel(e.target.value)}
-                  className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-xs text-white"
-                >
-                  <option value="per_request">Per Request</option>
-                  <option value="per_token">Per Token</option>
-                  <option value="flat">Flat</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Amount</label>
-                <input
-                  type="number"
-                  step="0.0001"
-                  value={pricingAmount}
-                  onChange={(e) => setPricingAmount(e.target.value)}
-                  placeholder="0.01"
-                  className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-xs text-white placeholder-gray-600"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Currency</label>
-                <select
-                  value={pricingCurrency}
-                  onChange={(e) => setPricingCurrency(e.target.value)}
-                  className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-xs text-white"
-                >
-                  <option value="USDC">USDC</option>
-                  <option value="ETH">ETH</option>
-                </select>
+      {showPricingOption && (
+        <div>
+          <button
+            type="button"
+            onClick={() => setShowPricing(!showPricing)}
+            className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+          >
+            {showPricing ? "- Hide Pricing" : "+ Add Pricing"}
+          </button>
+          {showPricing && (
+            <div className="mt-2 space-y-2 p-3 rounded-lg border border-gray-800 bg-gray-900/50">
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Model</label>
+                  <select
+                    value={pricingModel}
+                    onChange={(e) => setPricingModel(e.target.value)}
+                    className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-xs text-white"
+                  >
+                    <option value="per_request">Per Request</option>
+                    <option value="per_token">Per Token</option>
+                    <option value="flat">Flat</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Amount</label>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    value={pricingAmount}
+                    onChange={(e) => setPricingAmount(e.target.value)}
+                    placeholder="0.01"
+                    className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-xs text-white placeholder-gray-600"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Currency</label>
+                  <select
+                    value={pricingCurrency}
+                    onChange={(e) => setPricingCurrency(e.target.value)}
+                    className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-xs text-white"
+                  >
+                    <option value="USDC">USDC</option>
+                    <option value="ETH">ETH</option>
+                  </select>
+                </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </>
   );
 
@@ -669,7 +665,7 @@ function RegisterPageInner() {
           </p>
 
           <form onSubmit={handleERC8004Register} className="space-y-4">
-            {renderFormFields(false)}
+            {renderFormFields(false, false, false)}
 
             {error && (
               <p className="text-sm text-red-400">{error}</p>

@@ -8,7 +8,7 @@ import { StatCard } from "@/components/StatCard";
 import { Badge } from "@/components/Badge";
 import { CodeBlock } from "@/components/CodeBlock";
 import { CopyButton } from "@/components/CopyButton";
-import { openApi, type Agent, type NetworkAgent } from "@/lib/api";
+import { openApi, type Agent, type NetworkAgent, type AgentMetadata, type AgentService } from "@/lib/api";
 import { hasWallet, connectWallet, signChallenge } from "@/lib/wallet";
 import { NETWORKS, resolveImageUrl } from "@/lib/networks";
 import {
@@ -90,20 +90,29 @@ export default function AgentDashboardPage() {
       return;
     }
     const tokenId = viewedAgent.erc8004_token_id;
-    // Try all known chains to find the matching network agent
-    const chainIds = Object.values(NETWORKS).map((n) => n.chainId);
-    Promise.allSettled(
-      chainIds.map((cid) => openApi.getNetworkAgent(cid, tokenId))
-    ).then((results) => {
-      for (const r of results) {
-        if (r.status === "fulfilled" && r.value) {
-          setNetworkAgent(r.value);
-          return;
+    const chainId = viewedAgent.chain_id;
+
+    if (chainId) {
+      // Use the agent's known chain_id for exact lookup
+      openApi.getNetworkAgent(chainId, tokenId)
+        .then((na) => setNetworkAgent(na))
+        .catch(() => setNetworkAgent(null));
+    } else {
+      // Fallback: try all chains (legacy agents without chain_id)
+      const chainIds = Object.values(NETWORKS).map((n) => n.chainId);
+      Promise.allSettled(
+        chainIds.map((cid) => openApi.getNetworkAgent(cid, tokenId))
+      ).then((results) => {
+        for (const r of results) {
+          if (r.status === "fulfilled" && r.value) {
+            setNetworkAgent(r.value);
+            return;
+          }
         }
-      }
-      setNetworkAgent(null);
-    });
-  }, [viewedAgent?.erc8004_token_id, walletAddress]);
+        setNetworkAgent(null);
+      });
+    }
+  }, [viewedAgent?.erc8004_token_id, viewedAgent?.chain_id, walletAddress]);
 
   const refreshAgent = async () => {
     if (authAgent?.agent_id === id) {
@@ -603,12 +612,28 @@ interface OverviewTabProps {
   id: string;
 }
 
+/** Parse agentURI (data: URI or raw JSON) into metadata object. */
+function parseAgentURI(uri: string | undefined | null): AgentMetadata | null {
+  if (!uri) return null;
+  let json: string | null = null;
+  if (uri.startsWith("data:application/json;base64,")) {
+    try { json = atob(uri.slice("data:application/json;base64,".length)); } catch { return null; }
+  } else if (uri.startsWith("data:application/json,")) {
+    json = uri.slice("data:application/json,".length);
+  } else if (uri.startsWith("{")) {
+    json = uri;
+  }
+  if (!json) return null;
+  try { return JSON.parse(json) as AgentMetadata; } catch { return null; }
+}
+
 function OverviewTab({ agent, networkAgent, id }: OverviewTabProps) {
-  const meta = networkAgent?.metadata;
+  // Try networkAgent metadata first, fallback to parsing agent's own agentURI
+  const meta = networkAgent?.metadata || parseAgentURI(agent?.agent_uri || networkAgent?.agent_uri);
   const imageUrl = resolveImageUrl(meta?.image ?? networkAgent?.image_url ?? null);
   const description = meta?.description ?? networkAgent?.description;
-  const services = meta?.services ?? meta?.endpoints ?? [];
-  const trusts = meta?.supportedTrust ?? meta?.supportedTrusts ?? [];
+  const services: AgentService[] = meta?.services ?? meta?.endpoints ?? [];
+  const trusts: string[] = (meta?.supportedTrust ?? meta?.supportedTrusts ?? []) as string[];
   const hasX402 = meta?.x402Support || meta?.x402support || false;
 
   const explorer = networkAgent ? explorerUrl(networkAgent.chain_id) : null;
@@ -727,10 +752,10 @@ function OverviewTab({ agent, networkAgent, id }: OverviewTabProps) {
                 <p className="text-xs font-mono text-gray-400 break-all">{svc.endpoint}</p>
                 {(svc.skills?.length || svc.domains?.length) && (
                   <div className="flex flex-wrap gap-1.5 mt-2">
-                    {svc.skills?.map((s) => (
+                    {svc.skills?.map((s: string) => (
                       <span key={s} className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/30 text-purple-400">{s}</span>
                     ))}
-                    {svc.domains?.map((d) => (
+                    {svc.domains?.map((d: string) => (
                       <span key={d} className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-900/30 text-cyan-400">{d}</span>
                     ))}
                   </div>

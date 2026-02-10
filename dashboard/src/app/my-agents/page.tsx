@@ -104,9 +104,9 @@ export default function MyAgentsPage() {
       const rows: AgentRow[] = [];
 
       for (const token of allTokens) {
-        // Match with platform agent by token_id
+        // Match with platform agent by token_id + chain_id
         const platformAgent = platformAgents.find(
-          (a) => a.erc8004_token_id === token.token_id
+          (a) => a.erc8004_token_id === token.token_id && a.chain_id === token.chain_id
         );
 
         // Extract name from on-chain agentURI, fallback to platform agent name
