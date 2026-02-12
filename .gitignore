@@ -62,3 +62,4 @@ contracts/credit/artifacts/
 
 # Logs
 *.log
+bot/logs/
