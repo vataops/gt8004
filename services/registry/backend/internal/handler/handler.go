@@ -25,6 +25,9 @@ type Handler struct {
 
 	// ERC-8004
 	erc8004Registry *erc8004.Registry
+
+	// Gateway
+	gatewayBaseURL string
 }
 
 func New(
@@ -34,6 +37,7 @@ func New(
 	erc8004Registry *erc8004.Registry,
 	redisCache *cache.Cache,
 	logger *zap.Logger,
+	gatewayBaseURL string,
 ) *Handler {
 	return &Handler{
 		store:           s,
@@ -42,11 +46,16 @@ func New(
 		cache:           redisCache,
 		erc8004Registry: erc8004Registry,
 		logger:          logger,
+		gatewayBaseURL:  gatewayBaseURL,
 	}
 }
 
 func (h *Handler) Store() *store.Store {
 	return h.store
+}
+
+func (h *Handler) Logger() *zap.Logger {
+	return h.logger
 }
 
 // resolvePublicAgent resolves an agent by its slug (agent_id) from URL params.

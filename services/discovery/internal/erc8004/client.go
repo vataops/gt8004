@@ -146,16 +146,20 @@ func (c *Client) GetAgentURI(ctx context.Context, tokenID int64) (string, error)
 
 // MintEvent represents a mint log with its block number.
 type MintEvent struct {
-	TokenID     int64
-	BlockNumber uint64
+	TokenID        int64
+	BlockNumber    uint64
+	CreatorAddress string
+	TxHash         string
 }
 
 // DiscoveredToken represents an ERC-8004 token discovered on-chain.
 type DiscoveredToken struct {
-	TokenID      int64     `json:"token_id"`
-	OwnerAddress string    `json:"owner_address"`
-	AgentURI     string    `json:"agent_uri"`
-	MintedAt     time.Time `json:"minted_at"`
+	TokenID        int64     `json:"token_id"`
+	OwnerAddress   string    `json:"owner_address"`
+	AgentURI       string    `json:"agent_uri"`
+	MintedAt       time.Time `json:"minted_at"`
+	CreatorAddress string    `json:"creator_address"`
+	CreatedTx      string    `json:"created_tx"`
 }
 
 // DiscoverAllTokens scans mint events (Transfer from zero address) to find
@@ -206,9 +210,13 @@ func (c *Client) DiscoverAllTokens(ctx context.Context) ([]DiscoveredToken, erro
 	// Fetch block timestamps for mint blocks
 	blockNums := make(map[uint64]bool)
 	mintBlocks := make(map[int64]uint64)
+	mintCreators := make(map[int64]string)
+	mintTxHashes := make(map[int64]string)
 	for _, ev := range candidates {
 		blockNums[ev.BlockNumber] = true
 		mintBlocks[ev.TokenID] = ev.BlockNumber
+		mintCreators[ev.TokenID] = ev.CreatorAddress
+		mintTxHashes[ev.TokenID] = ev.TxHash
 	}
 
 	headerCtx, headerCancel := context.WithTimeout(context.Background(), 2*time.Minute)
@@ -236,10 +244,12 @@ func (c *Client) DiscoverAllTokens(ctx context.Context) ([]DiscoveredToken, erro
 		}
 		agentURI, _ := c.GetAgentURI(verifyCtx, ev.TokenID)
 		tokens = append(tokens, DiscoveredToken{
-			TokenID:      ev.TokenID,
-			OwnerAddress: owner,
-			AgentURI:     agentURI,
-			MintedAt:     blockTimestamps[mintBlocks[ev.TokenID]],
+			TokenID:        ev.TokenID,
+			OwnerAddress:   owner,
+			AgentURI:       agentURI,
+			MintedAt:       blockTimestamps[mintBlocks[ev.TokenID]],
+			CreatorAddress: mintCreators[ev.TokenID],
+			CreatedTx:      mintTxHashes[ev.TokenID],
 		})
 	}
 
@@ -270,7 +280,13 @@ func (c *Client) filterMintLogs(ctx context.Context, fromBlock, toBlock *big.Int
 		tid := tokenID.Int64()
 		if !seen[tid] {
 			seen[tid] = true
-			events = append(events, MintEvent{TokenID: tid, BlockNumber: log.BlockNumber})
+			creator := strings.ToLower(common.BytesToAddress(log.Topics[2].Bytes()).Hex())
+			events = append(events, MintEvent{
+				TokenID:        tid,
+				BlockNumber:    log.BlockNumber,
+				CreatorAddress: creator,
+				TxHash:         log.TxHash.Hex(),
+			})
 		}
 	}
 	return events, nil

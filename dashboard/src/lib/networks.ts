@@ -4,6 +4,7 @@ export interface NetworkConfig {
   shortName: string;
   rpcUrl: string;
   contractAddress: string;
+  reputationAddress: string;
   blockExplorer: string;
 }
 
@@ -14,6 +15,7 @@ export const NETWORKS: Record<string, NetworkConfig> = {
     shortName: "Base Sepolia",
     rpcUrl: "https://base-sepolia-rpc.publicnode.com",
     contractAddress: "0x8004A818BFB912233c491871b3d84c89A494BD9e",
+    reputationAddress: "0x8004B663056A597Dffe9eCcC1965A193B7388713",
     blockExplorer: "https://sepolia.basescan.org",
   },
   "ethereum-sepolia": {
@@ -22,6 +24,7 @@ export const NETWORKS: Record<string, NetworkConfig> = {
     shortName: "Ethereum Sepolia",
     rpcUrl: "https://ethereum-sepolia-rpc.publicnode.com",
     contractAddress: "0x8004A818BFB912233c491871b3d84c89A494BD9e",
+    reputationAddress: "",
     blockExplorer: "https://sepolia.etherscan.io",
   },
 };

@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/GT8004/gt8004/internal/erc8004"
 )
 
 // defaultChainID is Base Sepolia.
@@ -119,5 +121,88 @@ func (h *Handler) ListTokensByOwner(c *gin.Context) {
 	resp := gin.H{"tokens": tokens}
 	data, _ := json.Marshal(resp)
 	h.cache.Set(c.Request.Context(), cacheKey, data, 30*time.Minute)
+	c.Data(http.StatusOK, "application/json", data)
+}
+
+// GetReputationSummary handles GET /v1/erc8004/reputation/:token_id/summary
+func (h *Handler) GetReputationSummary(c *gin.Context) {
+	tokenID, err := strconv.ParseInt(c.Param("token_id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid token_id"})
+		return
+	}
+	if h.erc8004Registry == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "ERC-8004 not configured"})
+		return
+	}
+
+	chainID := h.resolveChainID(c)
+	client, err := h.erc8004Registry.GetClient(chainID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	cacheKey := fmt.Sprintf("erc8004:reputation:summary:%d:%d", chainID, tokenID)
+	if cached := h.cache.Get(c.Request.Context(), cacheKey); cached != nil {
+		c.Data(http.StatusOK, "application/json", cached)
+		return
+	}
+
+	score, count, err := client.GetReputationSummary(c.Request.Context(), tokenID)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"token_id": tokenID, "chain_id": chainID, "count": 0, "score": 0})
+		return
+	}
+
+	resp := gin.H{"token_id": tokenID, "chain_id": chainID, "count": count, "score": score}
+	data, _ := json.Marshal(resp)
+	h.cache.Set(c.Request.Context(), cacheKey, data, 5*time.Minute)
+	c.Data(http.StatusOK, "application/json", data)
+}
+
+// GetReputationFeedbacks handles GET /v1/erc8004/reputation/:token_id/feedbacks
+func (h *Handler) GetReputationFeedbacks(c *gin.Context) {
+	tokenID, err := strconv.ParseInt(c.Param("token_id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid token_id"})
+		return
+	}
+	if h.erc8004Registry == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "ERC-8004 not configured"})
+		return
+	}
+
+	chainID := h.resolveChainID(c)
+	client, err := h.erc8004Registry.GetClient(chainID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	limit := 10
+	if raw := c.Query("limit"); raw != "" {
+		if l, err := strconv.Atoi(raw); err == nil && l > 0 && l <= 50 {
+			limit = l
+		}
+	}
+
+	cacheKey := fmt.Sprintf("erc8004:reputation:feedbacks:%d:%d:%d", chainID, tokenID, limit)
+	if cached := h.cache.Get(c.Request.Context(), cacheKey); cached != nil {
+		c.Data(http.StatusOK, "application/json", cached)
+		return
+	}
+
+	feedbacks, err := client.ReadRecentFeedbacks(c.Request.Context(), tokenID, limit)
+	if err != nil {
+		feedbacks = nil
+	}
+	if feedbacks == nil {
+		feedbacks = []erc8004.Feedback{}
+	}
+
+	resp := gin.H{"token_id": tokenID, "chain_id": chainID, "feedbacks": feedbacks}
+	data, _ := json.Marshal(resp)
+	h.cache.Set(c.Request.Context(), cacheKey, data, 5*time.Minute)
 	c.Data(http.StatusOK, "application/json", data)
 }

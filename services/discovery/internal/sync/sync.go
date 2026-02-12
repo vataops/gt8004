@@ -111,11 +111,13 @@ func (j *Job) syncChain(ctx context.Context, chainID int, client *erc8004.Client
 	agents := make([]*store.NetworkAgent, len(tokens))
 	for i, t := range tokens {
 		agents[i] = &store.NetworkAgent{
-			ChainID:      chainID,
-			TokenID:      t.TokenID,
-			OwnerAddress: t.OwnerAddress,
-			AgentURI:     t.AgentURI,
-			CreatedAt:    t.MintedAt,
+			ChainID:        chainID,
+			TokenID:        t.TokenID,
+			OwnerAddress:   t.OwnerAddress,
+			AgentURI:       t.AgentURI,
+			CreatorAddress: t.CreatorAddress,
+			CreatedTx:      t.CreatedTx,
+			CreatedAt:      t.MintedAt,
 		}
 	}
 

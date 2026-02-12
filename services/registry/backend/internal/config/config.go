@@ -4,15 +4,16 @@ import "github.com/spf13/viper"
 
 // NetworkConfig holds ERC-8004 registry info for a specific chain.
 type NetworkConfig struct {
-	ChainID      int
-	RegistryAddr string
-	RegistryRPC  string
+	ChainID        int
+	RegistryAddr   string
+	ReputationAddr string
+	RegistryRPC    string
 }
 
 // SupportedNetworks maps chain ID to its ERC-8004 registry configuration.
 var SupportedNetworks = map[int]NetworkConfig{
-	84532:    {ChainID: 84532, RegistryAddr: "0x8004A818BFB912233c491871b3d84c89A494BD9e", RegistryRPC: "https://base-sepolia-rpc.publicnode.com"},
-	11155111: {ChainID: 11155111, RegistryAddr: "0x8004A818BFB912233c491871b3d84c89A494BD9e", RegistryRPC: "https://ethereum-sepolia-rpc.publicnode.com"},
+	84532:    {ChainID: 84532, RegistryAddr: "0x8004A818BFB912233c491871b3d84c89A494BD9e", ReputationAddr: "0x8004B663056A597Dffe9eCcC1965A193B7388713", RegistryRPC: "https://base-sepolia-rpc.publicnode.com"},
+	11155111: {ChainID: 11155111, RegistryAddr: "0x8004A818BFB912233c491871b3d84c89A494BD9e", ReputationAddr: "", RegistryRPC: "https://ethereum-sepolia-rpc.publicnode.com"},
 }
 
 type Config struct {
@@ -34,6 +35,9 @@ type Config struct {
 	// ERC-8004 Registration
 	GT8004TokenID  int64  `mapstructure:"GT8004_TOKEN_ID"`
 	GT8004AgentURI string `mapstructure:"GT8004_AGENT_URI"`
+
+	// Gateway
+	GatewayBaseURL string `mapstructure:"GATEWAY_BASE_URL"`
 }
 
 func Load() (*Config, error) {
@@ -56,6 +60,10 @@ func Load() (*Config, error) {
 	cfg.AdminAPIKey = viper.GetString("ADMIN_API_KEY")
 	cfg.GT8004TokenID = viper.GetInt64("GT8004_TOKEN_ID")
 	cfg.GT8004AgentURI = viper.GetString("GT8004_AGENT_URI")
+	cfg.GatewayBaseURL = viper.GetString("GATEWAY_BASE_URL")
+	if cfg.GatewayBaseURL == "" {
+		cfg.GatewayBaseURL = "http://localhost:8080"
+	}
 
 	return cfg, nil
 }

@@ -27,7 +27,7 @@ func Load() (*Config, error) {
 
 	viper.SetDefault("PORT", 8080)
 	viper.SetDefault("LOG_LEVEL", "debug")
-	viper.SetDefault("SCAN_SYNC_INTERVAL", 300)
+	viper.SetDefault("SCAN_SYNC_INTERVAL", 86400)
 
 	cfg := &Config{}
 	cfg.Port = viper.GetInt("PORT")

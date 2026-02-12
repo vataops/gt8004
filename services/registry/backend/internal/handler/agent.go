@@ -147,6 +147,48 @@ func (h *Handler) UpdateOriginEndpoint(c *gin.Context) {
 		return
 	}
 
+	// Invalidate wallet cache so the frontend sees the updated endpoint
+	if agent.EVMAddress != "" {
+		h.cache.Del(c.Request.Context(), fmt.Sprintf("wallet:%s", strings.ToLower(agent.EVMAddress)))
+	}
+
+	c.JSON(http.StatusOK, agent)
+}
+
+// UpdateAgentEndpoint handles PUT /v1/agents/:agent_id/endpoint.
+// Supports both API key and wallet owner auth.
+func (h *Handler) UpdateAgentEndpoint(c *gin.Context) {
+	dbID, ok := h.resolveViewableAgent(c)
+	if !ok {
+		return
+	}
+
+	var req struct {
+		OriginEndpoint string `json:"origin_endpoint" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.store.UpdateOriginEndpoint(c.Request.Context(), dbID, req.OriginEndpoint); err != nil {
+		h.logger.Error("failed to update origin endpoint", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update endpoint"})
+		return
+	}
+
+	agent, err := h.store.GetAgentByDBID(c.Request.Context(), dbID)
+	if err != nil {
+		h.logger.Error("failed to get agent", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get agent"})
+		return
+	}
+
+	// Invalidate wallet cache so the frontend sees the updated endpoint
+	if agent.EVMAddress != "" {
+		h.cache.Del(c.Request.Context(), fmt.Sprintf("wallet:%s", strings.ToLower(agent.EVMAddress)))
+	}
+
 	c.JSON(http.StatusOK, agent)
 }
 

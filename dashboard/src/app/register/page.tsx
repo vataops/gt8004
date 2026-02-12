@@ -8,43 +8,6 @@ import { useAuth } from "@/lib/auth";
 import { connectWallet, signChallenge } from "@/lib/wallet";
 import { NETWORKS, NETWORK_LIST, DEFAULT_NETWORK } from "@/lib/networks";
 
-/** Parse agentURI JSON (data: URI, raw JSON, etc.) into a parsed object. */
-function parseAgentURI(uri: string): Record<string, unknown> | null {
-  let json: string | null = null;
-  if (uri.startsWith("data:application/json;base64,")) {
-    try {
-      json = atob(uri.slice("data:application/json;base64,".length));
-    } catch { return null; }
-  } else if (uri.startsWith("data:application/json,")) {
-    json = uri.slice("data:application/json,".length);
-  } else if (uri.startsWith("{")) {
-    json = uri;
-  }
-  if (!json) return null;
-  try {
-    return JSON.parse(json);
-  } catch { return null; }
-}
-
-/** Extract the first service endpoint URL from an agentURI data: payload. */
-function extractEndpointFromURI(uri: string): string {
-  const meta = parseAgentURI(uri);
-  if (!meta) return "";
-  const svcs = (meta.services ?? meta.endpoints ?? []) as { endpoint?: string }[];
-  for (const svc of svcs) {
-    if (svc.endpoint && (svc.endpoint.startsWith("http://") || svc.endpoint.startsWith("https://"))) {
-      return svc.endpoint;
-    }
-  }
-  return "";
-}
-
-/** Extract agent name from an agentURI data: payload. */
-function extractNameFromURI(uri: string): string {
-  const meta = parseAgentURI(uri);
-  return (meta?.name as string) || "";
-}
-
 export default function RegisterPage() {
   return (
     <Suspense fallback={<p className="text-gray-500">Loading...</p>}>
@@ -61,15 +24,14 @@ function RegisterPageInner() {
   const [phase, setPhase] = useState<string>("wallet");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isAutoRegistering, setIsAutoRegistering] = useState(false);
 
-  // Form state
-  const [name, setName] = useState("");
-  const [originEndpoint, setOriginEndpoint] = useState("");
-  const [integrationMode, setIntegrationMode] = useState<"gateway" | "sdk">("sdk");
+  // No form state needed - all data comes from ERC-8004 token metadata
 
   // Result state
   const [apiKey, setApiKey] = useState("");
   const [registeredAgentId, setRegisteredAgentId] = useState("");
+  const [autoRegisterAttempted, setAutoRegisterAttempted] = useState(false);
 
   // ERC-8004 state
   const [walletAddress, setWalletAddress] = useState("");
@@ -92,7 +54,14 @@ function RegisterPageInner() {
     const qChainId = searchParams.get("chain_id");
     const qAgentUri = searchParams.get("agent_uri");
 
+    // If query params exist, mark as auto-registering
+    if (qTokenId && qChainId && !autoRegisterAttempted) {
+      setIsAutoRegistering(true);
+    }
+
     if (!qTokenId || !qChainId) return;
+    if (!walletAddress) return; // Wait for wallet to be connected
+    if (autoRegisterAttempted) return; // Only attempt once
 
     // Find the network key matching the chain_id
     const chainId = parseInt(qChainId, 10);
@@ -101,25 +70,11 @@ function RegisterPageInner() {
       setSelectedNetwork(networkEntry.key);
     }
 
-    // Auto-select the token and jump to config phase
+    // Auto-register the token
+    setAutoRegisterAttempted(true);
     const token = { token_id: parseInt(qTokenId, 10), agent_uri: qAgentUri || "" };
-    setSelectedToken(token);
-    setTokenId(qTokenId);
-
-    // Pre-populate origin endpoint from first service in metadata
-    if (token.agent_uri) {
-      const ep = extractEndpointFromURI(token.agent_uri);
-      if (ep) setOriginEndpoint(ep);
-    }
-
-    // Extract name from on-chain agentURI
-    if (token.agent_uri) {
-      const uriName = extractNameFromURI(token.agent_uri);
-      if (uriName) setName(uriName);
-    }
-
-    setPhase("config");
-  }, [searchParams]);
+    handleSelectToken(token);
+  }, [searchParams, walletAddress, autoRegisterAttempted]); // Added dependencies
 
   // --- Fetch tokens when wallet connects or network changes ---
   useEffect(() => {
@@ -134,10 +89,28 @@ function RegisterPageInner() {
       setOwnedTokens([]);
       setError("");
       try {
-        const resp = await openApi.listTokensByOwner(walletAddress, network.chainId);
-        if (!cancelled) {
-          setOwnedTokens(resp.tokens || []);
+        // Fetch both on-chain tokens and already registered agents
+        const [tokensResp, agentsResp] = await Promise.all([
+          openApi.listTokensByOwner(walletAddress, network.chainId),
+          openApi.getWalletAgents(walletAddress).catch(() => ({ agents: [] })),
+        ]);
+
+        if (cancelled) return;
+
+        // Build set of already registered token IDs for this chain
+        const registered = new Set<number>();
+        for (const agent of agentsResp.agents || []) {
+          if (agent.chain_id === network.chainId && agent.erc8004_token_id != null) {
+            registered.add(agent.erc8004_token_id);
+          }
         }
+
+        // Filter out already registered tokens
+        const unregisteredTokens = (tokensResp.tokens || []).filter(
+          (token) => !registered.has(token.token_id)
+        );
+
+        setOwnedTokens(unregisteredTokens);
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Failed to fetch tokens");
@@ -155,13 +128,11 @@ function RegisterPageInner() {
   const getStepInfo = (): { current: number; total: number; label: string } => {
     switch (phase) {
       case "wallet":
-        return { current: 1, total: 3, label: "Select Token" };
-      case "config":
-        return { current: 2, total: 3, label: "Configure Agent" };
+        return { current: 1, total: 2, label: "Select Token" };
       case "apikey":
-        return { current: 3, total: 3, label: "Complete" };
+        return { current: 2, total: 2, label: "Complete" };
       default:
-        return { current: 1, total: 3, label: "" };
+        return { current: 1, total: 2, label: "" };
     }
   };
 
@@ -179,67 +150,53 @@ function RegisterPageInner() {
     }
   };
 
-  // --- ERC-8004: Select token and proceed ---
+  // --- ERC-8004: Select token and register immediately ---
   const handleSelectToken = async (token: { token_id: number; agent_uri: string }) => {
     setSelectedToken(token);
     setTokenId(String(token.token_id));
     setError("");
-
-    // Pre-populate origin endpoint from first service in metadata
-    if (token.agent_uri) {
-      const ep = extractEndpointFromURI(token.agent_uri);
-      if (ep) setOriginEndpoint(ep);
-    }
-
-    // Extract name from on-chain agentURI
-    if (token.agent_uri) {
-      const uriName = extractNameFromURI(token.agent_uri);
-      if (uriName) setName(uriName);
-    }
-
-    setPhase("config");
-  };
-
-  // --- ERC-8004: Register with token ---
-  const handleERC8004Register = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
     setLoading(true);
 
     try {
-      const { challenge } = await openApi.getChallenge(walletAddress);
-      const signature = await signChallenge(challenge);
-
+      // Register with just token ID and chain - backend verifies ownership via RPC
       const network = NETWORKS[selectedNetwork];
       const req: RegisterRequest = {
-        name: name || undefined,
-        origin_endpoint: integrationMode === "gateway" ? originEndpoint : undefined,
-        gateway_enabled: integrationMode === "gateway",
-        erc8004_token_id: parseInt(tokenId, 10),
+        erc8004_token_id: parseInt(String(token.token_id), 10),
         chain_id: network.chainId,
         wallet_address: walletAddress,
-        challenge,
-        signature,
       };
       const res = await openApi.registerAgent(req);
       setApiKey(res.api_key);
       setRegisteredAgentId(res.agent_id);
       setPhase("apikey");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed");
+      const errorMsg = err instanceof Error ? err.message : "Registration failed";
+      setError(errorMsg);
+      setIsAutoRegistering(false); // Reset auto-registering state on error
+      console.error("Registration error:", errorMsg);
     } finally {
       setLoading(false);
     }
   };
 
+  // Registration is now handled directly in handleSelectToken
+
   // --- Continue to dashboard ---
   const handleContinue = async () => {
     try {
       await login(apiKey);
-      router.push("/my-agents");
+      router.push(`/agents/${registeredAgentId}`);
     } catch {
       router.push("/login");
     }
+  };
+
+  // --- Copy to clipboard helper ---
+  const [copied, setCopied] = useState("");
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(label);
+    setTimeout(() => setCopied(""), 2000);
   };
 
   const stepInfo = getStepInfo();
@@ -257,36 +214,133 @@ function RegisterPageInner() {
         </div>
       )}
 
-      {/* ===== Success Phase ===== */}
+      {/* ===== Success Phase: SDK Setup Guide ===== */}
       {phase === "apikey" && (
-        <div className="max-w-lg mx-auto text-center">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-900/30 border border-green-800 flex items-center justify-center">
-            <svg className="w-8 h-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
+        <div className="max-w-2xl mx-auto">
+          {/* Success Header */}
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-900/30 border border-green-800 flex items-center justify-center">
+              <svg className="w-8 h-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold mb-2">Agent Registered Successfully!</h2>
+            <p className="text-sm text-gray-400">
+              Your agent <span className="text-white font-mono">{registeredAgentId}</span> is ready to integrate.
+            </p>
           </div>
-          <h2 className="text-xl font-bold mb-2">Agent Registered</h2>
-          <p className="text-sm text-gray-400 mb-6">
-            Your agent <span className="text-white font-medium">{registeredAgentId}</span> has been
-            successfully registered. You can manage it from your agent dashboard.
-          </p>
 
-          <button
-            onClick={handleContinue}
-            className="w-full py-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors"
-          >
-            Go to Dashboard
-          </button>
+          {/* SDK Setup Instructions */}
+          <div className="space-y-6">
+            {/* Step 1: Install SDK */}
+            <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+              <h3 className="text-sm font-semibold text-gray-300 mb-3">Step 1: Install SDK</h3>
+              <div className="bg-gray-950 rounded-md p-3 border border-gray-800 relative group">
+                <code className="text-sm font-mono text-gray-300">
+                  pip install gt8004-sdk
+                </code>
+                <button
+                  onClick={() => copyToClipboard("pip install gt8004-sdk", "install")}
+                  className="absolute top-2 right-2 px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  {copied === "install" ? "Copied!" : "Copy"}
+                </button>
+              </div>
+              <p className="text-xs text-gray-600 mt-2">
+                Note: SDK is coming soon. For now, use the manual Ingest API.
+              </p>
+            </div>
+
+            {/* Step 2: Integration Code */}
+            <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+              <h3 className="text-sm font-semibold text-gray-300 mb-3">Step 2: Add to Your Agent Code</h3>
+              <div className="bg-gray-950 rounded-md p-3 border border-gray-800 relative group">
+                <pre className="text-xs font-mono text-gray-300 overflow-x-auto">
+{`from gt8004 import GT8004Logger
+
+logger = GT8004Logger(
+    agent_id="${registeredAgentId}",
+    api_key="${apiKey}"
+)
+
+# FastAPI example
+from fastapi import FastAPI
+app = FastAPI()
+
+@app.middleware("http")
+async def gt8004_middleware(request, call_next):
+    return await logger.middleware(request, call_next)`}
+                </pre>
+                <button
+                  onClick={() => copyToClipboard(`from gt8004 import GT8004Logger
+
+logger = GT8004Logger(
+    agent_id="${registeredAgentId}",
+    api_key="${apiKey}"
+)
+
+# FastAPI example
+from fastapi import FastAPI
+app = FastAPI()
+
+@app.middleware("http")
+async def gt8004_middleware(request, call_next):
+    return await logger.middleware(request, call_next)`, "code")}
+                  className="absolute top-2 right-2 px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  {copied === "code" ? "Copied!" : "Copy"}
+                </button>
+              </div>
+            </div>
+
+            {/* Step 3: API Key */}
+            <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+              <h3 className="text-sm font-semibold text-gray-300 mb-3">Your API Key</h3>
+              <div className="bg-gray-950 rounded-md p-3 border border-gray-800 relative group">
+                <code className="text-sm font-mono text-gray-300 break-all">
+                  {apiKey}
+                </code>
+                <button
+                  onClick={() => copyToClipboard(apiKey, "apikey")}
+                  className="absolute top-2 right-2 px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  {copied === "apikey" ? "Copied!" : "Copy"}
+                </button>
+              </div>
+              <p className="text-xs text-red-400 mt-2">
+                ⚠️ Save this key securely. It won&apos;t be shown again.
+              </p>
+            </div>
+
+            {/* Continue Button */}
+            <button
+              onClick={handleContinue}
+              className="w-full py-3 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors"
+            >
+              Continue to Dashboard →
+            </button>
+          </div>
         </div>
       )}
 
       {/* Phase: Wallet + Token Selection */}
       {phase === "wallet" && (
         <>
-          <h2 className="text-xl font-bold mb-2">Select Your Agent</h2>
-          <p className="text-sm text-gray-400 mb-4">
-            Connect your wallet to see your registered ERC-8004 agents.
-          </p>
+          {/* Auto-registering loading state */}
+          {isAutoRegistering ? (
+            <div className="py-20 text-center">
+              <div className="inline-block w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mb-4" />
+              <h2 className="text-xl font-bold mb-2">Registering Agent...</h2>
+              <p className="text-sm text-gray-400">
+                Please wait while we register your agent to GT8004.
+              </p>
+            </div>
+          ) : (
+            <>
+              <h2 className="text-xl font-bold mb-2">Register New Agent</h2>
+              <p className="text-sm text-gray-400 mb-4">
+                Connect your wallet to register your ERC-8004 agents to GT8004.
+              </p>
 
           {/* Network Selector */}
           <div className="mb-4">
@@ -349,7 +403,7 @@ function RegisterPageInner() {
               ) : ownedTokens.length > 0 ? (
                 <div className="space-y-2">
                   <p className="text-xs text-gray-500 mb-2">
-                    {ownedTokens.length} agent{ownedTokens.length !== 1 ? "s" : ""} found on {currentNetwork?.shortName}
+                    {ownedTokens.length} unregistered agent{ownedTokens.length !== 1 ? "s" : ""} found on {currentNetwork?.shortName}
                   </p>
                   {ownedTokens.map((token) => (
                     <button
@@ -381,10 +435,10 @@ function RegisterPageInner() {
                 </div>
               ) : (
                 <div className="py-8 text-center">
-                  <p className="text-sm text-gray-400 mb-2">No ERC-8004 agents found</p>
+                  <p className="text-sm text-gray-400 mb-2">No unregistered agents</p>
                   <p className="text-xs text-gray-600">
-                    This wallet doesn&apos;t own any ERC-8004 tokens on {currentNetwork?.shortName}.
-                    Mint a token on the ERC-8004 registry contract to register your agent.
+                    All your ERC-8004 tokens on {currentNetwork?.shortName} are already registered,
+                    or you don&apos;t own any tokens yet. Mint a new token to register more agents.
                   </p>
                 </div>
               )}
@@ -394,90 +448,12 @@ function RegisterPageInner() {
               )}
             </>
           )}
-        </>
-      )}
-
-      {/* Phase: Config */}
-      {phase === "config" && (
-        <>
-          <h2 className="text-xl font-bold mb-2">Configure Agent</h2>
-          {selectedToken && (
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-xs px-2 py-1 rounded bg-purple-900/50 border border-purple-700 text-purple-300">
-                Token #{selectedToken.token_id}
-              </span>
-              <span className="text-xs px-2 py-1 rounded bg-gray-800 border border-gray-700 text-gray-400">
-                {currentNetwork?.shortName}
-              </span>
-            </div>
+          </>
           )}
-          <p className="text-sm text-gray-400 mb-6">
-            Choose how your agent integrates with the GT8004 platform.
-          </p>
-
-          <form onSubmit={handleERC8004Register} className="space-y-4">
-            {/* Integration Mode Toggle */}
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">Integration</label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIntegrationMode("sdk")}
-                  className={`px-3 py-3 rounded-lg text-sm font-medium border transition-colors text-left ${
-                    integrationMode === "sdk"
-                      ? "bg-blue-600/20 border-blue-500 text-blue-300"
-                      : "bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500"
-                  }`}
-                >
-                  <div className="font-medium">SDK</div>
-                  <p className="text-xs mt-0.5 opacity-70">Embed SDK in your service</p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIntegrationMode("gateway")}
-                  className={`px-3 py-3 rounded-lg text-sm font-medium border transition-colors text-left ${
-                    integrationMode === "gateway"
-                      ? "bg-purple-600/20 border-purple-500 text-purple-300"
-                      : "bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500"
-                  }`}
-                >
-                  <div className="font-medium">Gateway</div>
-                  <p className="text-xs mt-0.5 opacity-70">Route traffic through proxy</p>
-                </button>
-              </div>
-            </div>
-
-            {/* Origin Endpoint (Gateway only) */}
-            {integrationMode === "gateway" && (
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">
-                  Origin Endpoint *
-                </label>
-                <input
-                  type="url"
-                  value={originEndpoint}
-                  onChange={(e) => setOriginEndpoint(e.target.value)}
-                  required
-                  placeholder="https://api.example.com"
-                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500"
-                />
-              </div>
-            )}
-
-            {error && (
-              <p className="text-sm text-red-400">{error}</p>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2 rounded-md bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium disabled:opacity-50 transition-colors"
-            >
-              {loading ? "Signing..." : "Register Agent"}
-            </button>
-          </form>
         </>
       )}
+
+      {/* Config phase removed - registration happens immediately after token selection */}
     </div>
   );
 }

@@ -11,17 +11,19 @@ import (
 
 // NetworkAgent represents an ERC-8004 token discovered on-chain.
 type NetworkAgent struct {
-	ID           uuid.UUID       `json:"id"`
-	ChainID      int             `json:"chain_id"`
-	TokenID      int64           `json:"token_id"`
-	OwnerAddress string          `json:"owner_address"`
-	AgentURI     string          `json:"agent_uri"`
-	Name         string          `json:"name"`
-	Description  string          `json:"description"`
-	ImageURL     string          `json:"image_url"`
-	Metadata     json.RawMessage `json:"metadata"`
-	CreatedAt    time.Time       `json:"created_at"`
-	SyncedAt     time.Time       `json:"synced_at"`
+	ID             uuid.UUID       `json:"id"`
+	ChainID        int             `json:"chain_id"`
+	TokenID        int64           `json:"token_id"`
+	OwnerAddress   string          `json:"owner_address"`
+	AgentURI       string          `json:"agent_uri"`
+	Name           string          `json:"name"`
+	Description    string          `json:"description"`
+	ImageURL       string          `json:"image_url"`
+	Metadata       json.RawMessage `json:"metadata"`
+	CreatorAddress string          `json:"creator_address"`
+	CreatedTx      string          `json:"created_tx"`
+	CreatedAt      time.Time       `json:"created_at"`
+	SyncedAt       time.Time       `json:"synced_at"`
 }
 
 // UpsertNetworkAgent inserts or updates a network agent record.
@@ -35,19 +37,22 @@ func (s *Store) UpsertNetworkAgent(ctx context.Context, agent *NetworkAgent) err
 		createdAt = time.Now()
 	}
 	_, err := s.pool.Exec(ctx, `
-		INSERT INTO network_agents (chain_id, token_id, owner_address, agent_uri, name, description, image_url, metadata, created_at, synced_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+		INSERT INTO network_agents (chain_id, token_id, owner_address, agent_uri, name, description, image_url, metadata, creator_address, created_tx, created_at, synced_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
 		ON CONFLICT (chain_id, token_id) DO UPDATE SET
-			owner_address = EXCLUDED.owner_address,
-			agent_uri     = EXCLUDED.agent_uri,
-			name          = CASE WHEN EXCLUDED.name <> '' THEN EXCLUDED.name ELSE network_agents.name END,
-			description   = CASE WHEN EXCLUDED.description <> '' THEN EXCLUDED.description ELSE network_agents.description END,
-			image_url     = CASE WHEN EXCLUDED.image_url <> '' THEN EXCLUDED.image_url ELSE network_agents.image_url END,
-			metadata      = CASE WHEN EXCLUDED.metadata::text <> '{}' THEN EXCLUDED.metadata ELSE network_agents.metadata END,
-			created_at    = LEAST(EXCLUDED.created_at, network_agents.created_at),
-			synced_at     = NOW()
+			owner_address   = EXCLUDED.owner_address,
+			agent_uri       = EXCLUDED.agent_uri,
+			name            = CASE WHEN EXCLUDED.name <> '' THEN EXCLUDED.name ELSE network_agents.name END,
+			description     = CASE WHEN EXCLUDED.description <> '' THEN EXCLUDED.description ELSE network_agents.description END,
+			image_url       = CASE WHEN EXCLUDED.image_url <> '' THEN EXCLUDED.image_url ELSE network_agents.image_url END,
+			metadata        = CASE WHEN EXCLUDED.metadata::text <> '{}' THEN EXCLUDED.metadata ELSE network_agents.metadata END,
+			creator_address = CASE WHEN EXCLUDED.creator_address <> '' THEN EXCLUDED.creator_address ELSE network_agents.creator_address END,
+			created_tx      = CASE WHEN EXCLUDED.created_tx <> '' THEN EXCLUDED.created_tx ELSE network_agents.created_tx END,
+			created_at      = LEAST(EXCLUDED.created_at, network_agents.created_at),
+			synced_at       = NOW()
 	`, agent.ChainID, agent.TokenID, agent.OwnerAddress, agent.AgentURI,
-		agent.Name, agent.Description, agent.ImageURL, meta, createdAt)
+		agent.Name, agent.Description, agent.ImageURL, meta,
+		agent.CreatorAddress, agent.CreatedTx, createdAt)
 	if err != nil {
 		return fmt.Errorf("upsert network agent: %w", err)
 	}
@@ -85,6 +90,7 @@ func (s *Store) ListNetworkAgents(ctx context.Context, chainID int, search strin
 	// Fetch rows
 	query := `SELECT id, chain_id, token_id, COALESCE(owner_address, ''), COALESCE(agent_uri, ''),
 		COALESCE(name, ''), COALESCE(description, ''), COALESCE(image_url, ''), COALESCE(metadata, '{}'),
+		COALESCE(creator_address, ''), COALESCE(created_tx, ''),
 		created_at, synced_at FROM network_agents ` +
 		where + fmt.Sprintf(" ORDER BY (CASE WHEN name <> '' THEN 0 ELSE 1 END), token_id ASC LIMIT $%d OFFSET $%d", argIdx, argIdx+1)
 	args = append(args, limit, offset)
@@ -100,6 +106,7 @@ func (s *Store) ListNetworkAgents(ctx context.Context, chainID int, search strin
 		var a NetworkAgent
 		if err := rows.Scan(&a.ID, &a.ChainID, &a.TokenID, &a.OwnerAddress, &a.AgentURI,
 			&a.Name, &a.Description, &a.ImageURL, &a.Metadata,
+			&a.CreatorAddress, &a.CreatedTx,
 			&a.CreatedAt, &a.SyncedAt); err != nil {
 			return nil, 0, fmt.Errorf("scan network agent: %w", err)
 		}
@@ -115,12 +122,14 @@ func (s *Store) GetNetworkAgent(ctx context.Context, chainID int, tokenID int64)
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, chain_id, token_id, COALESCE(owner_address, ''), COALESCE(agent_uri, ''),
 			COALESCE(name, ''), COALESCE(description, ''), COALESCE(image_url, ''), COALESCE(metadata, '{}'),
+			COALESCE(creator_address, ''), COALESCE(created_tx, ''),
 			created_at, synced_at
 		FROM network_agents
 		WHERE chain_id = $1 AND token_id = $2
 	`, chainID, tokenID).Scan(
 		&a.ID, &a.ChainID, &a.TokenID, &a.OwnerAddress, &a.AgentURI,
 		&a.Name, &a.Description, &a.ImageURL, &a.Metadata,
+		&a.CreatorAddress, &a.CreatedTx,
 		&a.CreatedAt, &a.SyncedAt,
 	)
 	if err != nil {

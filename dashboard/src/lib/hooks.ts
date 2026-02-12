@@ -157,14 +157,6 @@ export function useFunnel(agentId: string, days = 30) {
   return usePolling(fn, 30_000);
 }
 
-export function useTrustScore(agentId: string) {
-  const fn = useCallback(
-    () => openApi.getTrustScore(agentId),
-    [agentId]
-  );
-  return usePolling(fn, 30_000);
-}
-
 // ========== Customer Detail Hooks ==========
 
 export function useCustomerLogs(agentId: string, customerId: string) {
@@ -189,4 +181,30 @@ export function useCustomerDaily(agentId: string, customerId: string, days = 30)
     [agentId, customerId, days]
   );
   return usePolling(fn, 60_000);
+}
+
+// ========== Wallet Analytics Hooks ==========
+
+export function useWalletStats(address: string | null) {
+  const fn = useCallback(
+    () => (address ? openApi.getWalletStats(address) : Promise.resolve(null)),
+    [address]
+  );
+  return usePolling(fn, 15_000); // Poll every 15 seconds
+}
+
+export function useWalletDailyStats(address: string | null, days = 30) {
+  const fn = useCallback(
+    () => (address ? openApi.getWalletDailyStats(address, days) : Promise.resolve(null)),
+    [address, days]
+  );
+  return usePolling(fn, 60_000); // Poll every 60 seconds
+}
+
+export function useWalletErrors(address: string | null) {
+  const fn = useCallback(
+    () => (address ? openApi.getWalletErrors(address) : Promise.resolve(null)),
+    [address]
+  );
+  return usePolling(fn, 30_000); // Poll every 30 seconds
 }

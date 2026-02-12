@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { StatCard } from "@/components/StatCard";
 import { openApi, Agent } from "@/lib/api";
-import { NETWORK_LIST } from "@/lib/networks";
+import { NETWORK_LIST, resolveImageUrl } from "@/lib/networks";
 import {
   BarChart,
   Bar,
@@ -15,8 +15,21 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { RequestsTab } from "./components/RequestsTab";
+import { RevenueTab } from "./components/RevenueTab";
+import { ObservabilityTab } from "./components/ObservabilityTab";
+import { useWalletStats, useWalletDailyStats, useWalletErrors } from "@/lib/hooks";
 
 const AGENT_COLORS = ["#3b82f6", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#ec4899"];
+
+const TABS = [
+  { key: "overview", label: "Overview" },
+  { key: "requests", label: "Requests" },
+  { key: "revenue", label: "Revenue" },
+  { key: "observability", label: "Observability" },
+] as const;
+
+type TabKey = typeof TABS[number]["key"];
 
 /** Extract agent name from on-chain agentURI (data: URI or raw JSON). */
 function parseAgentURIName(uri: string): string {
@@ -33,21 +46,57 @@ function parseAgentURIName(uri: string): string {
   try { return (JSON.parse(json) as { name?: string }).name || ""; } catch { return ""; }
 }
 
+/** Extract service names from on-chain agentURI metadata. */
+function parseAgentURIServices(uri: string): string[] {
+  if (!uri) return [];
+  let json: string | null = null;
+  if (uri.startsWith("data:application/json;base64,")) {
+    try { json = atob(uri.slice("data:application/json;base64,".length)); } catch { return []; }
+  } else if (uri.startsWith("data:application/json,")) {
+    json = uri.slice("data:application/json,".length);
+  } else if (uri.startsWith("{")) {
+    json = uri;
+  }
+  if (!json) return [];
+  try {
+    const meta = JSON.parse(json) as { services?: { name: string }[]; endpoints?: { name: string }[] };
+    const svcs = meta.services ?? meta.endpoints ?? [];
+    return svcs.map((s) => s.name?.toUpperCase()).filter(Boolean);
+  } catch { return []; }
+}
+
+/** Extract image URL from on-chain agentURI metadata. */
+function parseAgentURIImage(uri: string): string {
+  if (!uri) return "";
+  let json: string | null = null;
+  if (uri.startsWith("data:application/json;base64,")) {
+    try { json = atob(uri.slice("data:application/json;base64,".length)); } catch { return ""; }
+  } else if (uri.startsWith("data:application/json,")) {
+    json = uri.slice("data:application/json,".length);
+  } else if (uri.startsWith("{")) {
+    json = uri;
+  }
+  if (!json) return "";
+  try { return (JSON.parse(json) as { image?: string }).image || ""; } catch { return ""; }
+}
+
 interface AgentRow {
   agent_id: string;
   name: string;
   token_id: number | null;
   chain: string;
   chain_id: number;
-  score: number;
-  feedback: number;
   total_requests: number;
   total_customers: number;
   total_revenue: number;
+  avg_response_ms: number;
   status: string;
   created_at: string;
   agent_uri: string;
   registered: boolean;
+  services: string[];
+  image_url: string;
+  origin_endpoint: string;
 }
 
 export default function MyAgentsPage() {
@@ -55,6 +104,14 @@ export default function MyAgentsPage() {
   const router = useRouter();
   const [agents, setAgents] = useState<AgentRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [healthStatus, setHealthStatus] = useState<Record<string, "checking" | "healthy" | "unhealthy">>({});
+  const [lastChecked, setLastChecked] = useState<Date | null>(null);
+  const [activeTab, setActiveTab] = useState<TabKey>("overview");
+
+  // Wallet analytics hooks
+  const { data: walletStats } = useWalletStats(walletAddress);
+  const { data: walletDaily } = useWalletDailyStats(walletAddress, 30);
+  const { data: walletErrors } = useWalletErrors(walletAddress);
 
   useEffect(() => {
     if (!authLoading && !walletAddress) {
@@ -112,6 +169,7 @@ export default function MyAgentsPage() {
         // Extract name from on-chain agentURI, fallback to platform agent name
         const uriName = parseAgentURIName(token.agent_uri);
         const name = uriName || platformAgent?.name || `Token #${token.token_id}`;
+        const imageUrl = parseAgentURIImage(token.agent_uri);
 
         rows.push({
           agent_id: platformAgent?.agent_id || `token-${token.token_id}`,
@@ -119,15 +177,17 @@ export default function MyAgentsPage() {
           token_id: token.token_id,
           chain: token.network.shortName,
           chain_id: token.chain_id,
-          score: platformAgent?.reputation_score ?? 0,
-          feedback: 0,
           total_requests: platformAgent?.total_requests ?? 0,
           total_customers: platformAgent?.total_customers ?? 0,
           total_revenue: platformAgent?.total_revenue_usdc ?? 0,
+          avg_response_ms: platformAgent?.avg_response_ms ?? 0,
           status: platformAgent?.status || "active",
           created_at: platformAgent?.created_at || "",
           agent_uri: token.agent_uri,
           registered: !!platformAgent,
+          services: parseAgentURIServices(token.agent_uri),
+          image_url: imageUrl,
+          origin_endpoint: platformAgent?.origin_endpoint || "",
         });
       }
 
@@ -143,15 +203,17 @@ export default function MyAgentsPage() {
             token_id: agent.erc8004_token_id ?? null,
             chain: "-",
             chain_id: 0,
-            score: agent.reputation_score ?? 0,
-            feedback: 0,
             total_requests: agent.total_requests ?? 0,
             total_customers: agent.total_customers ?? 0,
             total_revenue: agent.total_revenue_usdc ?? 0,
+            avg_response_ms: agent.avg_response_ms ?? 0,
             status: agent.status,
             created_at: agent.created_at,
-            agent_uri: "",
+            agent_uri: agent.agent_uri || "",
             registered: true,
+            services: parseAgentURIServices(agent.agent_uri || ""),
+            image_url: parseAgentURIImage(agent.agent_uri || ""),
+            origin_endpoint: agent.origin_endpoint || "",
           });
         }
       }
@@ -168,15 +230,48 @@ export default function MyAgentsPage() {
     loadAgents();
   }, [loadAgents]);
 
+  // Health check for agents with origin endpoints
+  useEffect(() => {
+    if (agents.length === 0) return;
+
+    const agentsWithEndpoints = agents.filter(a => a.origin_endpoint && a.registered);
+    if (agentsWithEndpoints.length === 0) return;
+
+    // Initialize checking status and record timestamp
+    const init: Record<string, "checking"> = {};
+    for (const agent of agentsWithEndpoints) {
+      init[agent.agent_id] = "checking";
+    }
+    setHealthStatus(init);
+    setLastChecked(new Date());
+
+    // Check health for each agent
+    for (const agent of agentsWithEndpoints) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+
+      fetch(`http://localhost:8080/v1/agents/${agent.agent_id}/origin-health`, {
+        method: "GET",
+        signal: controller.signal,
+      })
+        .then(async (res) => {
+          clearTimeout(timeout);
+          const data = await res.json().catch(() => ({}));
+          const status = data.status === "healthy" ? "healthy" : "unhealthy";
+          setHealthStatus((prev) => ({ ...prev, [agent.agent_id]: status }));
+        })
+        .catch(() => {
+          clearTimeout(timeout);
+          setHealthStatus((prev) => ({ ...prev, [agent.agent_id]: "unhealthy" }));
+        });
+    }
+  }, [agents]);
+
   const totalAgents = agents.length;
   const totalRequests = agents.reduce((sum, a) => sum + a.total_requests, 0);
   const totalRevenue = agents.reduce((sum, a) => sum + a.total_revenue, 0);
-  const totalFeedback = agents.reduce((sum, a) => sum + a.feedback, 0);
-  const avgScore =
-    agents.length > 0
-      ? agents.reduce((sum, a) => sum + a.score, 0) / agents.length
-      : 0;
-
+  const healthyAgents = Object.values(healthStatus).filter(status => status === "healthy").length;
+  const agentsWithEndpoint = agents.filter(a => a.registered && a.origin_endpoint).length;
   // Chart data: each agent as a segment in the stacked bar
   const chartAgents = agents.map((a, i) => ({
     key: `a${i}`,
@@ -213,20 +308,12 @@ export default function MyAgentsPage() {
             Manage your agents registered on the ERC-8004 registry
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={logout}
-            className="px-4 py-2 rounded-md text-sm font-medium text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 transition-colors"
-          >
-            Disconnect
-          </button>
-          <Link
-            href="/register"
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium transition-colors"
-          >
-            Create Agent
-          </Link>
-        </div>
+        <button
+          onClick={logout}
+          className="px-4 py-2 rounded-md text-sm font-medium text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 transition-colors"
+        >
+          Disconnect
+        </button>
       </div>
 
       {/* Wallet address */}
@@ -236,144 +323,233 @@ export default function MyAgentsPage() {
         </p>
       )}
 
-      {/* Stats */}
-      <div className="grid grid-cols-5 gap-4 mb-6">
-        <StatCard label="Total Agents" value={totalAgents} />
-        <StatCard label="Total Requests" value={totalRequests.toLocaleString()} />
-        <StatCard label="Total Revenue" value={`$${totalRevenue.toFixed(2)}`} sub="USDC" />
-        <StatCard label="Total Feedback" value={totalFeedback} />
-        <StatCard
-          label="Average Score"
-          value={avgScore > 0 ? avgScore.toFixed(1) : "0"}
-        />
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-800 mb-6">
+        <nav className="flex gap-0 -mb-px">
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
+                activeTab === tab.key
+                  ? "text-white"
+                  : "text-gray-500 hover:text-gray-300"
+              }`}
+            >
+              {tab.label}
+              {activeTab === tab.key && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-white rounded-full" />
+              )}
+            </button>
+          ))}
+        </nav>
       </div>
 
-      {/* Breakdown Charts */}
-      {agents.length > 0 && (
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <BreakdownChart
-            title="Requests by Agent"
-            data={requestBarData}
-            agents={chartAgents}
-            total={totalRequests}
-            formatValue={(v) => v.toLocaleString()}
-          />
-          <BreakdownChart
-            title="Revenue by Agent"
-            data={revenueBarData}
-            agents={chartAgents}
-            total={totalRevenue}
-            formatValue={(v) => `$${v.toFixed(2)}`}
-          />
+      {/* Tab Content */}
+      {activeTab === "overview" && (
+        <div>
+          {/* Stats */}
+          <div className="grid grid-cols-4 gap-4 mb-6">
+            <StatCard label="Total Agents" value={totalAgents} />
+            <StatCard
+              label="Healthy Agents"
+              value={agentsWithEndpoint > 0 ? `${healthyAgents} / ${agentsWithEndpoint}` : "—"}
+            />
+            <StatCard label="Total Requests" value={totalRequests.toLocaleString()} />
+            <StatCard label="Total Revenue" value={`$${totalRevenue.toFixed(2)}`} sub="USDC" />
+          </div>
+
+          {/* Breakdown Charts */}
+          {agents.length > 0 && (
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <BreakdownChart
+                title="Requests by Agent"
+                data={requestBarData}
+                agents={chartAgents}
+                total={totalRequests}
+                formatValue={(v) => v.toLocaleString()}
+              />
+              <BreakdownChart
+                title="Revenue by Agent"
+                data={revenueBarData}
+                agents={chartAgents}
+                total={totalRevenue}
+                formatValue={(v) => `$${v.toFixed(2)}`}
+              />
+            </div>
+          )}
+
+          {/* Agent Table */}
+          <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-800 text-gray-500">
+                  <th className="text-left p-3">Agent</th>
+                  <th className="text-left p-3">Chain</th>
+                  <th className="text-left p-3">Requests</th>
+                  <th className="text-left p-3">Customers</th>
+                  <th className="text-left p-3">Status</th>
+                  <th className="text-left p-3">
+                    <div className="flex items-center gap-1.5">
+                      <span>Health</span>
+                      {lastChecked && (
+                        <span className="text-[10px] text-gray-600 flex items-center gap-1" title={lastChecked.toLocaleString()}>
+                          <span className="w-3 h-3 rounded-full border border-gray-600 flex items-center justify-center text-[9px] leading-none">!</span>
+                          {lastChecked.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      )}
+                    </div>
+                  </th>
+                  <th className="text-left p-3"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {agents.map((agent) => (
+                  <tr
+                    key={`${agent.chain_id}-${agent.agent_id}`}
+                    className="border-b border-gray-800/50 hover:bg-gray-800/30"
+                  >
+                    {/* Agent name + token */}
+                    <td className="p-3">
+                      <div className="flex items-center gap-2.5">
+                        {resolveImageUrl(agent.image_url) ? (
+                          <img
+                            src={resolveImageUrl(agent.image_url)!}
+                            alt=""
+                            className="w-8 h-8 rounded-md object-cover bg-gray-800 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-md bg-gray-800 flex items-center justify-center text-xs text-gray-600 shrink-0">
+                            #
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <div>
+                            <span className="font-medium text-gray-100">
+                              {agent.name}
+                            </span>
+                            {agent.token_id !== null &&
+                              !agent.name.startsWith("Token #") && (
+                                <span className="text-gray-500 ml-1.5">
+                                  #{agent.token_id}
+                                </span>
+                              )}
+                          </div>
+                          {agent.services.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {agent.services.map((svc, i) => {
+                                const n = svc.toUpperCase();
+                                const style = n === "MCP" ? "bg-cyan-900/30 text-cyan-400"
+                                  : n === "A2A" ? "bg-emerald-900/30 text-emerald-400"
+                                  : n === "WEB" || n === "HTTP" ? "bg-blue-900/30 text-blue-400"
+                                  : n === "OASF" ? "bg-purple-900/30 text-purple-400"
+                                  : "bg-gray-800 text-gray-400";
+                                return (
+                                  <span key={i} className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${style}`}>
+                                    {n}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Chain badge */}
+                    <td className="p-3">
+                      <ChainBadge chain={agent.chain} chainId={agent.chain_id} />
+                    </td>
+
+                    {/* Requests */}
+                    <td className="p-3 text-gray-300">{agent.total_requests.toLocaleString()}</td>
+
+                    {/* Customers */}
+                    <td className="p-3 text-gray-300">{agent.total_customers.toLocaleString()}</td>
+
+                    {/* Status */}
+                    <td className="p-3">
+                      <StatusBadge status={agent.status} />
+                    </td>
+
+                    {/* Health */}
+                    <td className="p-3">
+                      {agent.registered && agent.origin_endpoint ? (
+                        healthStatus[agent.agent_id] === "checking" ? (
+                          <span className="text-[10px] text-gray-500 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-pulse" />
+                            Checking
+                          </span>
+                        ) : healthStatus[agent.agent_id] === "healthy" ? (
+                          <span className="text-[10px] text-green-400 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
+                            Healthy
+                          </span>
+                        ) : healthStatus[agent.agent_id] === "unhealthy" ? (
+                          <span className="text-[10px] text-red-400 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                            Unhealthy
+                          </span>
+                        ) : (
+                          <span className="text-gray-600 text-xs">—</span>
+                        )
+                      ) : (
+                        <span className="text-gray-600 text-xs">—</span>
+                      )}
+                    </td>
+
+                    {/* Actions */}
+                    <td className="p-3">
+                      {agent.registered ? (
+                        <Link
+                          href={`/agents/${agent.agent_id}`}
+                          className="text-blue-400 hover:text-blue-300 text-xs transition-colors"
+                        >
+                          View
+                        </Link>
+                      ) : (
+                        <Link
+                          href={`/register?token_id=${agent.token_id}&chain_id=${agent.chain_id}&agent_uri=${encodeURIComponent(agent.agent_uri || "")}`}
+                          className="text-green-400 hover:text-green-300 text-xs transition-colors"
+                        >
+                          Register
+                        </Link>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {agents.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="p-6 text-center text-gray-600"
+                    >
+                      No agents found. Connect your wallet or register a new agent.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
-      {/* Agent Table */}
-      <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-800 text-gray-500">
-              <th className="text-left p-3">Agent</th>
-              <th className="text-left p-3">Chain</th>
-              <th className="text-left p-3">Score</th>
-              <th className="text-left p-3">Feedback</th>
-              <th className="text-left p-3">Requests</th>
-              <th className="text-left p-3">Customers</th>
-              <th className="text-left p-3">Status</th>
-              <th className="text-left p-3">Created</th>
-              <th className="text-left p-3"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {agents.map((agent) => (
-              <tr
-                key={`${agent.chain_id}-${agent.agent_id}`}
-                className="border-b border-gray-800/50 hover:bg-gray-800/30"
-              >
-                {/* Agent name + token */}
-                <td className="p-3">
-                  <div>
-                    <span className="font-medium text-gray-100">
-                      {agent.name}
-                    </span>
-                    {agent.token_id !== null &&
-                      !agent.name.startsWith("Token #") && (
-                        <span className="text-gray-500 ml-1.5">
-                          #{agent.token_id}
-                        </span>
-                      )}
-                  </div>
-                  {agent.agent_uri && (
-                    <p className="text-xs text-gray-600 truncate max-w-[250px] mt-0.5">
-                      {agent.agent_uri}
-                    </p>
-                  )}
-                </td>
+      {activeTab === "requests" && (
+        <RequestsTab agents={agents} walletDaily={walletDaily} />
+      )}
 
-                {/* Chain badge */}
-                <td className="p-3">
-                  <ChainBadge chain={agent.chain} chainId={agent.chain_id} />
-                </td>
+      {activeTab === "revenue" && (
+        <RevenueTab agents={agents} />
+      )}
 
-                {/* Score */}
-                <td className="p-3 text-gray-300">
-                  {agent.score > 0 ? agent.score.toFixed(1) : "—"}
-                </td>
-
-                {/* Feedback */}
-                <td className="p-3 text-gray-300">{agent.feedback}</td>
-
-                {/* Requests */}
-                <td className="p-3 text-gray-300">{agent.total_requests.toLocaleString()}</td>
-
-                {/* Customers */}
-                <td className="p-3 text-gray-300">{agent.total_customers.toLocaleString()}</td>
-
-                {/* Status */}
-                <td className="p-3">
-                  <StatusBadge status={agent.status} />
-                </td>
-
-                {/* Created */}
-                <td className="p-3 text-gray-400 text-xs">
-                  {agent.created_at
-                    ? new Date(agent.created_at).toLocaleDateString()
-                    : "—"}
-                </td>
-
-                {/* Actions */}
-                <td className="p-3">
-                  {agent.registered ? (
-                    <Link
-                      href={`/agents/${agent.agent_id}`}
-                      className="text-blue-400 hover:text-blue-300 text-xs transition-colors"
-                    >
-                      View
-                    </Link>
-                  ) : (
-                    <Link
-                      href={`/register?token_id=${agent.token_id}&chain_id=${agent.chain_id}&agent_uri=${encodeURIComponent(agent.agent_uri || "")}`}
-                      className="text-green-400 hover:text-green-300 text-xs transition-colors"
-                    >
-                      Register
-                    </Link>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {agents.length === 0 && (
-              <tr>
-                <td
-                  colSpan={9}
-                  className="p-6 text-center text-gray-600"
-                >
-                  No agents found. Connect your wallet or register a new agent.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      {activeTab === "observability" && (
+        <ObservabilityTab
+          agents={agents}
+          healthStatus={healthStatus}
+          lastChecked={lastChecked}
+          walletErrors={walletErrors}
+        />
+      )}
     </div>
   );
 }

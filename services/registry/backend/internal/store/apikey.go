@@ -41,6 +41,18 @@ func (s *Store) CreateAPIKey(ctx context.Context, agentDBID uuid.UUID) (string, 
 	return rawKey, nil
 }
 
+// RevokeAPIKeys revokes all active API keys for an agent.
+func (s *Store) RevokeAPIKeys(ctx context.Context, agentDBID uuid.UUID) error {
+	_, err := s.pool.Exec(ctx, `
+		UPDATE api_keys SET revoked_at = NOW()
+		WHERE agent_id = $1 AND revoked_at IS NULL
+	`, agentDBID)
+	if err != nil {
+		return fmt.Errorf("revoke api keys: %w", err)
+	}
+	return nil
+}
+
 // ValidateAPIKey looks up an API key by its SHA-256 hash and returns agent info.
 func (s *Store) ValidateAPIKey(ctx context.Context, keyHash string) (*AgentAuth, error) {
 	auth := &AgentAuth{}

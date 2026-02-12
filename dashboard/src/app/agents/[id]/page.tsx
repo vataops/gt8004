@@ -1,16 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { StatCard } from "@/components/StatCard";
 import { Badge } from "@/components/Badge";
-import { CodeBlock } from "@/components/CodeBlock";
 import { CopyButton } from "@/components/CopyButton";
+import { CodeBlock } from "@/components/CodeBlock";
+import { HealthScoreCard } from "@/components/HealthScoreCard";
+import { StatCardWithTrend } from "@/components/StatCardWithTrend";
+import { ProtocolBreakdownCards } from "@/components/ProtocolBreakdownCards";
+import { ToolPerformanceTable } from "@/components/ToolPerformanceTable";
+import { TrendChart } from "@/components/TrendChart";
 import { openApi, type Agent, type NetworkAgent, type AgentMetadata, type AgentService } from "@/lib/api";
-import { hasWallet, connectWallet, signChallenge } from "@/lib/wallet";
 import { NETWORKS, resolveImageUrl } from "@/lib/networks";
+import { updateAgentURI, encodeDataUri } from "@/lib/erc8004";
+import { signChallenge } from "@/lib/wallet";
 import {
   useAgentStats,
   useDailyStats,
@@ -19,13 +25,12 @@ import {
   usePerformance,
   useLogs,
   useAnalytics,
-  useTrustScore,
   useFunnel,
   useCustomerLogs,
   useCustomerTools,
   useCustomerDaily,
 } from "@/lib/hooks";
-import type { AnalyticsReport, Customer, CustomerToolUsage, RequestLog, DailyStats, TrustScoreResponse, AgentReview, FunnelReport } from "@/lib/api";
+import type { AnalyticsReport, Customer, CustomerToolUsage, RequestLog, DailyStats, FunnelReport } from "@/lib/api";
 import {
   AreaChart,
   Area,
@@ -41,7 +46,7 @@ import {
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_OPEN_API_URL || "http://localhost:8080";
 
-type Tab = "overview" | "analytics" | "speed" | "observability" | "revenue" | "customers" | "trust" | "settings";
+type Tab = "overview" | "analytics" | "speed" | "observability" | "revenue" | "customers" | "settings";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "overview", label: "Overview" },
@@ -50,7 +55,6 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "revenue", label: "Revenue" },
   { key: "observability", label: "Observability" },
   { key: "speed", label: "Speed Insights" },
-  { key: "trust", label: "Trust" },
   { key: "settings", label: "Settings" },
 ];
 
@@ -125,13 +129,9 @@ export default function AgentDashboardPage() {
   };
 
   // Settings state
-  const [gatewayLoading, setGatewayLoading] = useState(false);
   const [editingEndpoint, setEditingEndpoint] = useState(false);
   const [endpointValue, setEndpointValue] = useState("");
   const [endpointSaving, setEndpointSaving] = useState(false);
-  const [verifyStatus, setVerifyStatus] = useState("");
-  const [verifyError, setVerifyError] = useState("");
-  const [gatewayError, setGatewayError] = useState("");
 
   // Fetch all data in parallel (public endpoints, no auth needed)
   const { data: stats } = useAgentStats(id);
@@ -141,7 +141,7 @@ export default function AgentDashboardPage() {
   const { data: performance } = usePerformance(id, "24h");
   const { data: logs } = useLogs(id, 50);
   const { data: analytics } = useAnalytics(id, 30);
-  const { data: trustData } = useTrustScore(id);
+
   const { data: funnel } = useFunnel(id, 30);
 
   if (authLoading) {
@@ -171,37 +171,14 @@ export default function AgentDashboardPage() {
     ? ((thisWeekCustomers - prevWeekCustomers) / prevWeekCustomers) * 100
     : 0;
 
-  const gatewayUrl = `${BACKEND_URL}/gateway/${agent?.agent_id || id}/`;
-
-  const handleGatewayToggle = async () => {
-    if (!agent) return;
-    if (!apiKey) {
-      setGatewayError("API key required. Log in with your agent's API key to change gateway settings.");
-      return;
-    }
-    setGatewayError("");
-    setGatewayLoading(true);
-    try {
-      if (agent.gateway_enabled) {
-        await openApi.disableGateway(agent.agent_id, apiKey);
-      } else {
-        await openApi.enableGateway(agent.agent_id, apiKey);
-      }
-      await refreshAgent();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Gateway toggle failed";
-      setGatewayError(msg);
-    } finally {
-      setGatewayLoading(false);
-    }
-  };
-
   const handleEndpointSave = async () => {
-    if (!apiKey) return;
+    if (!agent) return;
+    const auth = apiKey || (walletAddress ? { walletAddress } : null);
+    if (!auth) return;
     setEndpointSaving(true);
     try {
-      await openApi.updateOriginEndpoint(apiKey, endpointValue);
-      await refreshAgent();
+      const updated = await openApi.updateOriginEndpoint(agent.agent_id, endpointValue, auth);
+      setViewedAgent(updated);
       setEditingEndpoint(false);
     } catch (err) {
       console.error("Failed to update endpoint:", err);
@@ -210,42 +187,6 @@ export default function AgentDashboardPage() {
     }
   };
 
-  const handleVerify = async () => {
-    if (!agent || !apiKey) return;
-    setVerifyError("");
-    setVerifyStatus("Connecting wallet...");
-    try {
-      await connectWallet();
-      setVerifyStatus("Requesting challenge...");
-      const { challenge } = await openApi.getChallenge(agent.agent_id);
-      setVerifyStatus("Sign the message in your wallet...");
-      const signature = await signChallenge(challenge);
-      setVerifyStatus("Verifying...");
-      await openApi.verifySignature(agent.agent_id, challenge, signature);
-      await refreshAgent();
-      setVerifyStatus("");
-    } catch (err) {
-      setVerifyError(err instanceof Error ? err.message : "Verification failed");
-      setVerifyStatus("");
-    }
-  };
-
-  const ingestExample = `curl -X POST ${BACKEND_URL}/v1/ingest \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "agent_id": "${agent?.agent_id || id}",
-    "sdk_version": "manual",
-    "batch_id": "unique-batch-id",
-    "entries": [{
-      "requestId": "unique-request-id",
-      "method": "POST",
-      "path": "/api/chat",
-      "statusCode": 200,
-      "responseMs": 142,
-      "timestamp": "${new Date().toISOString()}"
-    }]
-  }'`;
 
   return (
     <div className="space-y-0">
@@ -325,7 +266,11 @@ export default function AgentDashboardPage() {
           />
         )}
         {activeTab === "speed" && (
-          <SpeedInsightsTab performance={performance} />
+          <SpeedInsightsTab
+            performance={performance}
+            analytics={analytics}
+            dailyStats={daily}
+          />
         )}
         {activeTab === "observability" && (
           <ObservabilityTab
@@ -347,20 +292,16 @@ export default function AgentDashboardPage() {
             agentId={id}
             customers={customers?.customers || []}
             totalCustomers={customerTotal}
+            newThisWeek={analytics?.customers?.new_this_week ?? 0}
+            returningThisWeek={analytics?.customers?.returning_this_week ?? 0}
           />
-        )}
-        {activeTab === "trust" && (
-          <TrustTab agentId={id} trustData={trustData} />
         )}
         {activeTab === "settings" && (
           <SettingsTab
             agent={agent}
             id={id}
             apiKey={apiKey}
-            gatewayUrl={gatewayUrl}
-            gatewayLoading={gatewayLoading}
-            gatewayError={gatewayError}
-            onGatewayToggle={handleGatewayToggle}
+            walletAddress={walletAddress}
             editingEndpoint={editingEndpoint}
             endpointValue={endpointValue}
             endpointSaving={endpointSaving}
@@ -371,13 +312,117 @@ export default function AgentDashboardPage() {
             }}
             onEndpointSave={handleEndpointSave}
             onEndpointCancel={() => setEditingEndpoint(false)}
-            ingestExample={ingestExample}
-            verifyStatus={verifyStatus}
-            verifyError={verifyError}
-            onVerify={handleVerify}
+            networkAgent={networkAgent}
+            refreshAgent={refreshAgent}
           />
         )}
       </div>
+    </div>
+  );
+}
+
+/* ---------- Deregister ---------- */
+
+function DeregisterSection({
+  agentId,
+  apiKey,
+  walletAddress
+}: {
+  agentId: string;
+  apiKey: string | null;
+  walletAddress: string | null;
+}) {
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleDeregister = async () => {
+    if (!apiKey && !walletAddress) {
+      setError("Please connect your wallet or log in with API key to deregister");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      // If using wallet, get signature
+      if (walletAddress && !apiKey) {
+        // Get challenge
+        const { challenge } = await openApi.getChallenge(agentId);
+
+        // Sign challenge with wallet
+        const signature = await signChallenge(challenge);
+
+        // Deregister with signature
+        await openApi.deregisterAgent(agentId, {
+          walletAddress,
+          challenge,
+          signature
+        });
+      } else {
+        // Deregister with API key
+        await openApi.deregisterAgent(agentId, apiKey!);
+      }
+
+      window.location.href = "/my-agents";
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to deregister");
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="bg-gray-900 border border-red-900/50 rounded-lg p-5">
+      <h4 className="text-sm font-semibold text-red-400 mb-2">Danger Zone</h4>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-gray-300">Deregister Agent</p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Remove this agent from the GT8004 platform.
+          </p>
+        </div>
+        <button
+          onClick={() => setShowConfirm(true)}
+          className="px-4 py-1.5 rounded-md text-sm font-medium bg-red-900/30 text-red-400 hover:bg-red-900/50 transition-colors"
+        >
+          Deregister
+        </button>
+      </div>
+      {error && <p className="text-sm text-red-400 mt-2">{error}</p>}
+
+      {/* Confirmation Modal */}
+      {showConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl">
+            <h3 className="text-lg font-bold text-white mb-3">Deregister Agent</h3>
+            <p className="text-sm text-gray-300 mb-2">
+              Are you sure you want to deregister <span className="font-mono text-white">{agentId}</span>?
+            </p>
+            <div className="bg-red-950/30 border border-red-900/50 rounded-lg p-3 mb-5">
+              <p className="text-xs text-red-400">
+                This action will permanently delete all stored data including analytics, customer records, request logs, and revenue history. This cannot be undone.
+              </p>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowConfirm(false)}
+                disabled={loading}
+                className="px-4 py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeregister}
+                disabled={loading}
+                className="px-4 py-2 rounded-md bg-red-600 hover:bg-red-500 text-white text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {loading ? "Deregistering..." : "Yes, Deregister"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -388,10 +433,7 @@ interface SettingsTabProps {
   agent: Agent | null;
   id: string;
   apiKey: string | null;
-  gatewayUrl: string;
-  gatewayLoading: boolean;
-  gatewayError: string;
-  onGatewayToggle: () => void;
+  walletAddress: string | null;
   editingEndpoint: boolean;
   endpointValue: string;
   endpointSaving: boolean;
@@ -399,20 +441,15 @@ interface SettingsTabProps {
   onEndpointEdit: () => void;
   onEndpointSave: () => void;
   onEndpointCancel: () => void;
-  ingestExample: string;
-  verifyStatus: string;
-  verifyError: string;
-  onVerify: () => void;
+  networkAgent: NetworkAgent | null;
+  refreshAgent: () => Promise<void>;
 }
 
 function SettingsTab({
   agent,
   id,
   apiKey,
-  gatewayUrl,
-  gatewayLoading,
-  gatewayError,
-  onGatewayToggle,
+  walletAddress,
   editingEndpoint,
   endpointValue,
   endpointSaving,
@@ -420,30 +457,149 @@ function SettingsTab({
   onEndpointEdit,
   onEndpointSave,
   onEndpointCancel,
-  ingestExample,
-  verifyStatus,
-  verifyError,
-  onVerify,
+  networkAgent,
+  refreshAgent,
 }: SettingsTabProps) {
+  const [generatedKey, setGeneratedKey] = useState<string | null>(null);
+  const [keyLoading, setKeyLoading] = useState(false);
+
+  // Metadata editor state
+  const [editingMetadata, setEditingMetadata] = useState(false);
+  const [metadataValue, setMetadataValue] = useState("");
+  const [metadataValidationError, setMetadataValidationError] = useState("");
+  const [metadataSaving, setMetadataSaving] = useState(false);
+  const [metadataTxStatus, setMetadataTxStatus] = useState<"idle" | "estimating" | "signing" | "confirming" | "syncing">("idle");
+  const [metadataTxHash, setMetadataTxHash] = useState("");
+  const [metadataError, setMetadataError] = useState("");
+
+  // Success state
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [submittedMetadata, setSubmittedMetadata] = useState<Record<string, unknown> | null>(null);
+
+  // Refresh state
+  const [metadataRefreshing, setMetadataRefreshing] = useState(false);
+
+  const cleanError = (err: unknown, fallback: string): string => {
+    const raw = err instanceof Error ? err.message : String(err);
+    if (raw.includes("user rejected")) return "Transaction rejected by user.";
+    if (raw.includes("Failed to fetch")) return "Failed to connect to the network. Please check your wallet RPC settings.";
+    if (raw.length > 200) return raw.slice(0, 150) + "...";
+    return raw || fallback;
+  };
+
+  const validateMetadataJSON = (value: string): boolean => {
+    try {
+      const parsed = JSON.parse(value);
+      if (typeof parsed !== "object" || Array.isArray(parsed)) {
+        setMetadataValidationError("Metadata must be a JSON object");
+        return false;
+      }
+      if (parsed.services && !Array.isArray(parsed.services)) {
+        setMetadataValidationError("'services' must be an array");
+        return false;
+      }
+      if (Array.isArray(parsed.services)) {
+        for (const svc of parsed.services) {
+          if (!svc.name || !svc.endpoint) {
+            setMetadataValidationError("Each service must have 'name' and 'endpoint' fields");
+            return false;
+          }
+        }
+      }
+      setMetadataValidationError("");
+      return true;
+    } catch (err) {
+      setMetadataValidationError(`Invalid JSON: ${(err as Error).message}`);
+      return false;
+    }
+  };
+
+  const handleMetadataSave = async () => {
+    if (!agent || !walletAddress || !networkAgent) {
+      setMetadataError("Missing required data. Ensure wallet is connected and agent is loaded.");
+      return;
+    }
+    if (!agent.erc8004_token_id || !agent.chain_id) {
+      setMetadataError("This agent is not registered on-chain.");
+      return;
+    }
+    if (!validateMetadataJSON(metadataValue)) {
+      return;
+    }
+
+    const parsedMetadata = JSON.parse(metadataValue);
+    const newUri = encodeDataUri(parsedMetadata);
+
+    setMetadataSaving(true);
+    setMetadataError("");
+    setMetadataTxHash("");
+
+    try {
+      setMetadataTxStatus("estimating");
+      setMetadataTxStatus("signing");
+      const hash = await updateAgentURI(agent.chain_id, agent.erc8004_token_id, newUri);
+
+      setMetadataTxHash(hash);
+      setMetadataTxStatus("confirming");
+
+      // Wait for Discovery service to sync (5 seconds)
+      setMetadataTxStatus("syncing");
+      await new Promise(resolve => setTimeout(resolve, 5000));
+
+      // Refresh agent data
+      await refreshAgent();
+
+      // Show success state with submitted metadata
+      setSubmittedMetadata(parsedMetadata);
+      setEditingMetadata(false);
+      setShowSuccess(true);
+      setMetadataTxStatus("idle");
+    } catch (err: unknown) {
+      console.error("Metadata update failed:", err);
+      setMetadataError(cleanError(err, "Failed to update metadata"));
+      setMetadataTxStatus("idle");
+    } finally {
+      setMetadataSaving(false);
+    }
+  };
+
+  const handleSuccessClose = () => {
+    setShowSuccess(false);
+    setSubmittedMetadata(null);
+    setMetadataTxHash("");
+  };
+
+  const handleMetadataRefresh = async () => {
+    setMetadataRefreshing(true);
+    try {
+      await refreshAgent();
+    } catch (err) {
+      console.error("Failed to refresh agent:", err);
+    } finally {
+      setMetadataRefreshing(false);
+    }
+  };
+
+  const handleRegenerateKey = async () => {
+    const auth = apiKey || (walletAddress ? { walletAddress } : null);
+    if (!auth) return;
+    setKeyLoading(true);
+    try {
+      const res = await openApi.regenerateAPIKey(agent?.agent_id || id, auth);
+      setGeneratedKey(res.api_key);
+    } catch (err) {
+      console.error("Failed to regenerate API key:", err);
+    } finally {
+      setKeyLoading(false);
+    }
+  };
   return (
     <div className="space-y-6">
-      {/* Agent Info */}
-      <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
-        <h4 className="text-sm font-semibold text-gray-400 mb-4">Agent Info</h4>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <StatCard label="Agent ID" value={agent?.agent_id || id} />
-          <StatCard label="Status" value={agent?.status || "-"} />
-          <StatCard label="Category" value={agent?.category || "-"} />
-          <StatCard label="Protocols" value={agent?.protocols?.join(", ") || "-"} />
-          <StatCard label="Created" value={agent ? new Date(agent.created_at).toLocaleDateString() : "-"} />
-        </div>
-      </div>
-
       {/* Origin Endpoint */}
       <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
         <h4 className="text-sm font-semibold text-gray-400 mb-4">Origin Endpoint</h4>
         <p className="text-xs text-gray-500 mb-3">
-          The endpoint where gateway traffic is routed to.
+          Your agent's primary endpoint URL.
         </p>
         {editingEndpoint ? (
           <div className="flex items-center gap-2">
@@ -483,109 +639,214 @@ function SettingsTab({
         )}
       </div>
 
-      {/* Integration */}
-      <div className="bg-gray-900 border border-gray-800 rounded-lg p-5 space-y-4">
-        <h4 className="text-sm font-semibold text-gray-400 mb-2">Integration</h4>
-        <div className="p-4 rounded-lg border border-gray-800 bg-gray-950 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-white">Gateway Mode</p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Enable the gateway to automatically capture all requests.
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <Badge
-                label={agent?.gateway_enabled ? "Enabled" : "Disabled"}
-                variant={agent?.gateway_enabled ? "low" : "medium"}
-              />
-              <button
-                onClick={onGatewayToggle}
-                disabled={gatewayLoading}
-                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors disabled:opacity-50 ${
-                  agent?.gateway_enabled
-                    ? "bg-red-900/30 text-red-400 hover:bg-red-900/50"
-                    : "bg-green-900/30 text-green-400 hover:bg-green-900/50"
-                }`}
-              >
-                {gatewayLoading ? "..." : agent?.gateway_enabled ? "Disable" : "Enable"}
-              </button>
-            </div>
-          </div>
-          {gatewayError && (
-            <p className="text-sm text-red-400">{gatewayError}</p>
-          )}
-          {agent?.gateway_enabled && (
-            <div>
-              <p className="text-xs text-gray-500 mb-1">
-                Share this URL with your customers. All traffic is proxied to your origin.
-              </p>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 text-sm font-mono text-blue-400 bg-gray-950 px-3 py-2 rounded border border-gray-800 break-all">
-                  {gatewayUrl}
-                </code>
-                <CopyButton text={gatewayUrl} />
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="p-4 rounded-lg border border-gray-800 bg-gray-950 space-y-3">
-          <div>
-            <p className="text-sm font-medium text-gray-300">SDK Mode</p>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Send request logs directly via the Ingest API.
-            </p>
-          </div>
-          <CodeBlock code={ingestExample} label="Ingest API" />
-        </div>
-      </div>
-
       {/* API Key */}
       <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
         <h4 className="text-sm font-semibold text-gray-400 mb-4">API Key</h4>
-        <div className="flex items-center gap-2">
-          <code className="flex-1 text-sm font-mono text-gray-300 bg-gray-950 px-3 py-2 rounded border border-gray-800 break-all">
-            {apiKey}
-          </code>
-          <CopyButton text={apiKey || ""} />
-        </div>
-        <p className="text-xs text-gray-600 mt-2">
-          Use this key to authenticate SDK and API requests.
-        </p>
-      </div>
-
-      {/* ERC-8004 Identity */}
-      <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
-        <h4 className="text-sm font-semibold text-gray-400 mb-4">ERC-8004 Identity</h4>
-        {agent?.evm_address ? (
-          <div className="flex items-center gap-3">
-            <code className="text-sm font-mono text-gray-300">{agent.evm_address}</code>
-            <Badge label="Verified" variant="low" />
-          </div>
+        {(apiKey || generatedKey) ? (
+          <>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 text-sm font-mono text-gray-300 bg-gray-950 px-3 py-2 rounded border border-gray-800 break-all">
+                {generatedKey || apiKey}
+              </code>
+              <CopyButton text={generatedKey || apiKey || ""} />
+            </div>
+            <p className="text-xs text-gray-600 mt-2">
+              Use this key to authenticate SDK and API requests.
+            </p>
+          </>
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-gray-400">
-              No wallet linked. Verify your identity with an Ethereum wallet.
+              No API key in current session. Generate a new key to use with SDK and API.
             </p>
-            {verifyStatus ? (
-              <p className="text-sm text-gray-300">{verifyStatus}</p>
-            ) : (
-              <button
-                onClick={onVerify}
-                disabled={!hasWallet()}
-                className="px-4 py-2 rounded-md bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Verify with Wallet
-              </button>
-            )}
-            {verifyError && <p className="text-sm text-red-400">{verifyError}</p>}
-            {!hasWallet() && (
-              <p className="text-xs text-gray-600">MetaMask or a compatible wallet is required.</p>
-            )}
+            <button
+              onClick={handleRegenerateKey}
+              disabled={keyLoading || (!apiKey && !walletAddress)}
+              className="px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              {keyLoading ? "Generating..." : "Generate API Key"}
+            </button>
           </div>
         )}
       </div>
+
+      {/* JSON Metadata Editor */}
+      <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+        <h4 className="text-sm font-semibold text-gray-400 mb-4">Agent Metadata</h4>
+        <p className="text-xs text-gray-500 mb-3">
+          Edit your agent's JSON metadata. Changes are updated on-chain via ERC-8004 contract.
+        </p>
+
+        {!walletAddress ? (
+          <p className="text-sm text-gray-500">
+            Connect your wallet to view and edit agent metadata.
+          </p>
+        ) : !agent?.erc8004_token_id || !agent?.chain_id ? (
+          <p className="text-sm text-gray-500">
+            This agent is not registered on-chain. Only ERC-8004 registered agents can update metadata on-chain.
+          </p>
+        ) : !networkAgent?.metadata ? (
+          <p className="text-sm text-gray-500">
+            Loading metadata...
+          </p>
+        ) : showSuccess ? (
+          <div className="space-y-4">
+            {/* Success header with checkmark */}
+            <div className="flex items-center gap-2 text-green-400">
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <h4 className="text-base font-semibold">Metadata Updated Successfully!</h4>
+            </div>
+
+            {/* Submitted metadata preview */}
+            {submittedMetadata && (
+              <CodeBlock
+                code={JSON.stringify(submittedMetadata, null, 2)}
+                label="New Metadata (Submitted On-Chain)"
+              />
+            )}
+
+            {/* Block explorer link */}
+            {metadataTxHash && agent?.chain_id && (
+              <a
+                href={`${explorerUrl(agent.chain_id)}/tx/${metadataTxHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-blue-400 hover:text-blue-300 underline inline-block"
+              >
+                View Transaction on Block Explorer →
+              </a>
+            )}
+
+            {/* Info message */}
+            <div className="p-3 rounded-lg bg-blue-900/20 border border-blue-800">
+              <p className="text-sm text-gray-300">
+                ℹ️ Changes have been submitted on-chain. Discovery service will sync shortly
+                and your agent profile will be updated automatically.
+              </p>
+            </div>
+
+            {/* Done button */}
+            <button
+              onClick={handleSuccessClose}
+              className="px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors"
+            >
+              Done
+            </button>
+          </div>
+        ) : !editingMetadata ? (
+          <div className="space-y-3">
+            <CodeBlock
+              code={JSON.stringify(networkAgent.metadata, null, 2)}
+              label="Current Metadata"
+            />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setEditingMetadata(true);
+                  setMetadataValue(JSON.stringify(networkAgent.metadata, null, 2));
+                }}
+                className="px-3 py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm transition-colors"
+              >
+                Edit Metadata
+              </button>
+              <button
+                onClick={handleMetadataRefresh}
+                disabled={metadataRefreshing}
+                className="px-3 py-2 rounded-md bg-gray-800 hover:bg-gray-700 text-gray-400 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                {metadataRefreshing ? "Refreshing..." : "Refresh"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <textarea
+              value={metadataValue}
+              onChange={(e) => {
+                setMetadataValue(e.target.value);
+                validateMetadataJSON(e.target.value);
+              }}
+              className={`w-full h-96 px-3 py-2 bg-gray-950 border rounded-md text-sm font-mono text-gray-300 placeholder-gray-600 focus:outline-none transition-colors ${
+                metadataValidationError ? 'border-red-500' : 'border-gray-700 focus:border-blue-500'
+              }`}
+              placeholder='{"name": "My Agent", "description": "...", "services": [...]}'
+            />
+
+            {metadataValidationError && (
+              <div className="p-2 rounded bg-red-900/20 border border-red-800">
+                <p className="text-xs text-red-400">{metadataValidationError}</p>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleMetadataSave}
+                disabled={metadataSaving || !metadataValue || !!metadataValidationError}
+                className="px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {metadataSaving ? "Updating..." : "Update On-Chain"}
+              </button>
+              <button
+                onClick={() => {
+                  setEditingMetadata(false);
+                  setMetadataValue("");
+                  setMetadataValidationError("");
+                  setMetadataError("");
+                }}
+                disabled={metadataSaving}
+                className="px-3 py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Transaction Status */}
+        {metadataTxStatus !== "idle" && (
+          <div className="mt-4 p-4 rounded-lg border border-blue-800 bg-blue-900/20">
+            <div className="flex items-center gap-3">
+              <svg className="animate-spin h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-blue-400">
+                  {metadataTxStatus === "estimating" && "Estimating gas..."}
+                  {metadataTxStatus === "signing" && "Waiting for signature..."}
+                  {metadataTxStatus === "confirming" && "Confirming transaction..."}
+                  {metadataTxStatus === "syncing" && "Waiting for Discovery sync..."}
+                </p>
+                {metadataTxHash && agent?.chain_id && (
+                  <a
+                    href={`${explorerUrl(agent.chain_id)}/tx/${metadataTxHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-400 hover:text-blue-300 underline mt-1 inline-block"
+                  >
+                    View on Block Explorer →
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Error */}
+        {metadataError && (
+          <div className="mt-3 p-3 rounded-lg border border-red-800 bg-red-900/20">
+            <p className="text-sm text-red-400">{metadataError}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Danger Zone */}
+      <DeregisterSection agentId={agent?.agent_id || id} apiKey={apiKey} walletAddress={walletAddress} />
     </div>
   );
 }
@@ -632,15 +893,85 @@ function OverviewTab({ agent, networkAgent, id }: OverviewTabProps) {
   const meta = networkAgent?.metadata || parseAgentURI(agent?.agent_uri || networkAgent?.agent_uri);
   const imageUrl = resolveImageUrl(meta?.image ?? networkAgent?.image_url ?? null);
   const description = meta?.description ?? networkAgent?.description;
-  const services: AgentService[] = meta?.services ?? meta?.endpoints ?? [];
-  const trusts: string[] = (meta?.supportedTrust ?? meta?.supportedTrusts ?? []) as string[];
+  const metaServices: AgentService[] = useMemo(() => {
+    const list = meta?.services ?? meta?.endpoints ?? [];
+    // If no services array but metadata has a url, derive a service entry from it
+    if (list.length === 0 && meta?.url) {
+      const url = meta.url as string;
+      const name = meta?.type === "MCP" ? "MCP" : meta?.type === "A2A" ? "A2A" : "Web";
+      return [{ name, endpoint: url }];
+    }
+    return list;
+  }, [meta]);
+
+  // Build full service list: on-chain metadata + platform endpoints as fallback
+  const services: AgentService[] = useMemo(() => {
+    // Filter out any on-chain services that look like our platform gateway endpoints
+    const filteredMeta = metaServices.filter((s) => {
+      const endpoint = s.endpoint.toLowerCase();
+      return !endpoint.includes('/gateway/') && !endpoint.includes('/v1/agents/');
+    });
+    const list = [...filteredMeta];
+    if (agent?.origin_endpoint && !list.some((s) => s.endpoint === agent.origin_endpoint)) {
+      list.push({ name: "Origin", endpoint: agent.origin_endpoint });
+    }
+    return list;
+  }, [metaServices, agent?.origin_endpoint]);
   const hasX402 = meta?.x402Support || meta?.x402support || false;
 
   const explorer = networkAgent ? explorerUrl(networkAgent.chain_id) : null;
+  const network = networkAgent ? NETWORKS[Object.keys(NETWORKS).find((k) => NETWORKS[k].chainId === networkAgent.chain_id) || ""] : null;
+  const truncAddr = (addr: string) => addr.length > 12 ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : addr;
+
+  // Health check
+  const [healthStatus, setHealthStatus] = useState<Record<string, { status: "checking" | "healthy" | "unhealthy" }>>({});
+  const [lastChecked, setLastChecked] = useState<Date | null>(null);
+
+  const runHealthChecks = useCallback(() => {
+    const withEndpoints = services.filter((s) => s.endpoint);
+    if (withEndpoints.length === 0) return;
+
+    const init: Record<string, { status: "checking" }> = {};
+    for (const svc of withEndpoints) init[svc.endpoint] = { status: "checking" };
+    setHealthStatus(init);
+    setLastChecked(new Date());
+
+    for (const svc of withEndpoints) {
+      const url = svc.endpoint;
+      const base = url.replace(/\/+$/, "");
+      // Origin: proxy through backend to avoid CORS
+      // Others: direct /.well-known/agent.json
+      const healthUrl = svc.name === "Origin"
+        ? `${BACKEND_URL}/v1/agents/${id}/origin-health`
+        : `${base}/.well-known/agent.json`;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      fetch(healthUrl, { method: "GET", signal: controller.signal })
+        .then(async (res) => {
+          clearTimeout(timeout);
+          if (svc.name === "Origin") {
+            // Proxy response: always 200, check JSON status field
+            const data = await res.json().catch(() => ({}));
+            return data.status === "healthy" ? "healthy" : "unhealthy";
+          }
+          // Direct fetch: use HTTP status
+          return res.ok ? "healthy" : "unhealthy";
+        })
+        .then((status: "healthy" | "unhealthy") => {
+          setHealthStatus((prev) => ({ ...prev, [url]: { status } }));
+        })
+        .catch(() => {
+          clearTimeout(timeout);
+          setHealthStatus((prev) => ({ ...prev, [url]: { status: "unhealthy" } }));
+        });
+    }
+  }, [services]);
+
+  useEffect(() => { runHealthChecks(); }, [runHealthChecks]);
 
   return (
     <div className="space-y-6">
-      {/* Agent Profile */}
+      {/* Agent Profile + Stats */}
       <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
         <div className="flex gap-5">
           {imageUrl && (
@@ -669,118 +1000,237 @@ function OverviewTab({ agent, networkAgent, id }: OverviewTabProps) {
             </div>
           </div>
         </div>
+        {agent && (
+          <>
+            <div className="border-t border-gray-800 my-4" />
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <StatCard label="Total Requests" value={agent.total_requests?.toLocaleString() ?? "0"} />
+              <StatCard label="Total Revenue" value={`$${(agent.total_revenue_usdc ?? 0).toFixed(2)}`} />
+              <StatCard label="Avg Response" value={`${(agent.avg_response_ms ?? 0).toFixed(0)}ms`} />
+            </div>
+          </>
+        )}
       </div>
-
-      {/* Platform Stats */}
-      {agent && (
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
-          <h4 className="text-sm font-semibold text-gray-400 mb-4">Platform Stats</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard label="Total Requests" value={agent.total_requests?.toLocaleString() ?? "0"} />
-            <StatCard label="Total Revenue" value={`$${(agent.total_revenue_usdc ?? 0).toFixed(2)}`} />
-            <StatCard label="Avg Response" value={`${(agent.avg_response_ms ?? 0).toFixed(0)}ms`} />
-            <StatCard label="Gateway" value={agent.gateway_enabled ? "Enabled" : "Disabled"} />
-          </div>
-        </div>
-      )}
 
       {/* On-chain Identity */}
       <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
         <h4 className="text-sm font-semibold text-gray-400 mb-4">On-chain Identity</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <InfoRow label="Agent ID" value={agent?.agent_id || id} mono />
-          {agent?.erc8004_token_id != null && (
-            <InfoRow label="Token ID" value={`#${agent.erc8004_token_id}`} />
-          )}
-          {networkAgent && (
-            <InfoRow label="Chain" value={chainName(networkAgent.chain_id)} />
-          )}
-          {(agent?.evm_address || networkAgent?.owner_address) && (
-            <InfoRow
-              label="Owner"
-              value={agent?.evm_address || networkAgent?.owner_address || ""}
-              mono
-              truncate
-              href={explorer ? `${explorer}/address/${agent?.evm_address || networkAgent?.owner_address}` : undefined}
-            />
-          )}
-          {agent?.reputation_score != null && agent.reputation_score > 0 && (
-            <InfoRow label="Reputation Score" value={agent.reputation_score.toFixed(1)} />
-          )}
-          {agent?.agent_uri && (
-            <AgentURIRow uri={agent.agent_uri} />
-          )}
-          {agent?.created_at && (
-            <InfoRow label="Registered" value={new Date(agent.created_at).toLocaleDateString()} />
-          )}
-          {networkAgent?.synced_at && (
-            <InfoRow label="Last Synced" value={new Date(networkAgent.synced_at).toLocaleString()} />
-          )}
+
+        <div className="grid grid-cols-2 gap-x-8">
+          {/* Contract State — left column */}
+          <div>
+            <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider mb-2">Contract State</p>
+            <div className="space-y-2">
+              {(agent?.erc8004_token_id != null || networkAgent?.token_id != null) && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">Token ID</span>
+                  <span className="text-xs font-mono text-gray-300">#{agent?.erc8004_token_id ?? networkAgent?.token_id}</span>
+                </div>
+              )}
+              {networkAgent && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">Chain</span>
+                  <span className="text-xs text-gray-300">{chainName(networkAgent.chain_id)}</span>
+                </div>
+              )}
+              {(agent?.evm_address || networkAgent?.owner_address) && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">Owner</span>
+                  {explorer ? (
+                    <a href={`${explorer}/address/${agent?.evm_address || networkAgent?.owner_address}`} target="_blank" rel="noopener noreferrer" className="text-xs font-mono text-blue-400 hover:text-blue-300">
+                      {truncAddr(agent?.evm_address || networkAgent?.owner_address || "")}
+                    </a>
+                  ) : (
+                    <span className="text-xs font-mono text-gray-300">{truncAddr(agent?.evm_address || networkAgent?.owner_address || "")}</span>
+                  )}
+                </div>
+              )}
+              {networkAgent?.creator_address && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">Creator</span>
+                  {explorer ? (
+                    <a href={`${explorer}/address/${networkAgent.creator_address}`} target="_blank" rel="noopener noreferrer" className="text-xs font-mono text-blue-400 hover:text-blue-300">
+                      {truncAddr(networkAgent.creator_address)}
+                    </a>
+                  ) : (
+                    <span className="text-xs font-mono text-gray-300">{truncAddr(networkAgent.creator_address)}</span>
+                  )}
+                </div>
+              )}
+              {networkAgent?.created_tx && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">Created TX</span>
+                  {explorer ? (
+                    <a href={`${explorer}/tx/${networkAgent.created_tx}`} target="_blank" rel="noopener noreferrer" className="text-xs font-mono text-blue-400 hover:text-blue-300">
+                      {truncAddr(networkAgent.created_tx)}
+                    </a>
+                  ) : (
+                    <span className="text-xs font-mono text-gray-300">{truncAddr(networkAgent.created_tx)}</span>
+                  )}
+                </div>
+              )}
+              {network && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">Registry</span>
+                  {explorer ? (
+                    <a href={`${explorer}/address/${network.contractAddress}`} target="_blank" rel="noopener noreferrer" className="text-xs font-mono text-blue-400 hover:text-blue-300">
+                      {truncAddr(network.contractAddress)}
+                    </a>
+                  ) : (
+                    <span className="text-xs font-mono text-gray-300">-</span>
+                  )}
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500 flex items-center gap-1.5">
+                  Agent Wallet <Badge label="X402" variant="low" />
+                </span>
+                {hasX402 && (agent?.evm_address || networkAgent?.owner_address) ? (
+                  explorer ? (
+                    <a href={`${explorer}/address/${agent?.evm_address || networkAgent?.owner_address}`} target="_blank" rel="noopener noreferrer" className="text-xs font-mono text-blue-400 hover:text-blue-300">
+                      {truncAddr(agent?.evm_address || networkAgent?.owner_address || "")}
+                    </a>
+                  ) : (
+                    <span className="text-xs font-mono text-gray-300">{truncAddr(agent?.evm_address || networkAgent?.owner_address || "")}</span>
+                  )
+                ) : (
+                  <span className="text-xs text-gray-500">-</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Metadata & Timestamps — right column */}
+          <div>
+            <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider mb-2">On-chain Metadata</p>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">Name</span>
+                <span className="text-xs text-gray-300">{networkAgent?.name || agent?.name || "-"}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">X-402 Support</span>
+                <span className={`text-xs font-medium ${hasX402 ? "text-green-400" : "text-gray-500"}`}>
+                  {hasX402 ? "Supported" : "Not Supported"}
+                </span>
+              </div>
+              {(agent?.agent_uri || networkAgent?.agent_uri) && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">Agent URI</span>
+                  <div className="flex items-center gap-1.5 max-w-[60%]">
+                    <span className="text-xs font-mono text-gray-300 truncate">
+                      {(agent?.agent_uri || networkAgent?.agent_uri || "").length > 30
+                        ? (agent?.agent_uri || networkAgent?.agent_uri || "").slice(0, 30) + "..."
+                        : (agent?.agent_uri || networkAgent?.agent_uri || "")}
+                    </span>
+                    <CopyButton text={agent?.agent_uri || networkAgent?.agent_uri || ""} />
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="border-t border-gray-800 my-3" />
+            <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider mb-2">Timestamps</p>
+            <div className="space-y-2">
+              {(agent?.created_at || networkAgent?.created_at) && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">Created</span>
+                  <span className="text-xs text-gray-300">{new Date(agent?.created_at || networkAgent?.created_at || "").toLocaleDateString()}</span>
+                </div>
+              )}
+              {networkAgent?.synced_at && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">Last Synced</span>
+                  <span className="text-xs text-gray-300">{new Date(networkAgent.synced_at).toLocaleDateString()}</span>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Capabilities */}
-      {(hasX402 || trusts.length > 0) && (
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
-          <h4 className="text-sm font-semibold text-gray-400 mb-4">Capabilities</h4>
-          <div className="flex flex-wrap gap-2">
-            {hasX402 && (
-              <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-green-900/30 text-green-400 border border-green-800/50">
-                x402 Payments
-              </span>
-            )}
-            {trusts.map((t) => (
-              <span key={t} className="inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full bg-blue-900/30 text-blue-400 border border-blue-800/50">
-                {t}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Services / Endpoints */}
+      {/* Services / Endpoints with Health Check */}
       {services.length > 0 && (
         <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
-          <h4 className="text-sm font-semibold text-gray-400 mb-4">Services</h4>
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-sm font-semibold text-gray-400">Services</h4>
+            <div className="flex items-center gap-3">
+              {lastChecked && (
+                <span className="text-[10px] text-gray-600">
+                  Checked {lastChecked.toLocaleTimeString()}
+                </span>
+              )}
+              <button
+                onClick={runHealthChecks}
+                className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
+              >
+                Refresh
+              </button>
+            </div>
+          </div>
           <div className="space-y-3">
-            {services.map((svc, i) => (
-              <div key={i} className="p-3 bg-gray-950 rounded-lg border border-gray-800">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-medium text-white">{svc.name}</span>
-                  {svc.version && <span className="text-xs text-gray-500">v{svc.version}</span>}
+            {services.map((svc, i) => {
+              const health = svc.endpoint ? healthStatus[svc.endpoint] : undefined;
+              return (
+                <div key={i} className="p-3 bg-gray-950 rounded-lg border border-gray-800">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-white">{svc.name}</span>
+                      {svc.version && <span className="text-xs text-gray-500">v{svc.version}</span>}
+                    </div>
+                    {health && (
+                      <div className="flex items-center gap-1.5">
+                        {health.status === "checking" ? (
+                          <span className="flex items-center gap-1 text-[10px] text-gray-500">
+                            <span className="w-2 h-2 rounded-full bg-gray-500 animate-pulse" />
+                            Checking...
+                          </span>
+                        ) : health.status === "healthy" ? (
+                          <span className="flex items-center gap-1 text-[10px] text-green-400">
+                            <span className="w-2 h-2 rounded-full bg-green-400" />
+                            Healthy
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-[10px] text-red-400">
+                            <span className="w-2 h-2 rounded-full bg-red-400" />
+                            Unhealthy
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs font-mono text-gray-400 break-all">{svc.endpoint}</p>
+                  {(svc.skills?.length || svc.domains?.length) && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {svc.skills?.map((s: string) => (
+                        <span key={s} className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/30 text-purple-400">{s}</span>
+                      ))}
+                      {svc.domains?.map((d: string) => (
+                        <span key={d} className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-900/30 text-cyan-400">{d}</span>
+                      ))}
+                    </div>
+                  )}
+                  {(svc.mcpTools?.length || svc.mcpPrompts?.length || svc.mcpResources?.length) && (
+                    <div className="mt-2 space-y-1">
+                      {svc.mcpTools && svc.mcpTools.length > 0 && (
+                        <p className="text-[10px] text-gray-500">
+                          <span className="text-gray-600">MCP Tools:</span> {svc.mcpTools.join(", ")}
+                        </p>
+                      )}
+                      {svc.mcpPrompts && svc.mcpPrompts.length > 0 && (
+                        <p className="text-[10px] text-gray-500">
+                          <span className="text-gray-600">MCP Prompts:</span> {svc.mcpPrompts.join(", ")}
+                        </p>
+                      )}
+                      {svc.mcpResources && svc.mcpResources.length > 0 && (
+                        <p className="text-[10px] text-gray-500">
+                          <span className="text-gray-600">MCP Resources:</span> {svc.mcpResources.join(", ")}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <p className="text-xs font-mono text-gray-400 break-all">{svc.endpoint}</p>
-                {(svc.skills?.length || svc.domains?.length) && (
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {svc.skills?.map((s: string) => (
-                      <span key={s} className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/30 text-purple-400">{s}</span>
-                    ))}
-                    {svc.domains?.map((d: string) => (
-                      <span key={d} className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-900/30 text-cyan-400">{d}</span>
-                    ))}
-                  </div>
-                )}
-                {(svc.mcpTools?.length || svc.mcpPrompts?.length || svc.mcpResources?.length) && (
-                  <div className="mt-2 space-y-1">
-                    {svc.mcpTools && svc.mcpTools.length > 0 && (
-                      <p className="text-[10px] text-gray-500">
-                        <span className="text-gray-600">MCP Tools:</span> {svc.mcpTools.join(", ")}
-                      </p>
-                    )}
-                    {svc.mcpPrompts && svc.mcpPrompts.length > 0 && (
-                      <p className="text-[10px] text-gray-500">
-                        <span className="text-gray-600">MCP Prompts:</span> {svc.mcpPrompts.join(", ")}
-                      </p>
-                    )}
-                    {svc.mcpResources && svc.mcpResources.length > 0 && (
-                      <p className="text-[10px] text-gray-500">
-                        <span className="text-gray-600">MCP Resources:</span> {svc.mcpResources.join(", ")}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -897,10 +1347,7 @@ function DeltaBadge({ value }: { value: number }) {
 const PROTOCOL_COLORS: Record<string, string> = {
   "sdk-mcp": "#3B82F6",
   "sdk-a2a": "#8B5CF6",
-  "gateway-mcp": "#10B981",
-  "gateway-a2a": "#F59E0B",
   "sdk-http": "#6B7280",
-  "gateway-http": "#9CA3AF",
 };
 
 function protoKey(source: string, protocol: string): string {
@@ -955,7 +1402,7 @@ function AnalyticsTab({ stats, chartData, thisWeekRequests, totalCustomers, anal
   const tools = analytics?.tool_ranking;
   const cust = analytics?.customers;
   const mcpTools = analytics?.mcp_tools;
-  const a2aPartners = analytics?.a2a_partners;
+
   const a2aEndpoints = analytics?.a2a_endpoints;
   const rev = analytics?.revenue;
 
@@ -1232,54 +1679,28 @@ function AnalyticsTab({ stats, chartData, thisWeekRequests, totalCustomers, anal
         </div>
       )}
 
-      {/* Row 4: Tool Ranking + Revenue */}
-      <div className="grid grid-cols-2 gap-4">
-        {/* Tool Usage Ranking */}
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
-          <h3 className="text-sm font-medium text-gray-400 mb-4">Tool Usage Ranking</h3>
-          {tools && tools.length > 0 ? (
-            <div className="space-y-1">
-              {tools.slice(0, 10).map((t, i) => (
-                <div key={t.tool_name} className={`flex items-center gap-3 px-3 py-2 rounded ${i % 2 === 0 ? "bg-gray-800/30" : ""}`}>
-                  <span className={`text-xs font-bold w-5 text-right ${i < 3 ? "text-yellow-400" : "text-gray-500"}`}>
-                    {i + 1}
-                  </span>
-                  <span className="text-sm text-white flex-1 font-mono truncate">{t.tool_name}</span>
-                  <span className="text-xs text-gray-400 font-mono">{t.call_count.toLocaleString()} calls</span>
-                  <span className="text-xs text-gray-500 font-mono">{t.avg_response_ms.toFixed(0)}ms</span>
-                  {t.revenue > 0 && (
-                    <span className="text-xs text-emerald-400 font-mono">${t.revenue.toFixed(2)}</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-gray-600">No tool usage data yet</p>
-          )}
-        </div>
-
-        {/* Revenue Summary */}
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
-          <h3 className="text-sm font-medium text-gray-400 mb-4">Revenue Summary</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-gray-800/50 rounded-lg p-3">
-              <p className="text-xs text-gray-500 uppercase">Total Revenue</p>
-              <p className="text-xl font-bold text-emerald-400 mt-1">${rev?.total_revenue?.toFixed(2) ?? "0.00"}</p>
-            </div>
-            <div className="bg-gray-800/50 rounded-lg p-3">
-              <p className="text-xs text-gray-500 uppercase">Payments</p>
-              <p className="text-xl font-bold mt-1">{rev?.payment_count ?? 0}</p>
-            </div>
-            <div className="bg-gray-800/50 rounded-lg p-3">
-              <p className="text-xs text-gray-500 uppercase">Avg / Request</p>
-              <p className="text-xl font-bold mt-1">${rev?.avg_per_request?.toFixed(4) ?? "0.00"}</p>
-            </div>
-            <div className="bg-gray-800/50 rounded-lg p-3">
-              <p className="text-xs text-gray-500 uppercase">ARPU</p>
-              <p className="text-xl font-bold mt-1">${rev?.arpu?.toFixed(4) ?? "0.00"}</p>
-            </div>
+      {/* Row 4: Tool Ranking */}
+      <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+        <h3 className="text-sm font-medium text-gray-400 mb-4">Tool Usage Ranking</h3>
+        {tools && tools.length > 0 ? (
+          <div className="space-y-1">
+            {tools.slice(0, 10).map((t, i) => (
+              <div key={t.tool_name} className={`flex items-center gap-3 px-3 py-2 rounded ${i % 2 === 0 ? "bg-gray-800/30" : ""}`}>
+                <span className={`text-xs font-bold w-5 text-right ${i < 3 ? "text-yellow-400" : "text-gray-500"}`}>
+                  {i + 1}
+                </span>
+                <span className="text-sm text-white flex-1 font-mono truncate">{t.tool_name}</span>
+                <span className="text-xs text-gray-400 font-mono">{t.call_count.toLocaleString()} calls</span>
+                <span className="text-xs text-gray-500 font-mono">{t.avg_response_ms.toFixed(0)}ms</span>
+                {t.revenue > 0 && (
+                  <span className="text-xs text-emerald-400 font-mono">${t.revenue.toFixed(2)}</span>
+                )}
+              </div>
+            ))}
           </div>
-        </div>
+        ) : (
+          <p className="text-sm text-gray-600">No tool usage data yet</p>
+        )}
       </div>
 
       {/* Row 5: MCP Analysis */}
@@ -1329,44 +1750,13 @@ function AnalyticsTab({ stats, chartData, thisWeekRequests, totalCustomers, anal
         </div>
       )}
 
-      {/* Row 6: A2A Network */}
-      {((a2aPartners && a2aPartners.length > 0) || (a2aEndpoints && a2aEndpoints.length > 0)) && (
+      {/* Row 6: A2A Endpoints + Top Callers (horizontal) */}
+      {((a2aEndpoints && a2aEndpoints.length > 0) || (cust && cust.top_callers.length > 0)) && (
         <div className="grid grid-cols-2 gap-4">
-          {/* A2A Partners */}
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
-            <h3 className="text-sm font-medium text-gray-400 mb-4">A2A Partners</h3>
-            {a2aPartners && a2aPartners.length > 0 ? (
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-gray-500 border-b border-gray-800">
-                    <th className="text-left pb-2">Agent</th>
-                    <th className="text-right pb-2">Calls</th>
-                    <th className="text-right pb-2">Latency</th>
-                    <th className="text-right pb-2">Revenue</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {a2aPartners.map((p) => (
-                    <tr key={p.customer_id} className="border-b border-gray-800/50">
-                      <td className="py-2 text-white font-mono truncate max-w-[140px]">{p.customer_id}</td>
-                      <td className="py-2 text-right text-gray-300 font-mono">{p.call_count.toLocaleString()}</td>
-                      <td className="py-2 text-right text-gray-400 font-mono">{p.avg_response_ms.toFixed(0)}ms</td>
-                      <td className="py-2 text-right text-emerald-400 font-mono">
-                        {p.revenue > 0 ? `$${p.revenue.toFixed(2)}` : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <p className="text-sm text-gray-600">No A2A partners yet</p>
-            )}
-          </div>
-
           {/* A2A Endpoints */}
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
-            <h3 className="text-sm font-medium text-gray-400 mb-4">A2A Endpoints</h3>
-            {a2aEndpoints && a2aEndpoints.length > 0 ? (
+          {a2aEndpoints && a2aEndpoints.length > 0 && (
+            <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+              <h3 className="text-sm font-medium text-gray-400 mb-4">A2A Endpoints</h3>
               <table className="w-full text-xs">
                 <thead>
                   <tr className="text-gray-500 border-b border-gray-800">
@@ -1381,7 +1771,7 @@ function AnalyticsTab({ stats, chartData, thisWeekRequests, totalCustomers, anal
                   {a2aEndpoints.map((e) => (
                     <tr key={`${e.method}-${e.endpoint}`} className="border-b border-gray-800/50">
                       <td className="py-2 text-blue-400 font-mono">{e.method}</td>
-                      <td className="py-2 text-white font-mono truncate max-w-[180px]">{e.endpoint}</td>
+                      <td className="py-2 text-white font-mono truncate max-w-[100px]">{e.endpoint}</td>
                       <td className="py-2 text-right text-gray-300 font-mono">{e.call_count.toLocaleString()}</td>
                       <td className="py-2 text-right text-gray-400 font-mono">{e.avg_response_ms.toFixed(0)}ms</td>
                       <td className={`py-2 text-right font-mono ${e.error_rate > 0.05 ? "text-red-400" : "text-green-400"}`}>
@@ -1391,40 +1781,13 @@ function AnalyticsTab({ stats, chartData, thisWeekRequests, totalCustomers, anal
                   ))}
                 </tbody>
               </table>
-            ) : (
-              <p className="text-sm text-gray-600">No A2A endpoint data yet</p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Row 7: Customer Intelligence */}
-      {cust && (
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
-            <h3 className="text-sm font-medium text-gray-400 mb-4">Customer Overview</h3>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="bg-gray-800/50 rounded-lg p-3 text-center">
-                <p className="text-xs text-gray-500">New</p>
-                <p className="text-2xl font-bold text-blue-400">{cust.new_this_week}</p>
-                <p className="text-xs text-gray-500">this week</p>
-              </div>
-              <div className="bg-gray-800/50 rounded-lg p-3 text-center">
-                <p className="text-xs text-gray-500">Returning</p>
-                <p className="text-2xl font-bold text-purple-400">{cust.returning_this_week}</p>
-                <p className="text-xs text-gray-500">this week</p>
-              </div>
-              <div className="bg-gray-800/50 rounded-lg p-3 text-center">
-                <p className="text-xs text-gray-500">Total</p>
-                <p className="text-2xl font-bold">{cust.total_customers}</p>
-                <p className="text-xs text-gray-500">all time</p>
-              </div>
             </div>
-          </div>
+          )}
 
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
-            <h3 className="text-sm font-medium text-gray-400 mb-4">Top Callers</h3>
-            {cust.top_callers.length > 0 ? (
+          {/* Top Callers */}
+          {cust && cust.top_callers.length > 0 && (
+            <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+              <h3 className="text-sm font-medium text-gray-400 mb-4">Top Callers</h3>
               <table className="w-full text-xs">
                 <thead>
                   <tr className="text-gray-500 border-b border-gray-800">
@@ -1436,21 +1799,19 @@ function AnalyticsTab({ stats, chartData, thisWeekRequests, totalCustomers, anal
                 <tbody>
                   {cust.top_callers.map((tc) => (
                     <tr key={tc.customer_id} className="border-b border-gray-800/50">
-                      <td className="py-2 text-white font-mono truncate max-w-[120px]">{tc.customer_id}</td>
+                      <td className="py-2 text-white font-mono truncate max-w-[100px]">{tc.customer_id}</td>
                       <td className="py-2 text-right text-gray-300 font-mono">{tc.request_count.toLocaleString()}</td>
                       <td className="py-2 text-right text-emerald-400 font-mono">${tc.revenue.toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            ) : (
-              <p className="text-sm text-gray-600">No customer data yet</p>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Row 8: Health Monitoring */}
+      {/* Row 7: Health Monitoring */}
       {health && health.total_requests > 0 && (
         <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
           <div className="flex items-center justify-between mb-4">
@@ -1489,6 +1850,8 @@ function AnalyticsTab({ stats, chartData, thisWeekRequests, totalCustomers, anal
 interface SpeedInsightsTabProps {
   performance: {
     p50_response_ms: number;
+    p75_response_ms?: number;
+    p90_response_ms?: number;
     p95_response_ms: number;
     p99_response_ms: number;
     avg_response_ms: number;
@@ -1498,10 +1861,23 @@ interface SpeedInsightsTabProps {
     error_requests: number;
     requests_per_min: number;
     uptime: number;
+    health_score?: number;
+    health_status?: string;
+    health_delta?: number;
+    p95_delta_ms?: number;
+    error_delta?: number;
+    throughput_delta?: number;
+    uptime_delta?: number;
+    p95_trend?: number[];
+    error_rate_trend?: number[];
+    throughput_trend?: number[];
+    uptime_trend?: number[];
   } | null;
+  analytics?: AnalyticsReport | null;
+  dailyStats?: { stats: DailyStats[] } | null;
 }
 
-function SpeedInsightsTab({ performance }: SpeedInsightsTabProps) {
+function SpeedInsightsTab({ performance, analytics, dailyStats }: SpeedInsightsTabProps) {
   if (!performance) {
     return (
       <div className="bg-gray-900 border border-gray-800 rounded-lg p-8 text-center">
@@ -1510,41 +1886,59 @@ function SpeedInsightsTab({ performance }: SpeedInsightsTabProps) {
     );
   }
 
+  // Prepare latency distribution data (with P75 and P90 if available)
   const latencyData = [
     { label: "P50", value: performance.p50_response_ms },
+    ...(performance.p75_response_ms ? [{ label: "P75", value: performance.p75_response_ms }] : []),
+    ...(performance.p90_response_ms ? [{ label: "P90", value: performance.p90_response_ms }] : []),
     { label: "P95", value: performance.p95_response_ms },
     { label: "P99", value: performance.p99_response_ms },
   ];
 
   return (
     <div className="space-y-6">
-      {/* Headline metric */}
-      <div className="grid grid-cols-4 gap-4">
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-          <p className="text-xs text-gray-500 uppercase tracking-wider">Avg Response</p>
-          <p className="text-2xl font-bold mt-1">{performance.avg_response_ms.toFixed(0)}<span className="text-sm font-normal text-gray-500 ml-1">ms</span></p>
-        </div>
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-          <p className="text-xs text-gray-500 uppercase tracking-wider">Error Rate</p>
-          <p className={`text-2xl font-bold mt-1 ${performance.error_rate > 0.05 ? "text-red-400" : "text-green-400"}`}>
-            {(performance.error_rate * 100).toFixed(1)}%
-          </p>
-        </div>
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-          <p className="text-xs text-gray-500 uppercase tracking-wider">Uptime</p>
-          <p className={`text-2xl font-bold mt-1 ${performance.uptime >= 0.99 ? "text-green-400" : "text-yellow-400"}`}>
-            {(performance.uptime * 100).toFixed(2)}%
-          </p>
-        </div>
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-          <p className="text-xs text-gray-500 uppercase tracking-wider">Throughput</p>
-          <p className="text-2xl font-bold mt-1">{performance.requests_per_min.toFixed(1)}<span className="text-sm font-normal text-gray-500 ml-1">rpm</span></p>
-        </div>
+      {/* Health Score (if available) */}
+      {performance.health_score !== undefined && performance.health_status && (
+        <HealthScoreCard
+          score={performance.health_score}
+          status={performance.health_status}
+          delta={performance.health_delta || 0}
+        />
+      )}
+
+      {/* Performance Vital Signs with Trends */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCardWithTrend
+          label="P95 Latency"
+          value={`${performance.p95_response_ms.toFixed(0)}ms`}
+          delta={performance.p95_delta_ms}
+          trend={performance.p95_trend}
+        />
+        <StatCardWithTrend
+          label="Error Rate"
+          value={`${(performance.error_rate * 100).toFixed(1)}%`}
+          delta={performance.error_delta ? performance.error_delta * 100 : undefined}
+          trend={performance.error_rate_trend?.map((r) => r * 100)}
+          colorThreshold={{ good: 0.02, warn: 0.05 }}
+        />
+        <StatCardWithTrend
+          label="Throughput"
+          value={`${performance.requests_per_min.toFixed(1)} rpm`}
+          delta={performance.throughput_delta}
+          trend={performance.throughput_trend}
+        />
+        <StatCardWithTrend
+          label="Uptime"
+          value={`${performance.uptime.toFixed(2)}%`}
+          delta={performance.uptime_delta}
+          trend={performance.uptime_trend}
+          colorThreshold={{ good: 99, warn: 95 }}
+        />
       </div>
 
-      {/* Latency percentiles bar chart */}
+      {/* Enhanced Latency Distribution */}
       <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
-        <h3 className="text-sm font-medium text-gray-400 mb-4">Response Time Distribution</h3>
+        <h3 className="text-sm font-medium text-gray-400 mb-4">Response Time Distribution (24h)</h3>
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={latencyData} layout="vertical">
             <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" horizontal={false} />
@@ -1557,10 +1951,30 @@ function SpeedInsightsTab({ performance }: SpeedInsightsTabProps) {
             <Bar dataKey="value" fill="#3B82F6" radius={[0, 4, 4, 0]} barSize={28} />
           </BarChart>
         </ResponsiveContainer>
+        <div className="flex flex-wrap gap-4 mt-3 text-xs text-gray-500">
+          <span>P50: {performance.p50_response_ms.toFixed(0)}ms</span>
+          {performance.p75_response_ms && <span>P75: {performance.p75_response_ms.toFixed(0)}ms</span>}
+          {performance.p90_response_ms && <span>P90: {performance.p90_response_ms.toFixed(0)}ms</span>}
+          <span>P95: {performance.p95_response_ms.toFixed(0)}ms</span>
+          <span>P99: {performance.p99_response_ms.toFixed(0)}ms</span>
+        </div>
       </div>
 
-      {/* Success / Error breakdown */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Protocol & Tool Breakdown */}
+      {analytics && (
+        <div className="space-y-4">
+          <ProtocolBreakdownCards protocols={analytics.protocol || []} />
+          <ToolPerformanceTable tools={analytics.tool_ranking || []} />
+        </div>
+      )}
+
+      {/* 7-Day Trend Chart */}
+      {dailyStats && dailyStats.stats && dailyStats.stats.length > 0 && (
+        <TrendChart data={dailyStats.stats} />
+      )}
+
+      {/* Success / Error breakdown (keep as fallback) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
           <h3 className="text-sm font-medium text-gray-400 mb-3">Request Breakdown</h3>
           <div className="space-y-3">
@@ -1596,6 +2010,8 @@ function SpeedInsightsTab({ performance }: SpeedInsightsTabProps) {
           <h3 className="text-sm font-medium text-gray-400 mb-3">Detailed Latency</h3>
           <div className="space-y-2 text-sm">
             <MetricRow label="P50" value={`${performance.p50_response_ms.toFixed(0)}ms`} />
+            {performance.p75_response_ms && <MetricRow label="P75" value={`${performance.p75_response_ms.toFixed(0)}ms`} />}
+            {performance.p90_response_ms && <MetricRow label="P90" value={`${performance.p90_response_ms.toFixed(0)}ms`} />}
             <MetricRow label="P95" value={`${performance.p95_response_ms.toFixed(0)}ms`} />
             <MetricRow label="P99" value={`${performance.p99_response_ms.toFixed(0)}ms`} />
             <MetricRow label="Average" value={`${performance.avg_response_ms.toFixed(0)}ms`} />
@@ -1607,8 +2023,8 @@ function SpeedInsightsTab({ performance }: SpeedInsightsTabProps) {
               />
               <MetricRow
                 label="Uptime"
-                value={`${(performance.uptime * 100).toFixed(2)}%`}
-                color={performance.uptime >= 0.99 ? "text-green-400" : "text-yellow-400"}
+                value={`${performance.uptime.toFixed(2)}%`}
+                color={performance.uptime >= 99 ? "text-green-400" : "text-yellow-400"}
               />
             </div>
           </div>
@@ -1893,9 +2309,11 @@ interface CustomersTabProps {
   agentId: string;
   customers: Customer[];
   totalCustomers: number;
+  newThisWeek: number;
+  returningThisWeek: number;
 }
 
-function CustomersTab({ agentId, customers, totalCustomers }: CustomersTabProps) {
+function CustomersTab({ agentId, customers, totalCustomers, newThisWeek, returningThisWeek }: CustomersTabProps) {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"total_requests" | "total_revenue" | "last_seen_at" | "error_rate">("total_requests");
@@ -1933,10 +2351,18 @@ function CustomersTab({ agentId, customers, totalCustomers }: CustomersTabProps)
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-6 gap-4">
         <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
           <p className="text-xs text-gray-500 mb-1">Total Customers</p>
           <p className="text-2xl font-bold">{totalCustomers}</p>
+        </div>
+        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+          <p className="text-xs text-gray-500 mb-1">New This Week</p>
+          <p className="text-2xl font-bold text-blue-400">{newThisWeek}</p>
+        </div>
+        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+          <p className="text-xs text-gray-500 mb-1">Returning This Week</p>
+          <p className="text-2xl font-bold text-purple-400">{returningThisWeek}</p>
         </div>
         <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
           <p className="text-xs text-gray-500 mb-1">Active (Low Risk)</p>
@@ -2297,275 +2723,6 @@ function ChurnBadge({ risk }: { risk: string }) {
     <span className={`text-xs px-1.5 py-0.5 rounded border ${c}`}>
       {risk}
     </span>
-  );
-}
-
-/* ================================================
-   Trust Tab
-   ================================================ */
-
-interface TrustTabProps {
-  agentId: string;
-  trustData: TrustScoreResponse | null;
-}
-
-function TrustTab({ agentId, trustData }: TrustTabProps) {
-  const [reviewScore, setReviewScore] = useState(5);
-  const [reviewComment, setReviewComment] = useState("");
-  const [reviewerId, setReviewerId] = useState("");
-  const [reviewTags, setReviewTags] = useState<string[]>([]);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitMsg, setSubmitMsg] = useState("");
-  const [showForm, setShowForm] = useState(false);
-
-  const breakdown = trustData?.breakdown;
-  const reviews = trustData?.reviews || [];
-  const totalScore = breakdown?.total_score ?? 0;
-
-  const scoreColor =
-    totalScore >= 80 ? "text-green-400" : totalScore >= 50 ? "text-yellow-400" : "text-red-400";
-  const ringColor =
-    totalScore >= 80 ? "stroke-green-400" : totalScore >= 50 ? "stroke-yellow-400" : "stroke-red-400";
-
-  const COMPONENTS: { key: keyof Pick<NonNullable<typeof breakdown>, "reliability" | "performance" | "activity" | "revenue_quality" | "customer_retention" | "peer_review" | "onchain_score">; label: string; weight: string }[] = [
-    { key: "reliability", label: "Reliability", weight: "25%" },
-    { key: "performance", label: "Performance", weight: "20%" },
-    { key: "activity", label: "Activity", weight: "15%" },
-    { key: "revenue_quality", label: "Revenue Quality", weight: "10%" },
-    { key: "customer_retention", label: "Customer Retention", weight: "10%" },
-    { key: "peer_review", label: "Peer Reviews", weight: "10%" },
-    { key: "onchain_score", label: "On-chain", weight: "10%" },
-  ];
-
-  const TAG_OPTIONS = ["reliable", "fast", "accurate", "helpful", "innovative", "responsive"];
-
-  const toggleTag = (tag: string) => {
-    setReviewTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
-  };
-
-  const handleSubmit = async () => {
-    if (!reviewerId.trim()) {
-      setSubmitMsg("Reviewer ID is required");
-      return;
-    }
-    setSubmitting(true);
-    setSubmitMsg("");
-    try {
-      await openApi.submitReview(agentId, {
-        reviewer_id: reviewerId.trim(),
-        score: reviewScore,
-        tags: reviewTags,
-        comment: reviewComment.trim(),
-      });
-      setSubmitMsg("Review submitted!");
-      setReviewComment("");
-      setReviewTags([]);
-      setReviewScore(5);
-      setShowForm(false);
-    } catch (err) {
-      setSubmitMsg(err instanceof Error ? err.message : "Failed to submit review");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  if (!trustData) {
-    return (
-      <div className="text-center text-gray-500 py-12">
-        <p>Loading trust data...</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Overall Score + Breakdown */}
-      <div className="grid grid-cols-3 gap-6">
-        {/* Score Circle */}
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-6 flex flex-col items-center justify-center">
-          <p className="text-xs text-gray-500 mb-3">Trust Score</p>
-          <div className="relative w-32 h-32">
-            <svg className="w-32 h-32 -rotate-90" viewBox="0 0 120 120">
-              <circle cx="60" cy="60" r="52" fill="none" stroke="#1f2937" strokeWidth="8" />
-              <circle
-                cx="60" cy="60" r="52" fill="none"
-                className={ringColor}
-                strokeWidth="8"
-                strokeLinecap="round"
-                strokeDasharray={`${(totalScore / 100) * 327} 327`}
-              />
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className={`text-3xl font-bold ${scoreColor}`}>
-                {totalScore.toFixed(0)}
-              </span>
-            </div>
-          </div>
-          <p className="text-xs text-gray-500 mt-2">
-            {breakdown?.review_count ?? 0} reviews · {breakdown?.onchain_count ?? 0} on-chain
-          </p>
-        </div>
-
-        {/* Component Breakdown */}
-        <div className="col-span-2 bg-gray-900 border border-gray-800 rounded-lg p-6">
-          <p className="text-sm font-medium text-gray-300 mb-4">Score Breakdown</p>
-          <div className="space-y-3">
-            {COMPONENTS.map((comp) => {
-              const val = breakdown?.[comp.key] ?? 0;
-              const barColor =
-                val >= 80 ? "bg-green-500" : val >= 50 ? "bg-yellow-500" : "bg-red-500";
-              return (
-                <div key={comp.key}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-gray-400">
-                      {comp.label}{" "}
-                      <span className="text-gray-600">({comp.weight})</span>
-                    </span>
-                    <span className="text-xs font-mono text-gray-300">{val.toFixed(1)}</span>
-                  </div>
-                  <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${barColor}`}
-                      style={{ width: `${Math.min(val, 100)}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Reviews */}
-      <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-sm font-medium text-gray-300">
-            Recent Reviews ({trustData.review_total})
-          </p>
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="text-xs px-3 py-1.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
-          >
-            {showForm ? "Cancel" : "Write Review"}
-          </button>
-        </div>
-
-        {/* Submit Review Form */}
-        {showForm && (
-          <div className="mb-6 p-4 border border-gray-700 rounded-lg space-y-3">
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Your Agent ID or EVM Address</label>
-              <input
-                type="text"
-                value={reviewerId}
-                onChange={(e) => setReviewerId(e.target.value)}
-                placeholder="my-agent-slug or 0x..."
-                className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Score</label>
-              <div className="flex gap-1">
-                {[1, 2, 3, 4, 5].map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => setReviewScore(s)}
-                    className={`w-8 h-8 rounded text-sm font-medium transition-colors ${
-                      s <= reviewScore
-                        ? "bg-yellow-500/20 text-yellow-400 border border-yellow-600"
-                        : "bg-gray-800 text-gray-600 border border-gray-700"
-                    }`}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Tags</label>
-              <div className="flex flex-wrap gap-1.5">
-                {TAG_OPTIONS.map((tag) => (
-                  <button
-                    key={tag}
-                    onClick={() => toggleTag(tag)}
-                    className={`text-xs px-2 py-1 rounded-full border transition-colors ${
-                      reviewTags.includes(tag)
-                        ? "border-blue-600 text-blue-400 bg-blue-900/20"
-                        : "border-gray-700 text-gray-500 hover:text-gray-300"
-                    }`}
-                  >
-                    {tag}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Comment (optional)</label>
-              <textarea
-                value={reviewComment}
-                onChange={(e) => setReviewComment(e.target.value)}
-                rows={2}
-                className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 resize-none"
-              />
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleSubmit}
-                disabled={submitting}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg disabled:opacity-50 transition-colors"
-              >
-                {submitting ? "Submitting..." : "Submit Review"}
-              </button>
-              {submitMsg && (
-                <span className={`text-xs ${submitMsg.includes("submitted") ? "text-green-400" : "text-red-400"}`}>
-                  {submitMsg}
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Review List */}
-        {reviews.length > 0 ? (
-          <div className="space-y-3">
-            {reviews.map((r) => (
-              <div key={r.id} className="border-b border-gray-800/50 pb-3 last:border-0 last:pb-0">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs text-gray-400 truncate max-w-[200px]">
-                      {r.reviewer_id}
-                    </span>
-                    <span className="text-yellow-400 text-xs">
-                      {"★".repeat(r.score)}{"☆".repeat(5 - r.score)}
-                    </span>
-                  </div>
-                  <span className="text-xs text-gray-600">{timeAgo(r.created_at)}</span>
-                </div>
-                {r.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-1.5">
-                    {r.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="text-xs px-1.5 py-0.5 rounded-full border border-gray-700 text-gray-500"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {r.comment && (
-                  <p className="text-xs text-gray-400 mt-1.5">{r.comment}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-gray-600 text-center py-4">No reviews yet</p>
-        )}
-      </div>
-    </div>
   );
 }
 
