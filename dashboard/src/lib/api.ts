@@ -113,6 +113,7 @@ export interface Agent {
   chain_id?: number;
   agent_uri?: string;
   current_tier?: string;
+  sdk_connected_at?: string;
   created_at: string;
 }
 
@@ -681,10 +682,6 @@ export const openApi = {
       {},
       auth
     ),
-
-  // Agent settings (auth required)
-  updateOriginEndpoint: (agentId: string, endpoint: string, auth: string | { walletAddress: string }) =>
-    openFetcherPut<Agent>(`/v1/agents/${agentId}/endpoint`, { origin_endpoint: endpoint }, auth),
 
   // On-chain reputation (public)
   getReputationSummary: (tokenId: number, chainId?: number) =>

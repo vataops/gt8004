@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -64,7 +65,6 @@ func (s *Store) GetWalletStats(ctx context.Context, agentDBIDs []uuid.UUID) (*Wa
 		SELECT
 			COALESCE(SUM(CASE WHEN status_code < 400 THEN 1 ELSE 0 END), 0) as total_requests,
 			COALESCE(SUM(x402_amount), 0) as total_revenue,
-			COUNT(DISTINCT customer_id) as total_customers,
 			COALESCE(AVG(response_ms), 0) as avg_response_ms,
 			COALESCE(
 				SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END)::float /
@@ -81,10 +81,13 @@ func (s *Store) GetWalletStats(ctx context.Context, agentDBIDs []uuid.UUID) (*Wa
 	err := s.pool.QueryRow(ctx, query, agentDBIDs).Scan(
 		&stats.TotalRequests,
 		&stats.TotalRevenue,
-		&stats.TotalCustomers,
 		&stats.AvgResponseMs,
 		&stats.ErrorRate,
 	)
+
+	// Count distinct customers from customers table
+	custQuery := `SELECT COUNT(*) FROM customers WHERE agent_id = ANY($1)`
+	_ = s.pool.QueryRow(ctx, custQuery, agentDBIDs).Scan(&stats.TotalCustomers)
 	if err != nil && err != pgx.ErrNoRows {
 		return nil, fmt.Errorf("get wallet stats: %w", err)
 	}
@@ -136,9 +139,11 @@ func (s *Store) GetWalletDailyStats(ctx context.Context, agentDBIDs []uuid.UUID,
 	var stats []WalletDailyStats
 	for rows.Next() {
 		var stat WalletDailyStats
-		if err := rows.Scan(&stat.Date, &stat.Requests, &stat.Revenue, &stat.AvgResponseMs, &stat.ErrorRate); err != nil {
+		var date time.Time
+		if err := rows.Scan(&date, &stat.Requests, &stat.Revenue, &stat.AvgResponseMs, &stat.ErrorRate); err != nil {
 			return nil, fmt.Errorf("scan daily stats: %w", err)
 		}
+		stat.Date = date.Format("2006-01-02")
 		stats = append(stats, stat)
 	}
 
