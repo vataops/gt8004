@@ -57,7 +57,7 @@ func NewRouter(cfg *config.Config, h *handler.Handler, logger *zap.Logger) *gin.
 	v1.POST("/services/register", h.RegisterService)
 
 	servicesAuth := v1.Group("/services")
-	servicesAuth.Use(APIKeyAuthMiddleware(h))
+	servicesAuth.Use(WalletOwnerAuthMiddleware(h))
 	{
 		servicesAuth.GET("/:agent_id", h.GetService)
 		servicesAuth.PUT("/:agent_id/tier", h.UpdateTier)

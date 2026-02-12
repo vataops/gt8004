@@ -1,0 +1,178 @@
+Metadata-Version: 2.1
+Name: gt8004-sdk
+Version: 0.1.0
+Summary: Python SDK for GT8004 agent analytics and observability
+Home-page: https://github.com/AEL/gt8004-sdk-python
+Author: GT8004 Team
+Author-email: support@gt8004.com
+License: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Provides-Extra: fastapi
+Provides-Extra: dev
+
+# GT8004 Python SDK
+
+Python SDK for integrating GT8004 agent analytics and observability into your AI agents.
+
+**📚 전체 문서:** [SDK 통합 가이드 (한글)](../docs/SDK_GUIDE.md) - 데이터 흐름, 상세 동작 방식, 트러블슈팅 포함
+
+## Installation
+
+```bash
+# 로컬 설치 (개발 중)
+cd /path/to/gt8004
+pip install -e ./sdk-python
+
+# 또는 FastAPI와 함께
+pip install -e ./sdk-python[fastapi]
+
+# PyPI에서 설치 (배포 후)
+pip install gt8004-sdk[fastapi]
+```
+
+## Quick Start
+
+### FastAPI Integration
+
+```python
+from fastapi import FastAPI
+from gt8004 import GT8004Logger
+from gt8004.middleware.fastapi import GT8004Middleware
+import os
+
+# Initialize logger
+logger = GT8004Logger(
+    agent_id=os.getenv("GT8004_AGENT_ID"),
+    api_key=os.getenv("GT8004_API_KEY"),
+    ingest_url="https://your-gt8004-instance.com/v1/ingest"  # Optional
+)
+
+# Start auto-flush background task
+logger.transport.start_auto_flush()
+
+# Create FastAPI app
+app = FastAPI()
+
+# Add GT8004 middleware
+app.add_middleware(GT8004Middleware, logger=logger)
+
+@app.get("/")
+async def root():
+    return {"message": "Hello World"}
+
+# Graceful shutdown
+@app.on_event("shutdown")
+async def shutdown():
+    await logger.close()
+```
+
+### Manual Logging
+
+```python
+from gt8004 import GT8004Logger, RequestLogEntry
+
+logger = GT8004Logger(
+    agent_id="your-agent-id",
+    api_key="your-api-key"
+)
+
+# Log a request manually
+entry = RequestLogEntry(
+    request_id="unique-request-id",
+    method="POST",
+    path="/api/chat",
+    status_code=200,
+    response_ms=142.5,
+    customer_id="customer-123",
+    tool_name="chat_completion"
+)
+
+await logger.log(entry)
+await logger.flush()
+```
+
+## Features
+
+- **Automatic Request Logging**: FastAPI middleware automatically captures all requests
+- **Batch Processing**: Efficiently batches log entries before sending (default: 50 entries or 5 seconds)
+- **Async Transport**: Non-blocking async HTTP client for minimal performance impact
+- **Circuit Breaker**: Automatic backoff on consecutive failures to prevent overwhelming the ingest API
+- **Retry Logic**: Exponential backoff retry on transient failures
+- **Data Loss Prevention**: Failed batches are re-queued to avoid losing analytics data
+
+## Configuration
+
+```python
+logger = GT8004Logger(
+    agent_id="your-agent-id",          # Required: Your GT8004 agent ID
+    api_key="your-api-key",             # Required: Your GT8004 API key
+    ingest_url="http://localhost:9093/v1/ingest",  # Optional: Ingest API endpoint
+    batch_size=50,                      # Optional: Entries before auto-flush
+    flush_interval=5.0,                 # Optional: Seconds between auto-flushes
+)
+```
+
+## Advanced Usage
+
+### Custom Request Metadata
+
+The FastAPI middleware automatically captures:
+- HTTP method and path
+- Status code and response time
+- Request/response bodies (up to 16KB)
+- Client IP address
+- User-Agent, Content-Type, Referer headers
+
+You can extend this by manually logging additional fields:
+
+```python
+# In your route handler
+entry = RequestLogEntry(
+    request_id=str(uuid.uuid4()),
+    method=request.method,
+    path=str(request.url.path),
+    status_code=200,
+    response_ms=142.5,
+    # Additional fields
+    customer_id="customer-123",
+    tool_name="chat_completion",
+    x402_amount=0.05,  # X-402 payment protocol
+    x402_tx_hash="0x..."
+)
+await logger.log(entry)
+```
+
+### Manual Flush
+
+```python
+# Flush all pending logs immediately
+await logger.flush()
+```
+
+### Graceful Shutdown
+
+```python
+# Stop auto-flush and send all pending logs
+await logger.close()
+```
+
+## License
+
+MIT
+
+## Support
+
+For issues and questions, please open an issue on [GitHub](https://github.com/AEL/gt8004-sdk-python/issues).
+
+

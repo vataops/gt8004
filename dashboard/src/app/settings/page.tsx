@@ -23,7 +23,6 @@ export default function SettingsPage() {
 
 function SettingsContent() {
   const { agent, apiKey, login } = useAuth();
-  const [gatewayLoading, setGatewayLoading] = useState(false);
   const [verifyStatus, setVerifyStatus] = useState("");
   const [verifyError, setVerifyError] = useState("");
   const [editingEndpoint, setEditingEndpoint] = useState(false);
@@ -31,24 +30,6 @@ function SettingsContent() {
   const [endpointSaving, setEndpointSaving] = useState(false);
 
   if (!agent || !apiKey) return null;
-
-  const gatewayUrl = `${BACKEND_URL}/gateway/${agent.agent_id}/`;
-
-  const handleGatewayToggle = async () => {
-    setGatewayLoading(true);
-    try {
-      if (agent.gateway_enabled) {
-        await openApi.disableGateway(agent.agent_id, apiKey);
-      } else {
-        await openApi.enableGateway(agent.agent_id, apiKey);
-      }
-      await login(apiKey);
-    } catch (err) {
-      console.error("Gateway toggle failed:", err);
-    } finally {
-      setGatewayLoading(false);
-    }
-  };
 
   const handleVerify = async () => {
     setVerifyError("");
@@ -174,65 +155,17 @@ function SettingsContent() {
         </div>
       </section>
 
-      {/* Section 2: Integration */}
+      {/* Section 2: SDK Integration */}
       <section>
-        <h3 className="text-sm font-semibold text-gray-400 mb-3">Integration</h3>
-
-        {/* Gateway Mode */}
-        <div className="p-4 rounded-lg border border-gray-800 bg-gray-900 space-y-4 mb-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-white">Gateway Mode</p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Enable the gateway to automatically capture all requests. No code changes needed.
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <Badge
-                label={agent.gateway_enabled ? "Enabled" : "Disabled"}
-                variant={agent.gateway_enabled ? "low" : "medium"}
-              />
-              <button
-                onClick={handleGatewayToggle}
-                disabled={gatewayLoading}
-                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors disabled:opacity-50 ${
-                  agent.gateway_enabled
-                    ? "bg-red-900/30 text-red-400 hover:bg-red-900/50"
-                    : "bg-green-900/30 text-green-400 hover:bg-green-900/50"
-                }`}
-              >
-                {gatewayLoading
-                  ? "..."
-                  : agent.gateway_enabled
-                  ? "Disable"
-                  : "Enable"}
-              </button>
-            </div>
-          </div>
-          {agent.gateway_enabled && (
-            <div>
-              <p className="text-xs text-gray-500 mb-1">
-                Share this URL with your customers. All traffic is proxied to your origin and automatically logged.
-              </p>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 text-sm font-mono text-blue-400 bg-gray-950 px-3 py-2 rounded border border-gray-800 break-all">
-                  {gatewayUrl}
-                </code>
-                <CopyButton text={gatewayUrl} />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* SDK / Manual Mode */}
-        <div className="p-4 rounded-lg border border-gray-800 bg-gray-900/50 space-y-3">
+        <h3 className="text-sm font-semibold text-gray-400 mb-3">SDK Integration</h3>
+        <div className="p-4 rounded-lg border border-gray-800 bg-gray-900 space-y-3">
           <div>
-            <p className="text-sm font-medium text-gray-300">SDK Mode</p>
+            <p className="text-sm font-medium text-white">Ingest API</p>
             <p className="text-xs text-gray-500 mt-0.5">
-              Send request logs directly via the Ingest API. Use this if you handle traffic without the gateway.
+              Send request logs directly via the Ingest API using our SDK or manual integration.
             </p>
           </div>
-          <CodeBlock code={ingestExample} label="Ingest API" />
+          <CodeBlock code={ingestExample} label="Example Request" />
         </div>
       </section>
 

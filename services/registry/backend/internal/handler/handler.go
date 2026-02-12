@@ -54,6 +54,10 @@ func (h *Handler) Store() *store.Store {
 	return h.store
 }
 
+func (h *Handler) Logger() *zap.Logger {
+	return h.logger
+}
+
 // resolvePublicAgent resolves an agent by its slug (agent_id) from URL params.
 // Used for public read-only endpoints that don't require authentication.
 func (h *Handler) resolvePublicAgent(c *gin.Context) (uuid.UUID, bool) {

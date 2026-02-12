@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 
 	"github.com/GT8004/gt8004/internal/handler"
 )
@@ -52,17 +53,31 @@ func APIKeyAuthMiddleware(h *handler.Handler) gin.HandlerFunc {
 // Wallet owners are treated as root owners of their agents.
 func WalletOwnerAuthMiddleware(h *handler.Handler) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Log ALL relevant headers for debugging
+		h.Logger().Info("WalletOwnerAuth - Request headers",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.String("Authorization", c.GetHeader("Authorization")),
+			zap.String("X-Wallet-Address", c.GetHeader("X-Wallet-Address")),
+			zap.String("X-Real-IP", c.GetHeader("X-Real-IP")),
+			zap.String("X-Forwarded-For", c.GetHeader("X-Forwarded-For")),
+			zap.String("agent_id_param", c.Param("agent_id")))
+
 		// 1) Try API key
 		if authHeader := c.GetHeader("Authorization"); authHeader != "" {
+			h.Logger().Info("WalletOwnerAuth - Trying API key auth")
 			parts := strings.SplitN(authHeader, " ", 2)
 			if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
 				hash := sha256.Sum256([]byte(parts[1]))
 				keyHash := hex.EncodeToString(hash[:])
 				if agentAuth, err := h.Store().ValidateAPIKey(c.Request.Context(), keyHash); err == nil {
+					h.Logger().Info("WalletOwnerAuth - API key auth SUCCESS")
 					c.Set(ContextKeyAgentDBID, agentAuth.AgentDBID)
 					c.Set(ContextKeyAgentID, agentAuth.AgentID)
 					c.Next()
 					return
+				} else {
+					h.Logger().Warn("WalletOwnerAuth - API key validation failed", zap.Error(err))
 				}
 			}
 		}
@@ -70,12 +85,19 @@ func WalletOwnerAuthMiddleware(h *handler.Handler) gin.HandlerFunc {
 		// 2) Try wallet address — verify the agent belongs to this wallet
 		walletAddr := c.GetHeader("X-Wallet-Address")
 		agentID := c.Param("agent_id")
+		h.Logger().Info("WalletOwnerAuth - Trying wallet auth",
+			zap.String("wallet", walletAddr),
+			zap.String("agentID", agentID))
 		if walletAddr != "" && agentID != "" {
 			agent, err := h.Store().GetAgentByID(c.Request.Context(), agentID)
 			if err != nil {
+				h.Logger().Info("Agent not found", zap.Error(err))
 				c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "agent not found"})
 				return
 			}
+			h.Logger().Info("Checking wallet ownership",
+				zap.String("agent_evm", agent.EVMAddress),
+				zap.String("wallet", walletAddr))
 			if !strings.EqualFold(agent.EVMAddress, walletAddr) {
 				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "wallet does not own this agent"})
 				return
@@ -86,6 +108,7 @@ func WalletOwnerAuthMiddleware(h *handler.Handler) gin.HandlerFunc {
 			return
 		}
 
+		h.Logger().Warn("Authorization required - no valid auth provided")
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authorization required"})
 	}
 }

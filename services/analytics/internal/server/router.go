@@ -55,6 +55,11 @@ func NewRouter(cfg *config.Config, h *handler.Handler) *gin.Engine {
 	v1.GET("/agents/:agent_id/performance", h.PerformanceReport)
 	v1.GET("/agents/:agent_id/logs", h.ListLogs)
 	v1.GET("/agents/:agent_id/funnel", h.ConversionFunnel)
+
+	// Owner-level analytics (public, by wallet address)
+	v1.GET("/wallet/:address/stats", h.WalletStats)
+	v1.GET("/wallet/:address/daily", h.WalletDailyStats)
+	v1.GET("/wallet/:address/errors", h.WalletErrors)
 	// Authenticated ingest (API key auth via middleware)
 	authenticated := v1.Group("")
 	authenticated.Use(APIKeyAuthMiddleware(h))

@@ -55,14 +55,30 @@ async function openFetcherPut<T>(path: string, body: unknown, auth?: string | { 
   return res.json();
 }
 
-async function openFetcherDelete(path: string, apiKey?: string): Promise<void> {
+async function openFetcherDelete(
+  path: string,
+  auth?: string | { walletAddress: string; challenge?: string; signature?: string }
+): Promise<void> {
   const headers: Record<string, string> = {};
-  if (apiKey) {
-    headers["Authorization"] = `Bearer ${apiKey}`;
+  let body: Record<string, string> | undefined;
+
+  if (typeof auth === "string") {
+    headers["Authorization"] = `Bearer ${auth}`;
+  } else if (auth?.walletAddress) {
+    headers["X-Wallet-Address"] = auth.walletAddress;
+    if (auth.challenge && auth.signature) {
+      headers["Content-Type"] = "application/json";
+      body = {
+        challenge: auth.challenge,
+        signature: auth.signature,
+      };
+    }
   }
+
   const res = await fetch(`${OPEN_API_BASE}${path}`, {
     method: "DELETE",
     headers,
+    body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) throw new Error(await parseError(res));
 }
@@ -101,18 +117,17 @@ export interface Agent {
 }
 
 export interface RegisterRequest {
-  name?: string;
-  origin_endpoint?: string;
-  category?: string;
-  protocols?: string[];
-  pricing?: { model: string; amount: number; currency: string };
+  // ERC-8004 fields - all metadata comes from contract
+  // Backend verifies token ownership via RPC call
+  erc8004_token_id: number;
+  chain_id: number;
+  wallet_address: string;
+
+  // Service-level settings
   gateway_enabled?: boolean;
-  // ERC-8004 (optional)
-  erc8004_token_id?: number;
-  chain_id?: number;
-  wallet_address?: string;
-  challenge?: string;
-  signature?: string;
+  origin_endpoint?: string; // Only required if gateway_enabled is true
+  tier?: string;
+  pricing?: { model: string; amount: number; currency: string };
 }
 
 export interface RegisterResponse {
@@ -192,6 +207,38 @@ export interface PerformanceReport {
   error_delta: number;
   throughput_delta: number;
   uptime_delta: number;
+}
+
+// Wallet analytics types
+export interface WalletStats {
+  total_requests: number;
+  total_revenue: number;
+  total_customers: number;
+  avg_response_ms: number;
+  error_rate: number;
+  total_agents: number;
+  active_agents: number;
+}
+
+export interface WalletDailyStats {
+  date: string;
+  requests: number;
+  revenue: number;
+  avg_response_ms: number;
+  error_rate: number;
+}
+
+export interface WalletErrors {
+  total_errors: number;
+  error_rate: number;
+  by_status_code: Array<{ status_code: number; count: number }>;
+  by_error_type: Array<{ error_type: string; count: number }>;
+  by_agent: Array<{
+    agent_id: string;
+    agent_name: string;
+    error_count: number;
+    error_rate: number;
+  }>;
 }
 
 export interface BenchmarkEntry {
@@ -603,6 +650,16 @@ export const openApi = {
       `/v1/agents/wallet/${address}`
     ),
 
+  // Wallet analytics (public)
+  getWalletStats: (address: string) =>
+    openFetcher<WalletStats>(`/v1/wallet/${address}/stats`),
+  getWalletDailyStats: (address: string, days = 30) =>
+    openFetcher<{ stats: WalletDailyStats[] }>(
+      `/v1/wallet/${address}/daily?days=${days}`
+    ),
+  getWalletErrors: (address: string) =>
+    openFetcher<WalletErrors>(`/v1/wallet/${address}/errors`),
+
   // Gateway (API key or wallet owner)
   enableGateway: (agentId: string, auth: string | { walletAddress: string }) =>
     openFetcherPost<{ gateway_enabled: boolean; gateway_url: string }>(
@@ -661,6 +718,8 @@ export const openApi = {
   getNetworkStats: () =>
     openFetcher<NetworkStats>("/v1/network/stats"),
 
-  deregisterAgent: (agentId: string, apiKey: string) =>
-    openFetcherDelete(`/v1/services/${agentId}`, apiKey),
+  deregisterAgent: (
+    agentId: string,
+    auth: string | { walletAddress: string; challenge?: string; signature?: string }
+  ) => openFetcherDelete(`/v1/services/${agentId}`, auth),
 };

@@ -16,6 +16,7 @@ import { TrendChart } from "@/components/TrendChart";
 import { openApi, type Agent, type NetworkAgent, type AgentMetadata, type AgentService } from "@/lib/api";
 import { NETWORKS, resolveImageUrl } from "@/lib/networks";
 import { updateAgentURI, encodeDataUri } from "@/lib/erc8004";
+import { signChallenge } from "@/lib/wallet";
 import {
   useAgentStats,
   useDailyStats,
@@ -128,11 +129,9 @@ export default function AgentDashboardPage() {
   };
 
   // Settings state
-  const [gatewayLoading, setGatewayLoading] = useState(false);
   const [editingEndpoint, setEditingEndpoint] = useState(false);
   const [endpointValue, setEndpointValue] = useState("");
   const [endpointSaving, setEndpointSaving] = useState(false);
-  const [gatewayError, setGatewayError] = useState("");
 
   // Fetch all data in parallel (public endpoints, no auth needed)
   const { data: stats } = useAgentStats(id);
@@ -144,9 +143,6 @@ export default function AgentDashboardPage() {
   const { data: analytics } = useAnalytics(id, 30);
 
   const { data: funnel } = useFunnel(id, 30);
-
-  const gatewayUrl = `${BACKEND_URL}/gateway/${agent?.agent_id || id}/`;
-
 
   if (authLoading) {
     return <p className="text-gray-500">Loading...</p>;
@@ -174,38 +170,6 @@ export default function AgentDashboardPage() {
   const customersDelta = prevWeekCustomers > 0
     ? ((thisWeekCustomers - prevWeekCustomers) / prevWeekCustomers) * 100
     : 0;
-
-  const cleanError = (err: unknown, fallback: string): string => {
-    const raw = err instanceof Error ? err.message : String(err);
-    if (raw.includes("user rejected")) return "Transaction rejected by user.";
-    if (raw.includes("Failed to fetch")) return "Failed to connect to the network. Please check your wallet RPC settings.";
-    if (raw.length > 200) return raw.slice(0, 150) + "...";
-    return raw || fallback;
-  };
-
-  const handleGatewayToggle = async () => {
-    if (!agent) return;
-    const auth = apiKey || (walletAddress ? { walletAddress } : null);
-    if (!auth) {
-      setGatewayError("Connect your wallet or log in with API key to change gateway settings.");
-      return;
-    }
-    setGatewayError("");
-    setGatewayLoading(true);
-    try {
-      if (agent.gateway_enabled) {
-        await openApi.disableGateway(agent.agent_id, auth);
-      } else {
-        await openApi.enableGateway(agent.agent_id, auth);
-      }
-      try { await refreshAgent(); } catch { /* refresh failure is non-fatal */ }
-    } catch (err) {
-      console.error("Gateway toggle error:", err);
-      setGatewayError(cleanError(err, "Gateway toggle failed"));
-    } finally {
-      setGatewayLoading(false);
-    }
-  };
 
   const handleEndpointSave = async () => {
     if (!agent) return;
@@ -338,10 +302,6 @@ export default function AgentDashboardPage() {
             id={id}
             apiKey={apiKey}
             walletAddress={walletAddress}
-            gatewayUrl={gatewayUrl}
-            gatewayLoading={gatewayLoading}
-            gatewayError={gatewayError}
-            onGatewayToggle={handleGatewayToggle}
             editingEndpoint={editingEndpoint}
             endpointValue={endpointValue}
             endpointSaving={endpointSaving}
@@ -363,17 +323,48 @@ export default function AgentDashboardPage() {
 
 /* ---------- Deregister ---------- */
 
-function DeregisterSection({ agentId, apiKey }: { agentId: string; apiKey: string | null }) {
+function DeregisterSection({
+  agentId,
+  apiKey,
+  walletAddress
+}: {
+  agentId: string;
+  apiKey: string | null;
+  walletAddress: string | null;
+}) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleDeregister = async () => {
-    if (!apiKey) return;
+    if (!apiKey && !walletAddress) {
+      setError("Please connect your wallet or log in with API key to deregister");
+      return;
+    }
+
     setLoading(true);
     setError("");
+
     try {
-      await openApi.deregisterAgent(agentId, apiKey);
+      // If using wallet, get signature
+      if (walletAddress && !apiKey) {
+        // Get challenge
+        const { challenge } = await openApi.getChallenge(agentId);
+
+        // Sign challenge with wallet
+        const signature = await signChallenge(challenge);
+
+        // Deregister with signature
+        await openApi.deregisterAgent(agentId, {
+          walletAddress,
+          challenge,
+          signature
+        });
+      } else {
+        // Deregister with API key
+        await openApi.deregisterAgent(agentId, apiKey!);
+      }
+
       window.location.href = "/my-agents";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to deregister");
@@ -443,10 +434,6 @@ interface SettingsTabProps {
   id: string;
   apiKey: string | null;
   walletAddress: string | null;
-  gatewayUrl: string;
-  gatewayLoading: boolean;
-  gatewayError: string;
-  onGatewayToggle: () => void;
   editingEndpoint: boolean;
   endpointValue: string;
   endpointSaving: boolean;
@@ -463,10 +450,6 @@ function SettingsTab({
   id,
   apiKey,
   walletAddress,
-  gatewayUrl,
-  gatewayLoading,
-  gatewayError,
-  onGatewayToggle,
   editingEndpoint,
   endpointValue,
   endpointSaving,
@@ -616,7 +599,7 @@ function SettingsTab({
       <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
         <h4 className="text-sm font-semibold text-gray-400 mb-4">Origin Endpoint</h4>
         <p className="text-xs text-gray-500 mb-3">
-          The endpoint where gateway traffic is routed to.
+          Your agent's primary endpoint URL.
         </p>
         {editingEndpoint ? (
           <div className="flex items-center gap-2">
@@ -654,54 +637,6 @@ function SettingsTab({
             </button>
           </div>
         )}
-      </div>
-
-      {/* Integration */}
-      <div className="bg-gray-900 border border-gray-800 rounded-lg p-5 space-y-4">
-        <h4 className="text-sm font-semibold text-gray-400 mb-2">Gateway</h4>
-        <div className="p-4 rounded-lg border border-gray-800 bg-gray-950 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-white">Gateway Mode</p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Enable the gateway to automatically capture all requests.
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <Badge
-                label={agent?.gateway_enabled ? "Enabled" : "Disabled"}
-                variant={agent?.gateway_enabled ? "low" : "medium"}
-              />
-              <button
-                onClick={onGatewayToggle}
-                disabled={gatewayLoading}
-                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors disabled:opacity-50 ${
-                  agent?.gateway_enabled
-                    ? "bg-red-900/30 text-red-400 hover:bg-red-900/50"
-                    : "bg-green-900/30 text-green-400 hover:bg-green-900/50"
-                }`}
-              >
-                {gatewayLoading ? "..." : agent?.gateway_enabled ? "Disable" : "Enable"}
-              </button>
-            </div>
-          </div>
-          {gatewayError && (
-            <p className="text-sm text-red-400">{gatewayError}</p>
-          )}
-          {agent?.gateway_enabled && (
-            <div>
-              <p className="text-xs text-gray-500 mb-1">
-                Share this URL with your customers. All traffic is proxied to your origin.
-              </p>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 text-sm font-mono text-blue-400 bg-gray-950 px-3 py-2 rounded border border-gray-800 break-all">
-                  {gatewayUrl}
-                </code>
-                <CopyButton text={gatewayUrl} />
-              </div>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* API Key */}
@@ -911,7 +846,7 @@ function SettingsTab({
       </div>
 
       {/* Danger Zone */}
-      <DeregisterSection agentId={agent?.agent_id || id} apiKey={apiKey} />
+      <DeregisterSection agentId={agent?.agent_id || id} apiKey={apiKey} walletAddress={walletAddress} />
     </div>
   );
 }
@@ -980,15 +915,8 @@ function OverviewTab({ agent, networkAgent, id }: OverviewTabProps) {
     if (agent?.origin_endpoint && !list.some((s) => s.endpoint === agent.origin_endpoint)) {
       list.push({ name: "Origin", endpoint: agent.origin_endpoint });
     }
-    if (agent?.gateway_enabled && agent?.gt8004_endpoint) {
-      const gwUrl = `${BACKEND_URL}${agent.gt8004_endpoint}`;
-      if (!list.some((s) => s.endpoint === gwUrl)) {
-        list.push({ name: "Gateway", endpoint: gwUrl });
-      }
-    }
     return list;
-  }, [metaServices, agent?.origin_endpoint, agent?.gateway_enabled, agent?.gt8004_endpoint]);
-  const trusts: string[] = (meta?.supportedTrust ?? meta?.supportedTrusts ?? []) as string[];
+  }, [metaServices, agent?.origin_endpoint]);
   const hasX402 = meta?.x402Support || meta?.x402support || false;
 
   const explorer = networkAgent ? explorerUrl(networkAgent.chain_id) : null;
@@ -1011,12 +939,9 @@ function OverviewTab({ agent, networkAgent, id }: OverviewTabProps) {
     for (const svc of withEndpoints) {
       const url = svc.endpoint;
       const base = url.replace(/\/+$/, "");
-      // Gateway: direct /health endpoint on our backend
       // Origin: proxy through backend to avoid CORS
       // Others: direct /.well-known/agent.json
-      const healthUrl = svc.name === "Gateway"
-        ? `${base}/health`
-        : svc.name === "Origin"
+      const healthUrl = svc.name === "Origin"
         ? `${BACKEND_URL}/v1/agents/${id}/origin-health`
         : `${base}/.well-known/agent.json`;
       const controller = new AbortController();
@@ -1078,11 +1003,10 @@ function OverviewTab({ agent, networkAgent, id }: OverviewTabProps) {
         {agent && (
           <>
             <div className="border-t border-gray-800 my-4" />
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <StatCard label="Total Requests" value={agent.total_requests?.toLocaleString() ?? "0"} />
               <StatCard label="Total Revenue" value={`$${(agent.total_revenue_usdc ?? 0).toFixed(2)}`} />
               <StatCard label="Avg Response" value={`${(agent.avg_response_ms ?? 0).toFixed(0)}ms`} />
-              <StatCard label="Gateway" value={agent.gateway_enabled ? "Enabled" : "Disabled"} />
             </div>
           </>
         )}
@@ -1223,25 +1147,6 @@ function OverviewTab({ agent, networkAgent, id }: OverviewTabProps) {
           </div>
         </div>
       </div>
-
-      {/* Capabilities */}
-      {(hasX402 || trusts.length > 0) && (
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
-          <h4 className="text-sm font-semibold text-gray-400 mb-4">Capabilities</h4>
-          <div className="flex flex-wrap gap-2">
-            {hasX402 && (
-              <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-green-900/30 text-green-400 border border-green-800/50">
-                x402 Payments
-              </span>
-            )}
-            {trusts.map((t) => (
-              <span key={t} className="inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full bg-blue-900/30 text-blue-400 border border-blue-800/50">
-                {t}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Services / Endpoints with Health Check */}
       {services.length > 0 && (
@@ -1442,10 +1347,7 @@ function DeltaBadge({ value }: { value: number }) {
 const PROTOCOL_COLORS: Record<string, string> = {
   "sdk-mcp": "#3B82F6",
   "sdk-a2a": "#8B5CF6",
-  "gateway-mcp": "#10B981",
-  "gateway-a2a": "#F59E0B",
   "sdk-http": "#6B7280",
-  "gateway-http": "#9CA3AF",
 };
 
 function protoKey(source: string, protocol: string): string {

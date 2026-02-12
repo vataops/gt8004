@@ -2,7 +2,9 @@ package handler
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -16,21 +18,65 @@ import (
 	"github.com/GT8004/gt8004/internal/store"
 )
 
-type RegisterServiceRequest struct {
-	Name           string   `json:"name"`
-	OriginEndpoint string   `json:"origin_endpoint"`
-	Protocols      []string `json:"protocols"`
-	Category       string   `json:"category"`
-	Pricing        *Pricing `json:"pricing"`
-	Tier           string   `json:"tier"`
-	GatewayEnabled *bool    `json:"gateway_enabled"`
+// AgentMetadata represents the parsed agentURI JSON structure
+type AgentMetadata struct {
+	Name        string              `json:"name"`
+	Description string              `json:"description"`
+	Image       string              `json:"image"`
+	Services    []AgentServiceEntry `json:"services"`
+	Endpoints   []AgentServiceEntry `json:"endpoints"` // fallback field name
+	URL         string              `json:"url"`       // fallback single URL
+	Type        string              `json:"type"`      // e.g., "A2A", "MCP"
+}
 
-	// ERC-8004 (optional)
+type AgentServiceEntry struct {
+	Name     string `json:"name"`
+	Endpoint string `json:"endpoint"`
+}
+
+type RegisterServiceRequest struct {
+	// ERC-8004 fields - all metadata comes from contract
+	// Backend verifies token ownership via RPC call
 	ERC8004TokenID *int64 `json:"erc8004_token_id"`
 	ChainID        *int   `json:"chain_id"`
-	WalletAddress  string `json:"wallet_address"`
-	Challenge      string `json:"challenge"`
-	Signature      string `json:"signature"`
+	WalletAddress  string `json:"wallet_address" binding:"required"`
+
+	// Service-level settings
+	GatewayEnabled *bool    `json:"gateway_enabled"`
+	OriginEndpoint string   `json:"origin_endpoint"` // Only required if gateway_enabled is true
+	Tier           string   `json:"tier"`
+	Pricing        *Pricing `json:"pricing"`
+}
+
+// parseAgentURI decodes and parses the agentURI into structured metadata.
+// Supports: data:application/json;base64,{base64}, data:application/json,{json}, or plain JSON.
+func parseAgentURI(uri string) (*AgentMetadata, error) {
+	if uri == "" {
+		return nil, fmt.Errorf("empty agentURI")
+	}
+
+	var jsonStr string
+	if strings.HasPrefix(uri, "data:application/json;base64,") {
+		encoded := strings.TrimPrefix(uri, "data:application/json;base64,")
+		decoded, err := base64.StdEncoding.DecodeString(encoded)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode base64: %w", err)
+		}
+		jsonStr = string(decoded)
+	} else if strings.HasPrefix(uri, "data:application/json,") {
+		jsonStr = strings.TrimPrefix(uri, "data:application/json,")
+	} else if strings.HasPrefix(uri, "{") {
+		jsonStr = uri
+	} else {
+		return nil, fmt.Errorf("unsupported agentURI format")
+	}
+
+	var meta AgentMetadata
+	if err := json.Unmarshal([]byte(jsonStr), &meta); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	return &meta, nil
 }
 
 type RegisterServiceResponse struct {
@@ -49,16 +95,10 @@ func (h *Handler) RegisterService(c *gin.Context) {
 		return
 	}
 
-	// Generate agent_id: {chainId}-{sha256(name-tokenId)[:6]} for ERC-8004 agents,
-	// chain_id prefix enables natural sorting by network.
-	// Fallback to random UUID[:12] for basic registrations.
-	var agentID string
-	if req.ChainID != nil && req.ERC8004TokenID != nil {
-		hashInput := fmt.Sprintf("%s-%d", req.Name, *req.ERC8004TokenID)
-		hash := sha256.Sum256([]byte(hashInput))
-		agentID = fmt.Sprintf("%d-%s", *req.ChainID, hex.EncodeToString(hash[:])[:6])
-	} else {
-		agentID = strings.ReplaceAll(uuid.New().String(), "-", "")[:12]
+	// Validate ERC-8004 registration
+	if req.ERC8004TokenID == nil || req.ChainID == nil || req.WalletAddress == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ERC-8004 registration requires erc8004_token_id, chain_id, and wallet_address"})
+		return
 	}
 
 	tier := req.Tier
@@ -76,81 +116,112 @@ func (h *Handler) RegisterService(c *gin.Context) {
 		return
 	}
 
+	// Resolve chain-specific client
+	chainID := *req.ChainID
+	if h.erc8004Registry == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "ERC-8004 not configured"})
+		return
+	}
+
+	erc8004Client, err := h.erc8004Registry.GetClient(chainID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Verify on-chain ownership via RPC call
+	owner, err := erc8004Client.VerifyOwnership(c.Request.Context(), *req.ERC8004TokenID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "token not found on-chain: " + err.Error()})
+		return
+	}
+	if !strings.EqualFold(owner, req.WalletAddress) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "wallet does not own this token"})
+		return
+	}
+
+	// Check for duplicate token ID (only active agents)
+	existing, _ := h.store.GetAgentByTokenID(c.Request.Context(), *req.ERC8004TokenID)
+	if existing != nil && existing.Status != "deregistered" {
+		c.JSON(http.StatusConflict, gin.H{"error": "token already linked to another agent"})
+		return
+	}
+
+	// Get agent URI from contract
+	agentURI, err := erc8004Client.GetAgentURI(c.Request.Context(), *req.ERC8004TokenID)
+	if err != nil || agentURI == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to fetch agentURI from contract"})
+		return
+	}
+
+	// Parse agentURI to extract metadata
+	meta, err := parseAgentURI(agentURI)
+	if err != nil {
+		h.logger.Warn("failed to parse agentURI, using defaults", zap.Error(err))
+		meta = &AgentMetadata{
+			Name: fmt.Sprintf("Token #%d", *req.ERC8004TokenID),
+		}
+	}
+
+	// Generate agent_id: {chainId}-{sha256(tokenId)[:6]}
+	hashInput := fmt.Sprintf("%d", *req.ERC8004TokenID)
+	hash := sha256.Sum256([]byte(hashInput))
+	agentID := fmt.Sprintf("%d-%s", chainID, hex.EncodeToString(hash[:])[:6])
+
+	// Extract origin endpoint from metadata if not provided
+	originEndpoint := req.OriginEndpoint
+	if originEndpoint == "" && !gatewayEnabled {
+		// Try to extract from metadata services
+		services := meta.Services
+		if len(services) == 0 {
+			services = meta.Endpoints
+		}
+		if len(services) > 0 {
+			// Use the first service endpoint
+			originEndpoint = services[0].Endpoint
+		} else if meta.URL != "" {
+			originEndpoint = meta.URL
+		}
+	}
+
+	// Extract protocols from metadata
+	var protocols []string
+	services := meta.Services
+	if len(services) == 0 {
+		services = meta.Endpoints
+	}
+	for _, svc := range services {
+		if svc.Name != "" {
+			protocols = append(protocols, svc.Name)
+		}
+	}
+	if len(protocols) == 0 && meta.Type != "" {
+		protocols = []string{meta.Type}
+	}
+
+	// Create agent with metadata from contract
 	agent := &store.Agent{
 		AgentID:        agentID,
-		Name:           req.Name,
-		OriginEndpoint: req.OriginEndpoint,
-		Protocols:      req.Protocols,
-		Category:       req.Category,
+		Name:           meta.Name,
+		OriginEndpoint: originEndpoint,
+		Protocols:      protocols,
+		Category:       meta.Type, // Use Type as category
 		GatewayEnabled: gatewayEnabled,
 		Status:         "active",
 		CurrentTier:    tier,
+		ERC8004TokenID: req.ERC8004TokenID,
+		ChainID:        chainID,
+		AgentURI:       agentURI,
+		EVMAddress:     req.WalletAddress,
+		IdentityRegistry: erc8004Client.RegistryAddr(),
 	}
+
+	now := time.Now()
+	agent.VerifiedAt = &now
+
 	if req.Pricing != nil {
 		agent.PricingModel = req.Pricing.Model
 		agent.PricingCurrency = req.Pricing.Currency
-	}
-
-	// ERC-8004 on-chain verification (optional)
-	if req.ERC8004TokenID != nil && req.Challenge != "" && req.Signature != "" {
-		// Use wallet_address for challenge verification (challenge was created with wallet address)
-		verifyID := req.WalletAddress
-		if verifyID == "" {
-			verifyID = agentID
-		}
-		verifyReq := identity.VerifyRequest{
-			AgentID:   verifyID,
-			Challenge: req.Challenge,
-			Signature: req.Signature,
-		}
-		info, err := h.identity.VerifySignature(verifyReq)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "signature verification failed: " + err.Error()})
-			return
-		}
-
-		// Resolve chain-specific client
-		chainID := defaultChainID
-		if req.ChainID != nil {
-			chainID = *req.ChainID
-		}
-
-		if h.erc8004Registry != nil {
-			erc8004Client, err := h.erc8004Registry.GetClient(chainID)
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-				return
-			}
-
-			// Verify on-chain ownership
-			owner, err := erc8004Client.VerifyOwnership(c.Request.Context(), *req.ERC8004TokenID)
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "token not found on-chain: " + err.Error()})
-				return
-			}
-			if !strings.EqualFold(owner, info.EVMAddress) {
-				c.JSON(http.StatusForbidden, gin.H{"error": "wallet does not own this token"})
-				return
-			}
-
-			// Check for duplicate token ID
-			existing, _ := h.store.GetAgentByTokenID(c.Request.Context(), *req.ERC8004TokenID)
-			if existing != nil {
-				c.JSON(http.StatusConflict, gin.H{"error": "token already linked to another agent"})
-				return
-			}
-
-			// Get agent URI from contract
-			agentURI, _ := erc8004Client.GetAgentURI(c.Request.Context(), *req.ERC8004TokenID)
-
-			agent.ERC8004TokenID = req.ERC8004TokenID
-			agent.ChainID = chainID
-			agent.AgentURI = agentURI
-			agent.EVMAddress = info.EVMAddress
-			agent.IdentityRegistry = erc8004Client.RegistryAddr()
-			now := time.Now()
-			agent.VerifiedAt = &now
-		}
 	}
 
 	agent.GT8004Endpoint = fmt.Sprintf("/v1/agents/%s", agentID)
@@ -276,6 +347,11 @@ func (h *Handler) UpdateTier(c *gin.Context) {
 	})
 }
 
+type DeregisterRequest struct {
+	Challenge string `json:"challenge"`
+	Signature string `json:"signature"`
+}
+
 func (h *Handler) DeregisterService(c *gin.Context) {
 	agentDBID, exists := c.Get("agent_db_id")
 	if !exists {
@@ -283,6 +359,36 @@ func (h *Handler) DeregisterService(c *gin.Context) {
 		return
 	}
 	dbID := agentDBID.(uuid.UUID)
+
+	// If using wallet auth (X-Wallet-Address), require signature verification
+	walletAddr := c.GetHeader("X-Wallet-Address")
+	if walletAddr != "" {
+		var req DeregisterRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "challenge and signature required for wallet auth"})
+			return
+		}
+
+		// Verify signature
+		agentID := c.Param("agent_id")
+		verifyReq := identity.VerifyRequest{
+			AgentID:   agentID,
+			Challenge: req.Challenge,
+			Signature: req.Signature,
+		}
+		info, err := h.identity.VerifySignature(verifyReq)
+		if err != nil {
+			h.logger.Warn("signature verification failed", zap.Error(err))
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid signature"})
+			return
+		}
+
+		// Check that the signer matches the wallet address
+		if !strings.EqualFold(info.EVMAddress, walletAddr) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "signature does not match wallet address"})
+			return
+		}
+	}
 
 	if err := h.store.DeregisterAgent(c.Request.Context(), dbID); err != nil {
 		h.logger.Error("failed to deregister agent", zap.Error(err))

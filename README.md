@@ -109,6 +109,8 @@ app.use(logger.middleware());  // 요청/응답 자동 캡처, 비동기 전송
 
 SDK든 Gateway든 대시보드, 분석, 디스커버리 기능은 동일하게 제공됩니다.
 
+**📚 상세 가이드:** [SDK 통합 가이드](docs/SDK_GUIDE.md)를 참고하세요.
+
 ### 2. 대시보드 — 에이전트의 Stripe Dashboard
 
 에이전트 운영자가 자기 에이전트의 비즈니스를 한눈에 볼 수 있습니다.
