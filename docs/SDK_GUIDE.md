@@ -2,32 +2,44 @@
 
 ## 개요
 
-GT8004 Python SDK는 AI 에이전트의 모든 요청을 자동으로 추적하고 분석 데이터를 GT8004 플랫폼으로 전송하는 라이브러리입니다. FastAPI 미들웨어를 통해 코드 수정 없이 즉시 통합할 수 있습니다.
+GT8004 Python SDK는 AI 에이전트의 모든 요청을 자동으로 추적하고 분석 데이터를 GT8004 플랫폼으로 전송하는 라이브러리입니다. FastAPI 미들웨어를 통해 **단 10줄의 코드로 즉시 통합**할 수 있습니다.
+
+### ✨ 핵심 기능
+
+- 🚀 **제로 설정**: 미들웨어 1줄만 추가하면 모든 요청 자동 추적
+- 📊 **실시간 대시보드**: `https://gt8004.xyz/agents/{agent-id}`에서 즉시 확인
+- ⚡ **논블로킹**: 비동기 배치 전송으로 성능 영향 최소화
+- 🔄 **자동 재시도**: Exponential backoff + Circuit breaker
+- 🛡️ **안정성**: 네트워크 장애 시에도 데이터 손실 없음
 
 ## 설치
 
 ```bash
-# 기본 설치
-pip install ./sdk-python
+# GitHub에서 직접 설치
+pip install git+https://github.com/HydroX-labs/gt8004-sdk.git
 
-# FastAPI와 함께 사용
-pip install ./sdk-python[fastapi]
-
-# 개발 의존성 포함
-pip install ./sdk-python[dev]
+# 또는 개발 환경에서 로컬 설치
+pip install -e ./sdk-python
 ```
 
+> **공식 저장소**: https://github.com/HydroX-labs/gt8004-sdk
+
 ## 빠른 시작
+
+**단 10줄의 코드로 AI 에이전트 분석 플랫폼에 연결하세요!**
+
+기존 FastAPI 앱에 미들웨어만 추가하면 모든 요청이 자동으로 추적되며,
+대시보드에서 실시간 분석을 확인할 수 있습니다: `https://gt8004.xyz/agents/{your-agent-id}`
 
 ### 1. 환경 변수 설정
 
 ```bash
 export GT8004_AGENT_ID="your-agent-id"
 export GT8004_API_KEY="your-api-key"
-export GT8004_INGEST_URL="http://localhost:9093/v1/ingest"  # Optional
+export GT8004_INGEST_URL="http://localhost:9092/v1/ingest"  # Optional
 ```
 
-### 2. FastAPI 앱에 통합
+### 2. FastAPI 앱에 통합 (10줄만 추가!)
 
 ```python
 from fastapi import FastAPI
@@ -35,37 +47,35 @@ from gt8004 import GT8004Logger
 from gt8004.middleware.fastapi import GT8004Middleware
 import os
 
-# GT8004 로거 초기화
+# 1. 로거 초기화 (3줄)
 logger = GT8004Logger(
     agent_id=os.getenv("GT8004_AGENT_ID"),
-    api_key=os.getenv("GT8004_API_KEY"),
-    ingest_url=os.getenv("GT8004_INGEST_URL", "http://localhost:9093/v1/ingest")
+    api_key=os.getenv("GT8004_API_KEY")
 )
+logger.transport.start_auto_flush()  # 자동 전송 시작
 
-# 자동 flush 시작 (백그라운드에서 5초마다 또는 50개 쌓이면 전송)
-logger.transport.start_auto_flush()
-
-# FastAPI 앱 생성
 app = FastAPI()
 
-# GT8004 미들웨어 추가 - 모든 요청 자동 로깅
+# 2. 미들웨어 추가 (1줄) - 이게 전부입니다!
 app.add_middleware(GT8004Middleware, logger=logger)
 
+# 기존 코드는 그대로 유지
 @app.get("/")
 async def root():
     return {"message": "Hello World"}
 
 @app.post("/chat")
-async def chat(message: str):
-    # 비즈니스 로직
-    response = await process_chat(message)
-    return {"response": response}
+async def chat(message: dict):
+    # 기존 비즈니스 로직 - 수정 불필요
+    return {"response": "처리 완료"}
 
-# 앱 종료 시 남은 로그 전송
+# 3. Graceful shutdown (3줄)
 @app.on_event("shutdown")
 async def shutdown():
     await logger.close()
 ```
+
+**완료!** 이제 `https://gt8004.xyz/agents/{your-agent-id}`에서 실시간 분석을 확인하세요 📊
 
 ### 3. 수동 로깅 (고급)
 
@@ -135,7 +145,7 @@ await logger.flush()  # 즉시 전송
        ▼
 ┌─────────────────────┐
 │ Analytics Service   │
-│ (Port 9093)         │
+│ (Port 9092)         │
 │ /v1/ingest          │
 └──────┬──────────────┘
        │
@@ -332,7 +342,7 @@ WHERE id = $agent_id;
 logger = GT8004Logger(
     agent_id="your-agent-id",           # 필수: 에이전트 ID
     api_key="your-api-key",             # 필수: API 키
-    ingest_url="http://localhost:9093/v1/ingest",  # Ingest API URL
+    ingest_url="http://localhost:9092/v1/ingest",  # Ingest API URL
     batch_size=50,                      # 배치 크기 (기본: 50)
     flush_interval=5.0,                 # Flush 간격 초 (기본: 5.0)
 )
@@ -345,7 +355,7 @@ logger = GT8004Logger(
 logger = GT8004Logger(
     agent_id=os.getenv("GT8004_AGENT_ID"),
     api_key=os.getenv("GT8004_API_KEY"),
-    ingest_url="http://localhost:9093/v1/ingest",
+    ingest_url="http://localhost:9092/v1/ingest",
     batch_size=10,      # 작은 배치로 빠른 피드백
     flush_interval=2.0  # 2초마다 전송
 )
@@ -356,7 +366,7 @@ logger = GT8004Logger(
 logger = GT8004Logger(
     agent_id=os.getenv("GT8004_AGENT_ID"),
     api_key=os.getenv("GT8004_API_KEY"),
-    ingest_url="https://analytics.gt8004.com/v1/ingest",
+    ingest_url="https://gt8004.xyz/v1/ingest",
     batch_size=100,     # 큰 배치로 효율성 향상
     flush_interval=10.0 # 10초마다 전송
 )
@@ -430,7 +440,7 @@ entry.x402_tx_hash = "0xabc..."   # 온체인 트랜잭션
 ### Q: 로그가 대시보드에 안 보여요
 A: 다음을 확인하세요:
 1. API Key가 올바른지
-2. Ingest URL이 정확한지 (http://localhost:9093/v1/ingest)
+2. Ingest URL이 정확한지 (http://localhost:9092/v1/ingest)
 3. Analytics 서비스가 실행 중인지
 4. `await logger.flush()` 호출 여부
 
@@ -447,14 +457,15 @@ A: 네, Circuit Breaker가 실패를 감지하고:
 
 ## 예제 코드
 
-전체 예제는 `sdk-python/examples/` 디렉토리를 참고하세요:
+전체 예제는 GitHub 저장소를 참고하세요:
 
-- `fastapi_example.py`: FastAPI 통합 예제
-- `manual_logging.py`: 수동 로깅 예제
-- `x402_integration.py`: X-402 결제 연동 예제
+**공식 SDK 저장소**: https://github.com/HydroX-labs/gt8004-sdk
+
+- `examples/fastapi_example.py`: FastAPI 통합 예제
+- `examples/manual_logging.py`: 수동 로깅 예제 (고급)
 
 ## 지원
 
-- GitHub Issues: https://github.com/AEL/gt8004/issues
-- 문서: https://docs.gt8004.com
-- 이메일: support@gt8004.com
+- **GitHub**: https://github.com/HydroX-labs/gt8004-sdk
+- **대시보드**: https://gt8004.xyz
+- **Issues**: https://github.com/HydroX-labs/gt8004-sdk/issues
