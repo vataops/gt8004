@@ -1286,6 +1286,7 @@ function AnalyticsTab({ stats, chartData, thisWeekRequests, totalCustomers, anal
   const allKeys = new Set<string>();
   if (analytics?.daily_by_protocol) {
     for (const d of analytics.daily_by_protocol) {
+      if (d.source === "gateway") continue;
       allKeys.add(protoKey(d.source, d.protocol));
     }
   }
@@ -1296,6 +1297,7 @@ function AnalyticsTab({ stats, chartData, thisWeekRequests, totalCustomers, anal
     if (!analytics?.daily_by_protocol?.length) return null;
     const byDate: Record<string, Record<string, number> & { date: string; label: string }> = {};
     for (const d of analytics.daily_by_protocol) {
+      if (d.source === "gateway") continue;
       if (!byDate[d.date]) {
         const label = d.date.slice(5); // MM-DD
         const init: Record<string, number> & { date: string; label: string } = { date: d.date, label } as never;
@@ -1309,7 +1311,7 @@ function AnalyticsTab({ stats, chartData, thisWeekRequests, totalCustomers, anal
   })();
 
   const health = analytics?.health;
-  const proto = analytics?.protocol;
+  const proto = analytics?.protocol?.filter((p) => p.source !== "gateway");
   const tools = analytics?.tool_ranking;
   const cust = analytics?.customers;
   const mcpTools = analytics?.mcp_tools;
