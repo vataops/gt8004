@@ -41,6 +41,9 @@ type Agent struct {
 	Capabilities     []string   `json:"capabilities,omitempty"`
 	IdentityRegistry string     `json:"identity_registry,omitempty"`
 	VerifiedAt       *time.Time `json:"verified_at,omitempty"`
+
+	// SDK connection tracking
+	SdkConnectedAt *time.Time `json:"sdk_connected_at,omitempty"`
 }
 
 // agentSelectCols is the shared column list used across agent queries.
@@ -52,7 +55,8 @@ const agentSelectCols = `
 	created_at, updated_at,
 	COALESCE(current_tier, 'open'), tier_updated_at,
 	erc8004_token_id, COALESCE(chain_id, 0), COALESCE(agent_uri, ''), COALESCE(capabilities, '[]'::jsonb),
-	COALESCE(identity_registry, ''), verified_at
+	COALESCE(identity_registry, ''), verified_at,
+	sdk_connected_at
 `
 
 // scanAgent scans a single agent row into an Agent struct.
@@ -67,6 +71,7 @@ func scanAgent(scan func(dest ...any) error) (*Agent, error) {
 		&a.CurrentTier, &a.TierUpdatedAt,
 		&a.ERC8004TokenID, &a.ChainID, &a.AgentURI, &a.Capabilities,
 		&a.IdentityRegistry, &a.VerifiedAt,
+		&a.SdkConnectedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -289,18 +294,6 @@ func (s *Store) UpdateTier(ctx context.Context, id uuid.UUID, tier string) error
 	return nil
 }
 
-
-// UpdateOriginEndpoint updates the origin endpoint for an agent.
-func (s *Store) UpdateOriginEndpoint(ctx context.Context, id uuid.UUID, endpoint string) error {
-	_, err := s.pool.Exec(ctx, `
-		UPDATE agents SET origin_endpoint = $1, updated_at = NOW()
-		WHERE id = $2
-	`, endpoint, id)
-	if err != nil {
-		return fmt.Errorf("update origin endpoint: %w", err)
-	}
-	return nil
-}
 
 // GetAgentsByEVMAddress returns all agents linked to a given EVM wallet address.
 func (s *Store) GetAgentsByEVMAddress(ctx context.Context, evmAddress string) ([]Agent, error) {

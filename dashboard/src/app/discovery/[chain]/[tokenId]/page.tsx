@@ -205,7 +205,7 @@ export default function AgentDetailPage() {
           </Section>
 
           {/* Services / Endpoints */}
-          <ServicesWithHealth services={agent.metadata?.services ?? agent.metadata?.endpoints ?? []} />
+          <ServicesWithHealth services={(agent.metadata?.services ?? agent.metadata?.endpoints ?? []).filter((s: AgentService) => s.name !== "OASF")} />
 
           {/* Registrations */}
           {agent.metadata?.registrations && agent.metadata.registrations.length > 0 && (
@@ -364,16 +364,18 @@ function ServicesWithHealth({ services }: { services: AgentService[] }) {
     setHealthStatus(init);
     setLastChecked(new Date());
 
+    const BACKEND_URL = process.env.NEXT_PUBLIC_OPEN_API_URL || "http://localhost:8080";
     for (const svc of withEndpoints) {
       const url = svc.endpoint;
-      const base = url.replace(/\/+$/, "");
-      const healthUrl = `${base}/.well-known/agent.json`;
+      // Proxy health checks through backend to avoid CORS
+      const healthUrl = `${BACKEND_URL}/v1/proxy/health?endpoint=${encodeURIComponent(url)}`;
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
+      const timeout = setTimeout(() => controller.abort(), 8000);
       fetch(healthUrl, { method: "GET", signal: controller.signal })
-        .then((res) => {
+        .then(async (res) => {
           clearTimeout(timeout);
-          setHealthStatus((prev) => ({ ...prev, [url]: res.ok ? "healthy" : "unhealthy" }));
+          const data = await res.json().catch(() => ({}));
+          setHealthStatus((prev) => ({ ...prev, [url]: data.status === "healthy" ? "healthy" : "unhealthy" }));
         })
         .catch(() => {
           clearTimeout(timeout);

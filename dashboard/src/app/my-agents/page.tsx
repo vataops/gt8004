@@ -107,6 +107,8 @@ export default function MyAgentsPage() {
   const [healthStatus, setHealthStatus] = useState<Record<string, "checking" | "healthy" | "unhealthy">>({});
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 20;
 
   // Wallet analytics hooks
   const { data: walletStats } = useWalletStats(walletAddress);
@@ -218,6 +220,7 @@ export default function MyAgentsPage() {
         }
       }
 
+      rows.sort((a, b) => (a.registered === b.registered ? 0 : a.registered ? -1 : 1));
       setAgents(rows);
     } catch (err) {
       console.error("Failed to load agents:", err);
@@ -404,10 +407,10 @@ export default function MyAgentsPage() {
                 </tr>
               </thead>
               <tbody>
-                {agents.map((agent) => (
+                {agents.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE).map((agent) => (
                   <tr
                     key={`${agent.chain_id}-${agent.agent_id}`}
-                    className="border-b border-gray-800/50 hover:bg-gray-800/30"
+                    className={`border-b border-gray-800/50 hover:bg-gray-800/30 ${!agent.registered ? "opacity-50 hover:opacity-80 transition-opacity" : ""}`}
                   >
                     {/* Agent name + token */}
                     <td className="p-3">
@@ -435,6 +438,11 @@ export default function MyAgentsPage() {
                                 </span>
                               )}
                           </div>
+                          {!agent.registered && (
+                            <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-900/30 text-yellow-500 mt-1">
+                              On-chain only
+                            </span>
+                          )}
                           {agent.services.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-1">
                               {agent.services.map((svc, i) => {
@@ -510,9 +518,9 @@ export default function MyAgentsPage() {
                       ) : (
                         <Link
                           href={`/register?token_id=${agent.token_id}&chain_id=${agent.chain_id}&agent_uri=${encodeURIComponent(agent.agent_uri || "")}`}
-                          className="text-green-400 hover:text-green-300 text-xs transition-colors"
+                          className="inline-flex items-center px-3 py-1 rounded-md text-xs font-medium bg-green-600 hover:bg-green-500 text-white transition-colors"
                         >
-                          Register
+                          Register →
                         </Link>
                       )}
                     </td>
@@ -530,6 +538,28 @@ export default function MyAgentsPage() {
                 )}
               </tbody>
             </table>
+            {agents.length > PAGE_SIZE && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-800">
+                <span className="text-xs text-gray-500">
+                  {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, agents.length)} of {agents.length} agents
+                </span>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.ceil(agents.length / PAGE_SIZE) }, (_, i) => i + 1).map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`min-w-[28px] h-7 rounded text-xs font-medium transition-colors ${
+                        page === currentPage
+                          ? "bg-blue-600 text-white"
+                          : "text-gray-400 hover:bg-gray-800 hover:text-gray-200"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -128,11 +128,6 @@ export default function AgentDashboardPage() {
     }
   };
 
-  // Settings state
-  const [editingEndpoint, setEditingEndpoint] = useState(false);
-  const [endpointValue, setEndpointValue] = useState("");
-  const [endpointSaving, setEndpointSaving] = useState(false);
-
   // Fetch all data in parallel (public endpoints, no auth needed)
   const { data: stats } = useAgentStats(id);
   const { data: daily } = useDailyStats(id, 30);
@@ -170,23 +165,6 @@ export default function AgentDashboardPage() {
   const customersDelta = prevWeekCustomers > 0
     ? ((thisWeekCustomers - prevWeekCustomers) / prevWeekCustomers) * 100
     : 0;
-
-  const handleEndpointSave = async () => {
-    if (!agent) return;
-    const auth = apiKey || (walletAddress ? { walletAddress } : null);
-    if (!auth) return;
-    setEndpointSaving(true);
-    try {
-      const updated = await openApi.updateOriginEndpoint(agent.agent_id, endpointValue, auth);
-      setViewedAgent(updated);
-      setEditingEndpoint(false);
-    } catch (err) {
-      console.error("Failed to update endpoint:", err);
-    } finally {
-      setEndpointSaving(false);
-    }
-  };
-
 
   return (
     <div className="space-y-0">
@@ -302,16 +280,6 @@ export default function AgentDashboardPage() {
             id={id}
             apiKey={apiKey}
             walletAddress={walletAddress}
-            editingEndpoint={editingEndpoint}
-            endpointValue={endpointValue}
-            endpointSaving={endpointSaving}
-            onEndpointChange={setEndpointValue}
-            onEndpointEdit={() => {
-              setEndpointValue(agent?.origin_endpoint || "");
-              setEditingEndpoint(true);
-            }}
-            onEndpointSave={handleEndpointSave}
-            onEndpointCancel={() => setEditingEndpoint(false)}
             networkAgent={networkAgent}
             refreshAgent={refreshAgent}
           />
@@ -434,13 +402,6 @@ interface SettingsTabProps {
   id: string;
   apiKey: string | null;
   walletAddress: string | null;
-  editingEndpoint: boolean;
-  endpointValue: string;
-  endpointSaving: boolean;
-  onEndpointChange: (v: string) => void;
-  onEndpointEdit: () => void;
-  onEndpointSave: () => void;
-  onEndpointCancel: () => void;
   networkAgent: NetworkAgent | null;
   refreshAgent: () => Promise<void>;
 }
@@ -450,13 +411,6 @@ function SettingsTab({
   id,
   apiKey,
   walletAddress,
-  editingEndpoint,
-  endpointValue,
-  endpointSaving,
-  onEndpointChange,
-  onEndpointEdit,
-  onEndpointSave,
-  onEndpointCancel,
   networkAgent,
   refreshAgent,
 }: SettingsTabProps) {
@@ -595,50 +549,6 @@ function SettingsTab({
   };
   return (
     <div className="space-y-6">
-      {/* Origin Endpoint */}
-      <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
-        <h4 className="text-sm font-semibold text-gray-400 mb-4">Origin Endpoint</h4>
-        <p className="text-xs text-gray-500 mb-3">
-          Your agent's primary endpoint URL.
-        </p>
-        {editingEndpoint ? (
-          <div className="flex items-center gap-2">
-            <input
-              type="url"
-              value={endpointValue}
-              onChange={(e) => onEndpointChange(e.target.value)}
-              placeholder="https://api.example.com"
-              className="flex-1 px-3 py-2 bg-gray-950 border border-gray-700 rounded-md text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500"
-            />
-            <button
-              onClick={onEndpointSave}
-              disabled={endpointSaving || !endpointValue}
-              className="px-3 py-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium disabled:opacity-50 transition-colors"
-            >
-              {endpointSaving ? "..." : "Save"}
-            </button>
-            <button
-              onClick={onEndpointCancel}
-              className="px-3 py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <code className="flex-1 text-sm font-mono text-gray-300 bg-gray-950 px-3 py-2 rounded border border-gray-800 break-all">
-              {agent?.origin_endpoint || "-"}
-            </code>
-            <button
-              onClick={onEndpointEdit}
-              className="px-3 py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm transition-colors"
-            >
-              Edit
-            </button>
-          </div>
-        )}
-      </div>
-
       {/* API Key */}
       <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
         <h4 className="text-sm font-semibold text-gray-400 mb-4">API Key</h4>
@@ -894,7 +804,8 @@ function OverviewTab({ agent, networkAgent, id }: OverviewTabProps) {
   const imageUrl = resolveImageUrl(meta?.image ?? networkAgent?.image_url ?? null);
   const description = meta?.description ?? networkAgent?.description;
   const metaServices: AgentService[] = useMemo(() => {
-    const list = meta?.services ?? meta?.endpoints ?? [];
+    const list = (meta?.services ?? meta?.endpoints ?? [])
+      .filter((s: AgentService) => s.name !== "OASF");
     // If no services array but metadata has a url, derive a service entry from it
     if (list.length === 0 && meta?.url) {
       const url = meta.url as string;
@@ -904,19 +815,13 @@ function OverviewTab({ agent, networkAgent, id }: OverviewTabProps) {
     return list;
   }, [meta]);
 
-  // Build full service list: on-chain metadata + platform endpoints as fallback
+  // Build service list from on-chain metadata only
   const services: AgentService[] = useMemo(() => {
-    // Filter out any on-chain services that look like our platform gateway endpoints
-    const filteredMeta = metaServices.filter((s) => {
+    return metaServices.filter((s) => {
       const endpoint = s.endpoint.toLowerCase();
       return !endpoint.includes('/gateway/') && !endpoint.includes('/v1/agents/');
     });
-    const list = [...filteredMeta];
-    if (agent?.origin_endpoint && !list.some((s) => s.endpoint === agent.origin_endpoint)) {
-      list.push({ name: "Origin", endpoint: agent.origin_endpoint });
-    }
-    return list;
-  }, [metaServices, agent?.origin_endpoint]);
+  }, [metaServices]);
   const hasX402 = meta?.x402Support || meta?.x402support || false;
 
   const explorer = networkAgent ? explorerUrl(networkAgent.chain_id) : null;
@@ -938,24 +843,17 @@ function OverviewTab({ agent, networkAgent, id }: OverviewTabProps) {
 
     for (const svc of withEndpoints) {
       const url = svc.endpoint;
-      const base = url.replace(/\/+$/, "");
-      // Origin: proxy through backend to avoid CORS
-      // Others: direct /.well-known/agent.json
+      // Proxy all health checks through backend to avoid CORS
       const healthUrl = svc.name === "Origin"
         ? `${BACKEND_URL}/v1/agents/${id}/origin-health`
-        : `${base}/.well-known/agent.json`;
+        : `${BACKEND_URL}/v1/proxy/health?endpoint=${encodeURIComponent(url)}`;
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 8000);
       fetch(healthUrl, { method: "GET", signal: controller.signal })
         .then(async (res) => {
           clearTimeout(timeout);
-          if (svc.name === "Origin") {
-            // Proxy response: always 200, check JSON status field
-            const data = await res.json().catch(() => ({}));
-            return data.status === "healthy" ? "healthy" : "unhealthy";
-          }
-          // Direct fetch: use HTTP status
-          return res.ok ? "healthy" : "unhealthy";
+          const data = await res.json().catch(() => ({}));
+          return data.status === "healthy" ? "healthy" : "unhealthy";
         })
         .then((status: "healthy" | "unhealthy") => {
           setHealthStatus((prev) => ({ ...prev, [url]: { status } }));
@@ -1176,6 +1074,19 @@ function OverviewTab({ agent, networkAgent, id }: OverviewTabProps) {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-white">{svc.name}</span>
                       {svc.version && <span className="text-xs text-gray-500">v{svc.version}</span>}
+                      {(svc.name === "A2A" || svc.name === "Origin") && (
+                        agent?.sdk_connected_at ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-emerald-900/30 text-emerald-400 border border-emerald-800/50">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                            SDK
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-gray-800/50 text-gray-500 border border-gray-700/50">
+                            <span className="w-1.5 h-1.5 rounded-full bg-gray-600" />
+                            SDK
+                          </span>
+                        )
+                      )}
                     </div>
                     {health && (
                       <div className="flex items-center gap-1.5">

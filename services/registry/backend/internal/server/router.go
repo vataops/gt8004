@@ -74,19 +74,20 @@ func NewRouter(cfg *config.Config, h *handler.Handler, logger *zap.Logger) *gin.
 	v1.GET("/agents/:agent_id/health", h.AgentHealth)
 	v1.GET("/agents/:agent_id/origin-health", h.AgentOriginHealth)
 
+	// Generic service health proxy (avoids browser CORS)
+	v1.GET("/proxy/health", h.ServiceHealth)
+
 	// API key authenticated routes (write operations)
 	authenticated := v1.Group("")
 	authenticated.Use(APIKeyAuthMiddleware(h))
 	{
 		authenticated.GET("/agents/me", h.GetMe)
-		authenticated.PUT("/agents/me/endpoint", h.UpdateOriginEndpoint)
 	}
 
 	// Owner-authenticated routes (API key or wallet address)
 	ownerAuth := v1.Group("")
 	ownerAuth.Use(WalletOwnerAuthMiddleware(h))
 	{
-		ownerAuth.PUT("/agents/:agent_id/endpoint", h.UpdateAgentEndpoint)
 		ownerAuth.POST("/agents/:agent_id/gateway/enable", h.EnableGateway)
 		ownerAuth.POST("/agents/:agent_id/gateway/disable", h.DisableGateway)
 		ownerAuth.POST("/agents/:agent_id/api-key/regenerate", h.RegenerateAPIKey)

@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 // WalletStats returns aggregated stats across all agents owned by wallet
@@ -23,7 +24,7 @@ func (h *Handler) WalletStats(c *gin.Context) {
 	// Get agent DB IDs for this wallet
 	agentIDs, err := h.getWalletAgentIDs(c.Request.Context(), address)
 	if err != nil {
-		h.logger.Error("failed to fetch wallet agents", "error", err)
+		h.logger.Error("failed to fetch wallet agents", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch agents"})
 		return
 	}
@@ -31,7 +32,7 @@ func (h *Handler) WalletStats(c *gin.Context) {
 	// Query aggregated stats
 	stats, err := h.store.GetWalletStats(c.Request.Context(), agentIDs)
 	if err != nil {
-		h.logger.Error("failed to get wallet stats", "error", err)
+		h.logger.Error("failed to get wallet stats", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch stats"})
 		return
 	}
@@ -55,14 +56,14 @@ func (h *Handler) WalletDailyStats(c *gin.Context) {
 
 	agentIDs, err := h.getWalletAgentIDs(c.Request.Context(), address)
 	if err != nil {
-		h.logger.Error("failed to fetch wallet agents", "error", err)
+		h.logger.Error("failed to fetch wallet agents", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch agents"})
 		return
 	}
 
 	stats, err := h.store.GetWalletDailyStats(c.Request.Context(), agentIDs, days)
 	if err != nil {
-		h.logger.Error("failed to get wallet daily stats", "error", err)
+		h.logger.Error("failed to get wallet daily stats", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch daily stats"})
 		return
 	}
@@ -80,14 +81,14 @@ func (h *Handler) WalletErrors(c *gin.Context) {
 
 	agentIDs, err := h.getWalletAgentIDs(c.Request.Context(), address)
 	if err != nil {
-		h.logger.Error("failed to fetch wallet agents", "error", err)
+		h.logger.Error("failed to fetch wallet agents", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch agents"})
 		return
 	}
 
 	errors, err := h.store.GetWalletErrors(c.Request.Context(), agentIDs)
 	if err != nil {
-		h.logger.Error("failed to get wallet errors", "error", err)
+		h.logger.Error("failed to get wallet errors", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch errors"})
 		return
 	}
@@ -100,8 +101,9 @@ func (h *Handler) WalletErrors(c *gin.Context) {
 func (h *Handler) getWalletAgentIDs(ctx context.Context, address string) ([]uuid.UUID, error) {
 	// Check cache first
 	cacheKey := "wallet_agents:" + address
-	if cached, found := h.cache.Get(cacheKey); found {
-		if ids, ok := cached.([]uuid.UUID); ok {
+	if cached := h.cache.Get(ctx, cacheKey); cached != nil {
+		var ids []uuid.UUID
+		if err := json.Unmarshal(cached, &ids); err == nil {
 			return ids, nil
 		}
 	}
@@ -144,7 +146,9 @@ func (h *Handler) getWalletAgentIDs(ctx context.Context, address string) ([]uuid
 	}
 
 	// Cache for 5 minutes
-	h.cache.Set(cacheKey, ids, 5*time.Minute)
+	if data, err := json.Marshal(ids); err == nil {
+		h.cache.Set(ctx, cacheKey, data, 5*time.Minute)
+	}
 
 	return ids, nil
 }

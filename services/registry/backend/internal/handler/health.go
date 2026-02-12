@@ -68,6 +68,40 @@ func (h *Handler) AgentOriginHealth(c *gin.Context) {
 	}
 }
 
+// ServiceHealth proxies a health check to an arbitrary service endpoint
+// (server-side, avoiding browser CORS restrictions).
+// Query param: ?endpoint=<base_url>
+func (h *Handler) ServiceHealth(c *gin.Context) {
+	endpoint := c.Query("endpoint")
+	if endpoint == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "endpoint query parameter required"})
+		return
+	}
+
+	// Only allow http/https
+	if !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "endpoint must be http or https"})
+		return
+	}
+
+	base := strings.TrimRight(endpoint, "/")
+	healthURL := fmt.Sprintf("%s/.well-known/agent.json", base)
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get(healthURL)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": endpoint, "error": err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		c.JSON(http.StatusOK, gin.H{"status": "healthy", "endpoint": endpoint})
+	} else {
+		c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": endpoint, "http_status": resp.StatusCode})
+	}
+}
+
 func (h *Handler) Readyz(c *gin.Context) {
 	if err := h.store.Ping(c.Request.Context()); err != nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "not ready"})

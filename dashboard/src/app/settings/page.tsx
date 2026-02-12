@@ -25,10 +25,6 @@ function SettingsContent() {
   const { agent, apiKey, login } = useAuth();
   const [verifyStatus, setVerifyStatus] = useState("");
   const [verifyError, setVerifyError] = useState("");
-  const [editingEndpoint, setEditingEndpoint] = useState(false);
-  const [endpointValue, setEndpointValue] = useState("");
-  const [endpointSaving, setEndpointSaving] = useState(false);
-
   if (!agent || !apiKey) return null;
 
   const handleVerify = async () => {
@@ -50,19 +46,6 @@ function SettingsContent() {
     } catch (err) {
       setVerifyError(err instanceof Error ? err.message : "Verification failed");
       setVerifyStatus("");
-    }
-  };
-
-  const handleEndpointSave = async () => {
-    setEndpointSaving(true);
-    try {
-      await openApi.updateOriginEndpoint(agent.agent_id, endpointValue, apiKey);
-      await login(apiKey);
-      setEditingEndpoint(false);
-    } catch (err) {
-      console.error("Failed to update endpoint:", err);
-    } finally {
-      setEndpointSaving(false);
     }
   };
 
@@ -103,55 +86,6 @@ function SettingsContent() {
             label="Created"
             value={new Date(agent.created_at).toLocaleDateString()}
           />
-        </div>
-      </section>
-
-      {/* Origin Endpoint */}
-      <section>
-        <h3 className="text-sm font-semibold text-gray-400 mb-3">Origin Endpoint</h3>
-        <div className="p-4 rounded-lg border border-gray-800 bg-gray-900">
-          <p className="text-xs text-gray-500 mb-2">
-            The endpoint where gateway traffic is routed to.
-          </p>
-          {editingEndpoint ? (
-            <div className="flex items-center gap-2">
-              <input
-                type="url"
-                value={endpointValue}
-                onChange={(e) => setEndpointValue(e.target.value)}
-                placeholder="https://api.example.com"
-                className="flex-1 px-3 py-2 bg-gray-950 border border-gray-700 rounded-md text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500"
-              />
-              <button
-                onClick={handleEndpointSave}
-                disabled={endpointSaving || !endpointValue}
-                className="px-3 py-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium disabled:opacity-50 transition-colors"
-              >
-                {endpointSaving ? "..." : "Save"}
-              </button>
-              <button
-                onClick={() => setEditingEndpoint(false)}
-                className="px-3 py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <code className="flex-1 text-sm font-mono text-gray-300 bg-gray-950 px-3 py-2 rounded border border-gray-800 break-all">
-                {agent.origin_endpoint || "-"}
-              </code>
-              <button
-                onClick={() => {
-                  setEndpointValue(agent.origin_endpoint || "");
-                  setEditingEndpoint(true);
-                }}
-                className="px-3 py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm transition-colors"
-              >
-                Edit
-              </button>
-            </div>
-          )}
         </div>
       </section>
 

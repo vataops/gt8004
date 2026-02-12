@@ -9,7 +9,6 @@ import (
 
 	"github.com/GT8004/gt8004-analytics/internal/analytics"
 	"github.com/GT8004/gt8004-analytics/internal/cache"
-	"github.com/GT8004/gt8004-analytics/internal/ingest"
 	"github.com/GT8004/gt8004-analytics/internal/store"
 )
 
@@ -17,7 +16,6 @@ type Handler struct {
 	store             *store.Store
 	cache             *cache.Cache
 	logger            *zap.Logger
-	worker            *ingest.Worker
 	customerAnalytics *analytics.CustomerAnalytics
 	revenueAnalytics  *analytics.RevenueAnalytics
 	perfAnalytics     *analytics.PerformanceAnalytics
@@ -25,7 +23,6 @@ type Handler struct {
 
 func New(
 	s *store.Store,
-	worker *ingest.Worker,
 	custAnalytics *analytics.CustomerAnalytics,
 	revAnalytics *analytics.RevenueAnalytics,
 	perfAnalytics *analytics.PerformanceAnalytics,
@@ -35,7 +32,6 @@ func New(
 	return &Handler{
 		store:             s,
 		cache:             redisCache,
-		worker:            worker,
 		customerAnalytics: custAnalytics,
 		revenueAnalytics:  revAnalytics,
 		perfAnalytics:     perfAnalytics,
