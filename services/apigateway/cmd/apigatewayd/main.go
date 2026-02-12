@@ -40,7 +40,6 @@ func main() {
 	// Start server
 	logger.Info("API Gateway starting",
 		zap.String("port", cfg.Port),
-		zap.String("ingest_url", cfg.IngestURL),
 		zap.String("analytics_url", cfg.AnalyticsURL),
 		zap.String("discovery_url", cfg.DiscoveryURL),
 		zap.String("registry_url", cfg.RegistryURL),

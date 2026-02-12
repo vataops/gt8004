@@ -8,11 +8,23 @@ class Skill(BaseModel):
     id: str
     name: str
     description: str
+    tags: list[str] = []
 
 
 class Capabilities(BaseModel):
     streaming: bool = False
     pushNotifications: bool = False
+    stateTransitionHistory: bool = False
+
+
+class AgentProvider(BaseModel):
+    organization: str
+    url: str
+
+
+class Authentication(BaseModel):
+    schemes: list[str] = []
+    description: str = ""
 
 
 class AgentCard(BaseModel):
@@ -20,7 +32,11 @@ class AgentCard(BaseModel):
     description: str
     url: str
     version: str = "1.0.0"
+    defaultInputModes: list[str] = ["text"]
+    defaultOutputModes: list[str] = ["text"]
     capabilities: Capabilities = Capabilities()
+    provider: Optional[AgentProvider] = None
+    authentication: Optional[Authentication] = None
     skills: list[Skill] = []
 
 

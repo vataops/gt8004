@@ -627,7 +627,7 @@ function ServicesWithHealth({ services }: { services: AgentService[] }) {
       const url = svc.endpoint;
       const healthUrl = `${BACKEND_URL}/v1/proxy/health?endpoint=${encodeURIComponent(url)}`;
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
+      const timeout = setTimeout(() => controller.abort(), 20000);
       fetch(healthUrl, { method: "GET", signal: controller.signal })
         .then(async (res) => {
           clearTimeout(timeout);

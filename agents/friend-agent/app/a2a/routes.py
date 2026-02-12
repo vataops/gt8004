@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request
-from app.a2a.models import AgentCard, Skill, TaskRequest
+from app.a2a.models import AgentCard, AgentProvider, Authentication, Skill, TaskRequest
 from app.a2a.task_manager import TaskManager, SKILL_PROMPTS
 from app.config import settings
 
@@ -7,22 +7,28 @@ router = APIRouter()
 task_manager = TaskManager()
 
 SKILLS = [
-    Skill(id="chat", name="chat", description="General-purpose conversation and Q&A"),
-    Skill(id="summarize", name="summarize", description="Summarize text or documents"),
-    Skill(id="translate", name="translate", description="Translate text between languages"),
-    Skill(id="code-assist", name="code-assist", description="Code help, debugging, and implementation"),
+    Skill(id="chat", name="chat", description="General-purpose conversation and Q&A", tags=["conversation", "nlp", "qa"]),
+    Skill(id="summarize", name="summarize", description="Summarize text or documents", tags=["summarization", "nlp"]),
+    Skill(id="translate", name="translate", description="Translate text between languages", tags=["translation", "nlp", "multilingual"]),
+    Skill(id="code-assist", name="code-assist", description="Code help, debugging, and implementation", tags=["coding", "development", "debugging"]),
 ]
 
 
 def _build_agent_card() -> dict:
+    provider = None
+    if settings.provider_org:
+        provider = AgentProvider(organization=settings.provider_org, url=settings.provider_url)
+
     card = AgentCard(
         name=settings.agent_name,
         description=settings.agent_description,
         url=settings.agent_url or "",
         version=settings.agent_version,
         skills=SKILLS,
+        provider=provider,
+        authentication=Authentication(schemes=[], description="No authentication required"),
     )
-    return card.model_dump()
+    return card.model_dump(exclude_none=True)
 
 
 @router.get("/.well-known/agent.json")
