@@ -3,7 +3,9 @@ package erc8004
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -11,58 +13,249 @@ import (
 	"go.uber.org/zap"
 )
 
-var selectorGetSummary = crypto.Keccak256([]byte("getSummary(uint256)"))[:4]
+// IReputationRegistry function selectors (ERC-8004 spec).
+var (
+	selGetSummary   = crypto.Keccak256([]byte("getSummary(uint256,address[],string,string)"))[:4]
+	selGetClients   = crypto.Keccak256([]byte("getClients(uint256)"))[:4]
+	selGetLastIndex = crypto.Keccak256([]byte("getLastIndex(uint256,address)"))[:4]
+	selReadFeedback = crypto.Keccak256([]byte("readFeedback(uint256,address,uint64)"))[:4]
+)
 
-// GetReputationSummary calls getSummary(tokenID) on the IReputationRegistry contract.
+// Feedback represents a single on-chain feedback entry.
+type Feedback struct {
+	ClientAddress string  `json:"client_address"`
+	FeedbackIndex int64   `json:"feedback_index"`
+	Value         float64 `json:"value"`
+	Tag1          string  `json:"tag1"`
+	Tag2          string  `json:"tag2"`
+	IsRevoked     bool    `json:"is_revoked"`
+}
+
+// hasReputation returns true if the client has a reputation registry configured.
+func (c *Client) hasReputation() bool {
+	return c.ethClient != nil && c.reputationAddr != (common.Address{})
+}
+
+// callReputation makes a read-only call to the reputation registry contract.
+func (c *Client) callReputation(ctx context.Context, data []byte) ([]byte, error) {
+	addr := c.reputationAddr
+	msg := ethereum.CallMsg{To: &addr, Data: data}
+	return c.ethClient.CallContract(ctx, msg, nil)
+}
+
+// GetReputationSummary calls getSummary(agentId, [], "", "") on the IReputationRegistry.
 // Returns (normalizedScore, feedbackCount, error).
-// If ethClient is not connected, returns (0, 0, nil) for graceful degradation.
 func (c *Client) GetReputationSummary(ctx context.Context, tokenID int64) (float64, int64, error) {
-	if c.ethClient == nil {
+	if !c.hasReputation() {
 		return 0, 0, nil
 	}
 
-	// ABI-encode: selector + uint256(tokenID)
-	tokenIDBig := new(big.Int).SetInt64(tokenID)
-	paddedTokenID := common.LeftPadBytes(tokenIDBig.Bytes(), 32)
-	data := append(selectorGetSummary, paddedTokenID...)
+	// ABI-encode: getSummary(uint256, address[], string, string) with empty dynamic args.
+	// Layout (32-byte slots after selector):
+	//   [0] uint256 agentId
+	//   [1] offset to address[] data  = 0x80 (128)
+	//   [2] offset to string tag1     = 0xa0 (160)
+	//   [3] offset to string tag2     = 0xc0 (192)
+	//   [4] address[] length = 0
+	//   [5] string tag1 length = 0
+	//   [6] string tag2 length = 0
+	buf := make([]byte, 0, 4+7*32)
+	buf = append(buf, selGetSummary...)
+	buf = append(buf, common.LeftPadBytes(new(big.Int).SetInt64(tokenID).Bytes(), 32)...)
+	buf = append(buf, common.LeftPadBytes(big.NewInt(128).Bytes(), 32)...)
+	buf = append(buf, common.LeftPadBytes(big.NewInt(160).Bytes(), 32)...)
+	buf = append(buf, common.LeftPadBytes(big.NewInt(192).Bytes(), 32)...)
+	buf = append(buf, make([]byte, 32)...) // address[] length = 0
+	buf = append(buf, make([]byte, 32)...) // tag1 length = 0
+	buf = append(buf, make([]byte, 32)...) // tag2 length = 0
 
-	msg := ethereum.CallMsg{
-		To:   &c.contractAddr,
-		Data: data,
-	}
-
-	result, err := c.ethClient.CallContract(ctx, msg, nil)
+	result, err := c.callReputation(ctx, buf)
 	if err != nil {
-		c.logger.Debug("getSummary call failed, skipping on-chain reputation",
-			zap.Int64("token_id", tokenID), zap.Error(err))
-		return 0, 0, nil // non-fatal: contract may not support IReputationRegistry
+		c.logger.Debug("getSummary call failed", zap.Int64("token_id", tokenID), zap.Error(err))
+		return 0, 0, nil
+	}
+	if len(result) < 96 {
+		return 0, 0, nil
 	}
 
-	if len(result) < 64 {
-		return 0, 0, nil // no reputation data
-	}
+	// Decode: (uint64 count, int128 summaryValue, uint8 summaryValueDecimals)
+	count := new(big.Int).SetBytes(result[:32]).Int64()
 
-	// Decode: int128 score (first 32 bytes, signed) + uint256 count (next 32 bytes)
-	scoreBig := new(big.Int).SetBytes(result[:32])
-	// int128 is signed — check high bit of ABI-encoded 256-bit value
-	if len(result) >= 32 && result[0]&0x80 != 0 {
+	valueBig := new(big.Int).SetBytes(result[32:64])
+	if result[32]&0x80 != 0 { // signed int128
 		max256 := new(big.Int).Lsh(big.NewInt(1), 256)
-		scoreBig.Sub(scoreBig, max256)
+		valueBig.Sub(valueBig, max256)
 	}
 
-	countBig := new(big.Int).SetBytes(result[32:64])
+	decimals := int(result[95]) // last byte of 3rd 32-byte slot
+	score := float64(valueBig.Int64())
+	if decimals > 0 {
+		score /= math.Pow(10, float64(decimals))
+	}
 
-	return float64(scoreBig.Int64()), countBig.Int64(), nil
+	return score, count, nil
 }
 
-// PostReputation sends reputation feedback for an agent to the on-chain reputation registry.
-// Stub — write transactions require a signing key and are out of scope for this iteration.
-func (c *Client) PostReputation(ctx context.Context, agentTokenID int64, score float64) error {
-	c.logger.Debug("posting reputation (stub — write tx not implemented)",
-		zap.Int64("agent_token_id", agentTokenID),
-		zap.Float64("score", score),
-	)
-	return nil
+// GetClients calls getClients(agentId) and returns the list of client addresses.
+func (c *Client) GetClients(ctx context.Context, tokenID int64) ([]string, error) {
+	if !c.hasReputation() {
+		return nil, nil
+	}
+
+	buf := make([]byte, 0, 4+32)
+	buf = append(buf, selGetClients...)
+	buf = append(buf, common.LeftPadBytes(new(big.Int).SetInt64(tokenID).Bytes(), 32)...)
+
+	result, err := c.callReputation(ctx, buf)
+	if err != nil {
+		c.logger.Debug("getClients call failed", zap.Int64("token_id", tokenID), zap.Error(err))
+		return nil, nil
+	}
+	if len(result) < 64 {
+		return nil, nil
+	}
+
+	// Dynamic array: offset (32) + length (32) + elements
+	arrLen := new(big.Int).SetBytes(result[32:64]).Int64()
+	if arrLen == 0 {
+		return nil, nil
+	}
+
+	addrs := make([]string, 0, arrLen)
+	for i := int64(0); i < arrLen; i++ {
+		start := 64 + i*32
+		if start+32 > int64(len(result)) {
+			break
+		}
+		addr := common.BytesToAddress(result[start+12 : start+32])
+		addrs = append(addrs, strings.ToLower(addr.Hex()))
+	}
+	return addrs, nil
+}
+
+// GetLastIndex calls getLastIndex(agentId, clientAddress) and returns the last feedback index.
+func (c *Client) GetLastIndex(ctx context.Context, tokenID int64, clientAddr string) (int64, error) {
+	if !c.hasReputation() {
+		return 0, nil
+	}
+
+	addr := common.HexToAddress(clientAddr)
+	buf := make([]byte, 0, 4+64)
+	buf = append(buf, selGetLastIndex...)
+	buf = append(buf, common.LeftPadBytes(new(big.Int).SetInt64(tokenID).Bytes(), 32)...)
+	buf = append(buf, common.LeftPadBytes(addr.Bytes(), 32)...)
+
+	result, err := c.callReputation(ctx, buf)
+	if err != nil {
+		return 0, nil
+	}
+	if len(result) < 32 {
+		return 0, nil
+	}
+
+	return new(big.Int).SetBytes(result[:32]).Int64(), nil
+}
+
+// ReadFeedback calls readFeedback(agentId, clientAddress, feedbackIndex).
+func (c *Client) ReadFeedback(ctx context.Context, tokenID int64, clientAddr string, feedbackIndex int64) (*Feedback, error) {
+	if !c.hasReputation() {
+		return nil, nil
+	}
+
+	addr := common.HexToAddress(clientAddr)
+	buf := make([]byte, 0, 4+96)
+	buf = append(buf, selReadFeedback...)
+	buf = append(buf, common.LeftPadBytes(new(big.Int).SetInt64(tokenID).Bytes(), 32)...)
+	buf = append(buf, common.LeftPadBytes(addr.Bytes(), 32)...)
+	buf = append(buf, common.LeftPadBytes(new(big.Int).SetInt64(feedbackIndex).Bytes(), 32)...)
+
+	result, err := c.callReputation(ctx, buf)
+	if err != nil {
+		return nil, nil
+	}
+	// Returns: (int128 value, uint8 valueDecimals, string tag1, string tag2, bool isRevoked)
+	// Minimum: 5 head slots + dynamic string data
+	if len(result) < 160 {
+		return nil, nil
+	}
+
+	// Slot 0: int128 value
+	valueBig := new(big.Int).SetBytes(result[:32])
+	if result[0]&0x80 != 0 {
+		max256 := new(big.Int).Lsh(big.NewInt(1), 256)
+		valueBig.Sub(valueBig, max256)
+	}
+
+	// Slot 1: uint8 valueDecimals
+	decimals := int(result[63])
+
+	val := float64(valueBig.Int64())
+	if decimals > 0 {
+		val /= math.Pow(10, float64(decimals))
+	}
+
+	// Slot 2: offset to tag1 string
+	tag1Offset := new(big.Int).SetBytes(result[64:96]).Int64()
+	tag1 := decodeABIString(result, tag1Offset)
+
+	// Slot 3: offset to tag2 string
+	tag2Offset := new(big.Int).SetBytes(result[96:128]).Int64()
+	tag2 := decodeABIString(result, tag2Offset)
+
+	// Slot 4: bool isRevoked
+	isRevoked := result[159] != 0
+
+	return &Feedback{
+		ClientAddress: strings.ToLower(common.HexToAddress(clientAddr).Hex()),
+		FeedbackIndex: feedbackIndex,
+		Value:         val,
+		Tag1:          tag1,
+		Tag2:          tag2,
+		IsRevoked:     isRevoked,
+	}, nil
+}
+
+// ReadRecentFeedbacks fetches the most recent feedbacks for an agent.
+func (c *Client) ReadRecentFeedbacks(ctx context.Context, tokenID int64, maxCount int) ([]Feedback, error) {
+	if !c.hasReputation() {
+		return nil, nil
+	}
+
+	clients, err := c.GetClients(ctx, tokenID)
+	if err != nil || len(clients) == 0 {
+		return nil, nil
+	}
+
+	// Collect (client, lastIndex) pairs.
+	type entry struct {
+		addr      string
+		lastIndex int64
+	}
+	var entries []entry
+	for _, addr := range clients {
+		idx, err := c.GetLastIndex(ctx, tokenID, addr)
+		if err != nil || idx == 0 {
+			continue
+		}
+		entries = append(entries, entry{addr: addr, lastIndex: idx})
+	}
+
+	// Fetch recent feedbacks (iterate backwards from lastIndex per client).
+	var feedbacks []Feedback
+	for _, e := range entries {
+		for idx := e.lastIndex; idx >= 1 && len(feedbacks) < maxCount; idx-- {
+			fb, err := c.ReadFeedback(ctx, tokenID, e.addr, idx)
+			if err != nil || fb == nil {
+				break
+			}
+			feedbacks = append(feedbacks, *fb)
+		}
+		if len(feedbacks) >= maxCount {
+			break
+		}
+	}
+
+	return feedbacks, nil
 }
 
 // QueryAgent queries the ERC-8004 identity registry for agent info.
@@ -79,4 +272,16 @@ func (c *Client) QueryAgent(ctx context.Context, tokenID int64) (string, float64
 	}
 
 	return uri, score, nil
+}
+
+// decodeABIString reads a dynamic string from ABI-encoded result at the given byte offset.
+func decodeABIString(data []byte, offset int64) string {
+	if offset+32 > int64(len(data)) {
+		return ""
+	}
+	strLen := new(big.Int).SetBytes(data[offset : offset+32]).Int64()
+	if strLen == 0 || offset+32+strLen > int64(len(data)) {
+		return ""
+	}
+	return string(data[offset+32 : offset+32+strLen])
 }

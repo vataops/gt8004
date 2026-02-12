@@ -75,7 +75,7 @@ function SettingsContent() {
   const handleEndpointSave = async () => {
     setEndpointSaving(true);
     try {
-      await openApi.updateOriginEndpoint(apiKey, endpointValue);
+      await openApi.updateOriginEndpoint(agent.agent_id, endpointValue, apiKey);
       await login(apiKey);
       setEditingEndpoint(false);
     } catch (err) {

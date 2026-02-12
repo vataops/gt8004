@@ -48,6 +48,48 @@ func APIKeyAuthMiddleware(h *handler.Handler) gin.HandlerFunc {
 	}
 }
 
+// WalletOwnerAuthMiddleware authenticates via API key or wallet address.
+// Wallet owners are treated as root owners of their agents.
+func WalletOwnerAuthMiddleware(h *handler.Handler) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// 1) Try API key
+		if authHeader := c.GetHeader("Authorization"); authHeader != "" {
+			parts := strings.SplitN(authHeader, " ", 2)
+			if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
+				hash := sha256.Sum256([]byte(parts[1]))
+				keyHash := hex.EncodeToString(hash[:])
+				if agentAuth, err := h.Store().ValidateAPIKey(c.Request.Context(), keyHash); err == nil {
+					c.Set(ContextKeyAgentDBID, agentAuth.AgentDBID)
+					c.Set(ContextKeyAgentID, agentAuth.AgentID)
+					c.Next()
+					return
+				}
+			}
+		}
+
+		// 2) Try wallet address — verify the agent belongs to this wallet
+		walletAddr := c.GetHeader("X-Wallet-Address")
+		agentID := c.Param("agent_id")
+		if walletAddr != "" && agentID != "" {
+			agent, err := h.Store().GetAgentByID(c.Request.Context(), agentID)
+			if err != nil {
+				c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "agent not found"})
+				return
+			}
+			if !strings.EqualFold(agent.EVMAddress, walletAddr) {
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "wallet does not own this agent"})
+				return
+			}
+			c.Set(ContextKeyAgentDBID, agent.ID)
+			c.Set(ContextKeyAgentID, agent.AgentID)
+			c.Next()
+			return
+		}
+
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authorization required"})
+	}
+}
+
 // TierRequiredMiddleware checks that the authenticated agent has at least the required tier.
 func TierRequiredMiddleware(requiredTier string, h *handler.Handler) gin.HandlerFunc {
 	tierLevels := map[string]int{"open": 1, "lite": 2}

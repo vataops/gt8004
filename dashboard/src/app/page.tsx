@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { useOverview, useAgents } from "@/lib/hooks";
 import { StatCard } from "@/components/StatCard";
 import { DataTable, type Column } from "@/components/DataTable";
@@ -16,18 +17,34 @@ const agentColumns: Column<Agent>[] = [
   {
     key: "name",
     header: "Agent",
-    render: (row) => (
-      <div>
-        <span className="font-medium text-white">
-          {row.name || (row.erc8004_token_id != null ? `Token #${row.erc8004_token_id}` : row.agent_id)}
-        </span>
-        {row.erc8004_token_id != null && (
-          <p className="text-xs text-gray-500 mt-0.5">
-            #{row.erc8004_token_id}
-          </p>
-        )}
-      </div>
-    ),
+    render: (row) => {
+      const hasOnChainId = row.erc8004_token_id != null && row.chain_id != null;
+      const content = (
+        <div>
+          <span className="font-medium text-white">
+            {row.name || (row.erc8004_token_id != null ? `Token #${row.erc8004_token_id}` : row.agent_id)}
+          </span>
+          {row.erc8004_token_id != null && (
+            <p className="text-xs text-gray-500 mt-0.5">
+              #{row.erc8004_token_id}
+            </p>
+          )}
+        </div>
+      );
+
+      if (hasOnChainId) {
+        return (
+          <Link
+            href={`/discovery/${row.chain_id}/${row.erc8004_token_id}`}
+            className="hover:opacity-70 transition-opacity"
+          >
+            {content}
+          </Link>
+        );
+      }
+
+      return content;
+    },
   },
   {
     key: "chain_id",

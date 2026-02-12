@@ -157,14 +157,6 @@ export function useFunnel(agentId: string, days = 30) {
   return usePolling(fn, 30_000);
 }
 
-export function useTrustScore(agentId: string) {
-  const fn = useCallback(
-    () => openApi.getTrustScore(agentId),
-    [agentId]
-  );
-  return usePolling(fn, 30_000);
-}
-
 // ========== Customer Detail Hooks ==========
 
 export function useCustomerLogs(agentId: string, customerId: string) {

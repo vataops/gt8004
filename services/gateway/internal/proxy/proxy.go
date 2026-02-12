@@ -137,6 +137,11 @@ func (p *Proxy) Forward(w http.ResponseWriter, r *http.Request, agent *client.Ag
 		},
 		ModifyResponse: func(resp *http.Response) error {
 			result.StatusCode = resp.StatusCode
+			// Remove CORS headers from origin to avoid duplicates with gateway's own CORS middleware
+			resp.Header.Del("Access-Control-Allow-Origin")
+			resp.Header.Del("Access-Control-Allow-Methods")
+			resp.Header.Del("Access-Control-Allow-Headers")
+			resp.Header.Del("Access-Control-Max-Age")
 			return nil
 		},
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {

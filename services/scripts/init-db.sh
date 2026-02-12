@@ -1,6 +1,5 @@
 #!/bin/bash
 set -e
 
-psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" <<-EOSQL
-    CREATE DATABASE gt8004;
-EOSQL
+# gt8004 database is auto-created via POSTGRES_DB env var.
+# Add any additional init SQL here if needed.

@@ -141,9 +141,11 @@ type DailyStats struct {
 	Revenue         float64 `json:"revenue"`
 	Errors          int64   `json:"errors"`
 	UniqueCustomers int64   `json:"unique_customers"`
+	AvgResponseMs   float64 `json:"avg_response_ms"`
+	P95ResponseMs   float64 `json:"p95_response_ms"`
 }
 
-// GetDailyStats returns daily request/revenue/error counts for the last N days.
+// GetDailyStats returns daily request/revenue/error counts and response time metrics for the last N days.
 func (s *Store) GetDailyStats(ctx context.Context, agentDBID uuid.UUID, days int) ([]DailyStats, error) {
 	if days <= 0 {
 		days = 30
@@ -155,7 +157,9 @@ func (s *Store) GetDailyStats(ctx context.Context, agentDBID uuid.UUID, days int
 			COUNT(*) AS requests,
 			COALESCE(SUM(x402_amount), 0) AS revenue,
 			COUNT(*) FILTER (WHERE status_code >= 400) AS errors,
-			COUNT(DISTINCT ip_address) FILTER (WHERE ip_address IS NOT NULL) AS unique_customers
+			COUNT(DISTINCT ip_address) FILTER (WHERE ip_address IS NOT NULL) AS unique_customers,
+			COALESCE(AVG(response_ms), 0) AS avg_response_ms,
+			COALESCE(percentile_cont(0.95) WITHIN GROUP (ORDER BY response_ms), 0) AS p95_response_ms
 		FROM request_logs
 		WHERE agent_id = $1 AND created_at >= CURRENT_DATE - $2 * INTERVAL '1 day'
 		GROUP BY DATE(created_at)
@@ -170,7 +174,7 @@ func (s *Store) GetDailyStats(ctx context.Context, agentDBID uuid.UUID, days int
 	for rows.Next() {
 		var d DailyStats
 		var date time.Time
-		if err := rows.Scan(&date, &d.Requests, &d.Revenue, &d.Errors, &d.UniqueCustomers); err != nil {
+		if err := rows.Scan(&date, &d.Requests, &d.Revenue, &d.Errors, &d.UniqueCustomers, &d.AvgResponseMs, &d.P95ResponseMs); err != nil {
 			return nil, fmt.Errorf("scan daily stats: %w", err)
 		}
 		d.Date = date.Format("2006-01-02")
@@ -303,11 +307,12 @@ type ToolUsage struct {
 	ToolName      string  `json:"tool_name"`
 	CallCount     int64   `json:"call_count"`
 	AvgResponseMs float64 `json:"avg_response_ms"`
+	P95ResponseMs float64 `json:"p95_response_ms"`
 	ErrorRate     float64 `json:"error_rate"`
 	Revenue       float64 `json:"revenue"`
 }
 
-// GetToolUsageRanking returns tools ranked by call count for an agent.
+// GetToolUsageRanking returns tools ranked by P95 latency (slowest first) for an agent.
 func (s *Store) GetToolUsageRanking(ctx context.Context, agentDBID uuid.UUID, days int, limit int) ([]ToolUsage, error) {
 	if days <= 0 {
 		days = 30
@@ -321,6 +326,7 @@ func (s *Store) GetToolUsageRanking(ctx context.Context, agentDBID uuid.UUID, da
 			COALESCE(tool_name, 'unknown') AS tool_name,
 			COUNT(*) AS call_count,
 			COALESCE(AVG(response_ms), 0) AS avg_response_ms,
+			COALESCE(percentile_cont(0.95) WITHIN GROUP (ORDER BY response_ms), 0) AS p95_response_ms,
 			CASE WHEN COUNT(*) > 0
 				THEN CAST(COUNT(*) FILTER (WHERE status_code >= 400) AS FLOAT) / COUNT(*)
 				ELSE 0
@@ -331,7 +337,7 @@ func (s *Store) GetToolUsageRanking(ctx context.Context, agentDBID uuid.UUID, da
 		  AND created_at >= CURRENT_DATE - $2 * INTERVAL '1 day'
 		  AND tool_name IS NOT NULL
 		GROUP BY tool_name
-		ORDER BY call_count DESC
+		ORDER BY p95_response_ms DESC
 		LIMIT $3
 	`, agentDBID, days, limit)
 	if err != nil {
@@ -342,7 +348,7 @@ func (s *Store) GetToolUsageRanking(ctx context.Context, agentDBID uuid.UUID, da
 	var tools []ToolUsage
 	for rows.Next() {
 		var t ToolUsage
-		if err := rows.Scan(&t.ToolName, &t.CallCount, &t.AvgResponseMs, &t.ErrorRate, &t.Revenue); err != nil {
+		if err := rows.Scan(&t.ToolName, &t.CallCount, &t.AvgResponseMs, &t.P95ResponseMs, &t.ErrorRate, &t.Revenue); err != nil {
 			return nil, fmt.Errorf("scan tool usage: %w", err)
 		}
 		tools = append(tools, t)

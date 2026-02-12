@@ -55,10 +55,6 @@ func NewRouter(cfg *config.Config, h *handler.Handler) *gin.Engine {
 	v1.GET("/agents/:agent_id/performance", h.PerformanceReport)
 	v1.GET("/agents/:agent_id/logs", h.ListLogs)
 	v1.GET("/agents/:agent_id/funnel", h.ConversionFunnel)
-	v1.GET("/agents/:agent_id/trust", h.TrustScore)
-	v1.GET("/agents/:agent_id/reviews", h.ListReviews)
-	v1.POST("/agents/:agent_id/reviews", h.SubmitReview)
-
 	// Authenticated ingest (API key auth via middleware)
 	authenticated := v1.Group("")
 	authenticated.Use(APIKeyAuthMiddleware(h))

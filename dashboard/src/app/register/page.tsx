@@ -65,7 +65,7 @@ function RegisterPageInner() {
   // Form state
   const [name, setName] = useState("");
   const [originEndpoint, setOriginEndpoint] = useState("");
-  const [integrationMode, setIntegrationMode] = useState<"gateway" | "sdk">("sdk");
+  const [integrationMode, setIntegrationMode] = useState<"gateway" | "sdk">("gateway");
 
   // Result state
   const [apiKey, setApiKey] = useState("");
@@ -422,15 +422,11 @@ function RegisterPageInner() {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => setIntegrationMode("sdk")}
-                  className={`px-3 py-3 rounded-lg text-sm font-medium border transition-colors text-left ${
-                    integrationMode === "sdk"
-                      ? "bg-blue-600/20 border-blue-500 text-blue-300"
-                      : "bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500"
-                  }`}
+                  disabled
+                  className="px-3 py-3 rounded-lg text-sm font-medium border transition-colors text-left bg-gray-900 border-gray-700 text-gray-600 cursor-not-allowed relative"
                 >
-                  <div className="font-medium">SDK</div>
-                  <p className="text-xs mt-0.5 opacity-70">Embed SDK in your service</p>
+                  <div className="font-medium">SDK <span className="text-[10px] text-yellow-500 ml-1">Coming Soon</span></div>
+                  <p className="text-xs mt-0.5 opacity-50">Embed SDK in your service</p>
                 </button>
                 <button
                   type="button"

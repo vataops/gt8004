@@ -1,9 +1,11 @@
 "use client";
 
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useNetworkAgent } from "@/lib/hooks";
 import { NETWORKS, resolveImageUrl } from "@/lib/networks";
-import type { AgentService } from "@/lib/api";
+import { openApi } from "@/lib/api";
+import type { AgentService, ReputationSummary, ReputationFeedbackEntry } from "@/lib/api";
 
 // chain key → chainId mapping
 const CHAIN_KEY_TO_ID: Record<string, number> = {};
@@ -25,6 +27,19 @@ export default function AgentDetailPage() {
   const tokenId = Number(params.tokenId) || 0;
 
   const { data: agent, loading, error } = useNetworkAgent(chainId, tokenId);
+
+  const [reputation, setReputation] = useState<ReputationSummary | null>(null);
+  const [feedbacks, setFeedbacks] = useState<ReputationFeedbackEntry[]>([]);
+
+  useEffect(() => {
+    if (!tokenId || !chainId) return;
+    openApi.getReputationSummary(tokenId, chainId)
+      .then(setReputation)
+      .catch(() => setReputation(null));
+    openApi.getReputationFeedbacks(tokenId, chainId, 5)
+      .then((res) => setFeedbacks(res.feedbacks ?? []))
+      .catch(() => setFeedbacks([]));
+  }, [tokenId, chainId]);
 
   if (!chainId) {
     return (
@@ -132,6 +147,44 @@ export default function AgentDetailPage() {
             </InfoGrid>
           </Section>
 
+          {/* On-Chain Reputation */}
+          {reputation && reputation.count > 0 && (
+            <Section title="On-Chain Reputation">
+              <InfoGrid>
+                <InfoRow label="Feedback Count" value={String(reputation.count)} />
+                <InfoRow label="Average Score" value={reputation.score.toFixed(2)} />
+              </InfoGrid>
+              {feedbacks.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <h4 className="text-xs text-gray-500 uppercase tracking-wider">Recent Feedback</h4>
+                  {feedbacks.map((fb, i) => (
+                    <div key={i} className="bg-gray-800/50 border border-gray-700/50 rounded-lg p-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-mono text-gray-400">
+                          {fb.client_address.slice(0, 6)}...{fb.client_address.slice(-4)}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-sm font-medium ${fb.value >= 0 ? "text-green-400" : "text-red-400"}`}>
+                            {fb.value >= 0 ? "+" : ""}{fb.value.toFixed(2)}
+                          </span>
+                          {fb.is_revoked && (
+                            <span className="text-[10px] text-red-500 bg-red-900/20 px-1.5 py-0.5 rounded">Revoked</span>
+                          )}
+                        </div>
+                      </div>
+                      {(fb.tag1 || fb.tag2) && (
+                        <div className="flex gap-2 mt-1.5">
+                          {fb.tag1 && <span className="text-[10px] bg-gray-700/50 text-gray-400 px-1.5 py-0.5 rounded">{fb.tag1}</span>}
+                          {fb.tag2 && <span className="text-[10px] bg-gray-700/50 text-gray-400 px-1.5 py-0.5 rounded">{fb.tag2}</span>}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Section>
+          )}
+
           {/* Metadata */}
           <Section title="Metadata">
             <InfoGrid>
@@ -152,56 +205,7 @@ export default function AgentDetailPage() {
           </Section>
 
           {/* Services / Endpoints */}
-          {((agent.metadata?.services ?? agent.metadata?.endpoints) || []).length > 0 && (
-            <Section title="Services">
-              <div className="space-y-3">
-                {(agent.metadata?.services ?? agent.metadata?.endpoints ?? []).map((svc: AgentService, i: number) => (
-                  <div
-                    key={i}
-                    className="bg-gray-800/50 border border-gray-700/50 rounded-lg p-4"
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <ServiceBadge name={svc.name} />
-                      {svc.version && (
-                        <span className="text-xs text-gray-500">
-                          v{svc.version}
-                        </span>
-                      )}
-                    </div>
-                    {svc.endpoint && (
-                      <p className="text-sm font-mono text-gray-400 break-all">
-                        {svc.endpoint}
-                      </p>
-                    )}
-                    {svc.skills && svc.skills.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {svc.skills.map((skill, j) => (
-                          <span
-                            key={j}
-                            className="text-xs px-2 py-0.5 bg-gray-700/50 text-gray-300 rounded"
-                          >
-                            {skill}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {svc.mcpTools && svc.mcpTools.length > 0 && (
-                      <div className="mt-2">
-                        <span className="text-xs text-gray-500">Tools:</span>
-                        <div className="flex flex-wrap gap-1.5 mt-1">
-                          {svc.mcpTools.map((tool, j) => (
-                            <span key={j} className="text-xs px-2 py-0.5 bg-emerald-900/20 text-emerald-400 rounded">
-                              {tool}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </Section>
-          )}
+          <ServicesWithHealth services={agent.metadata?.services ?? agent.metadata?.endpoints ?? []} />
 
           {/* Registrations */}
           {agent.metadata?.registrations && agent.metadata.registrations.length > 0 && (
@@ -334,6 +338,7 @@ function ServiceBadge({ name }: { name: string }) {
     A2A: "bg-emerald-900/30 text-emerald-400",
     MCP: "bg-cyan-900/30 text-cyan-400",
     web: "bg-blue-900/30 text-blue-400",
+    OASF: "bg-purple-900/30 text-purple-400",
   };
   const color = colors[name] || "bg-gray-700/50 text-gray-300";
 
@@ -341,5 +346,159 @@ function ServiceBadge({ name }: { name: string }) {
     <span className={`text-xs px-2 py-0.5 rounded font-medium ${color}`}>
       {name}
     </span>
+  );
+}
+
+function ServicesWithHealth({ services }: { services: AgentService[] }) {
+  const [healthStatus, setHealthStatus] = useState<
+    Record<string, "checking" | "healthy" | "unhealthy">
+  >({});
+  const [lastChecked, setLastChecked] = useState<Date | null>(null);
+
+  const runHealthChecks = useCallback(() => {
+    const withEndpoints = services.filter((s) => s.endpoint);
+    if (withEndpoints.length === 0) return;
+
+    const init: Record<string, "checking"> = {};
+    for (const svc of withEndpoints) init[svc.endpoint] = "checking";
+    setHealthStatus(init);
+    setLastChecked(new Date());
+
+    for (const svc of withEndpoints) {
+      const url = svc.endpoint;
+      const base = url.replace(/\/+$/, "");
+      const healthUrl = `${base}/.well-known/agent.json`;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      fetch(healthUrl, { method: "GET", signal: controller.signal })
+        .then((res) => {
+          clearTimeout(timeout);
+          setHealthStatus((prev) => ({ ...prev, [url]: res.ok ? "healthy" : "unhealthy" }));
+        })
+        .catch(() => {
+          clearTimeout(timeout);
+          setHealthStatus((prev) => ({ ...prev, [url]: "unhealthy" }));
+        });
+    }
+  }, [services]);
+
+  useEffect(() => { runHealthChecks(); }, [runHealthChecks]);
+
+  if (services.length === 0) return null;
+
+  return (
+    <Section title="Services">
+      <div className="flex items-center justify-between mb-3">
+        <div />
+        <div className="flex items-center gap-3">
+          {lastChecked && (
+            <span className="text-[10px] text-gray-600">
+              Checked {lastChecked.toLocaleTimeString()}
+            </span>
+          )}
+          <button
+            onClick={runHealthChecks}
+            className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
+          >
+            Refresh
+          </button>
+        </div>
+      </div>
+      <div className="space-y-3">
+        {services.map((svc, i) => {
+          const status = svc.endpoint ? healthStatus[svc.endpoint] : undefined;
+          return (
+            <div
+              key={i}
+              className="bg-gray-800/50 border border-gray-700/50 rounded-lg p-3"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ServiceBadge name={svc.name} />
+                  {svc.endpoint && (
+                    <a
+                      href={svc.endpoint}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-gray-400 hover:text-gray-200 font-mono truncate max-w-xs"
+                    >
+                      {svc.endpoint}
+                    </a>
+                  )}
+                </div>
+                {status && (
+                  <span
+                    className={`flex items-center gap-1 text-xs ${
+                      status === "healthy"
+                        ? "text-green-400"
+                        : status === "unhealthy"
+                        ? "text-red-400"
+                        : "text-gray-500"
+                    }`}
+                  >
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        status === "healthy"
+                          ? "bg-green-400"
+                          : status === "unhealthy"
+                          ? "bg-red-400"
+                          : "bg-gray-500 animate-pulse"
+                      }`}
+                    />
+                    {status === "healthy"
+                      ? "Healthy"
+                      : status === "unhealthy"
+                      ? "Unhealthy"
+                      : "Checking"}
+                  </span>
+                )}
+              </div>
+              {/* MCP details */}
+              {svc.mcpTools && svc.mcpTools.length > 0 && (
+                <div className="mt-2">
+                  <span className="text-xs text-gray-500">Tools: </span>
+                  <span className="text-xs text-gray-300">
+                    {svc.mcpTools.join(", ")}
+                  </span>
+                </div>
+              )}
+              {svc.mcpPrompts && svc.mcpPrompts.length > 0 && (
+                <div className="mt-1">
+                  <span className="text-xs text-gray-500">Prompts: </span>
+                  <span className="text-xs text-gray-300">
+                    {svc.mcpPrompts.join(", ")}
+                  </span>
+                </div>
+              )}
+              {svc.mcpResources && svc.mcpResources.length > 0 && (
+                <div className="mt-1">
+                  <span className="text-xs text-gray-500">Resources: </span>
+                  <span className="text-xs text-gray-300">
+                    {svc.mcpResources.join(", ")}
+                  </span>
+                </div>
+              )}
+              {/* OASF / A2A details */}
+              {svc.skills && svc.skills.length > 0 && (
+                <div className="mt-2">
+                  <span className="text-xs text-gray-500">Skills: </span>
+                  <span className="text-xs text-gray-300">
+                    {svc.skills.join(", ")}
+                  </span>
+                </div>
+              )}
+              {svc.domains && svc.domains.length > 0 && (
+                <div className="mt-1">
+                  <span className="text-xs text-gray-500">Domains: </span>
+                  <span className="text-xs text-gray-300">
+                    {svc.domains.join(", ")}
+                  </span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </Section>
   );
 }

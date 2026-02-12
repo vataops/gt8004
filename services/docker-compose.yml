@@ -16,16 +16,16 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: ael
-      POSTGRES_PASSWORD: ael
-      POSTGRES_DB: ael
+      POSTGRES_USER: gt8004
+      POSTGRES_PASSWORD: gt8004
+      POSTGRES_DB: gt8004
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ael"]
+      test: ["CMD-SHELL", "pg_isready -U gt8004"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -56,13 +56,19 @@ services:
       PORT: 8080
       METRICS_PORT: 8081
       LOG_LEVEL: debug
-      DATABASE_URL: postgres://ael:ael@postgres:5432/gt8004?sslmode=disable
+      DATABASE_URL: postgres://gt8004:gt8004@postgres:5432/gt8004?sslmode=disable
       ADMIN_API_KEY: ${ADMIN_API_KEY:-changeme}
       REDIS_URL: redis://redis:6379/0
       IDENTITY_REGISTRY_ADDRESS: ${IDENTITY_REGISTRY_ADDRESS:-0x8004A169FB4a3325136EB29fA0ceB6D2e539a432}
       IDENTITY_REGISTRY_RPC: ${IDENTITY_REGISTRY_RPC:-https://sepolia.base.org}
       GT8004_TOKEN_ID: ${GT8004_TOKEN_ID:-0}
       GT8004_AGENT_URI: ${GT8004_AGENT_URI:-https://api.gt8004.network}
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     depends_on:
       postgres:
         condition: service_healthy
@@ -82,7 +88,7 @@ services:
       PORT: 8080
       METRICS_PORT: 8081
       LOG_LEVEL: debug
-      DATABASE_URL: postgres://ael:ael@postgres:5432/gt8004?sslmode=disable
+      DATABASE_URL: postgres://gt8004:gt8004@postgres:5432/gt8004?sslmode=disable
       ADMIN_API_KEY: ${ADMIN_API_KEY:-changeme}
       REDIS_URL: redis://redis:6379/1
       GEOIP_DB_PATH: /data/GeoLite2-City.mmdb
@@ -94,7 +100,7 @@ services:
       redis:
         condition: service_healthy
       registry:
-        condition: service_started
+        condition: service_healthy
     restart: unless-stopped
 
   # ── Discovery (on-chain agent sync, network API) ─────
@@ -107,7 +113,7 @@ services:
     environment:
       PORT: 8080
       LOG_LEVEL: debug
-      DATABASE_URL: postgres://ael:ael@postgres:5432/gt8004?sslmode=disable
+      DATABASE_URL: postgres://gt8004:gt8004@postgres:5432/gt8004?sslmode=disable
       SCAN_SYNC_INTERVAL: 300
     depends_on:
       postgres:

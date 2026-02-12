@@ -14,7 +14,7 @@ func corsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*")
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization, X-Customer-ID, X-Admin-Key")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization, X-Customer-ID, X-Admin-Key, X-Wallet-Address")
 		c.Header("Access-Control-Max-Age", "86400")
 		if c.Request.Method == http.MethodOptions {
 			c.AbortWithStatus(http.StatusNoContent)
@@ -49,6 +49,10 @@ func NewRouter(cfg *config.Config, h *handler.Handler, logger *zap.Logger) *gin.
 	v1.GET("/erc8004/token/:token_id", h.VerifyToken)
 	v1.GET("/erc8004/tokens/:address", h.ListTokensByOwner)
 
+	// ERC-8004 Reputation Registry (public)
+	v1.GET("/erc8004/reputation/:token_id/summary", h.GetReputationSummary)
+	v1.GET("/erc8004/reputation/:token_id/feedbacks", h.GetReputationFeedbacks)
+
 	// === Service Lifecycle ===
 	v1.POST("/services/register", h.RegisterService)
 
@@ -66,10 +70,9 @@ func NewRouter(cfg *config.Config, h *handler.Handler, logger *zap.Logger) *gin.
 	v1.GET("/agents/search", h.SearchAgents)
 	v1.GET("/agents/wallet/:address", h.ListWalletAgents)
 
-	// Trust & Reviews (public)
-	v1.GET("/agents/:agent_id/trust", h.TrustScore)
-	v1.GET("/agents/:agent_id/reviews", h.ListReviews)
-	v1.POST("/agents/:agent_id/reviews", h.SubmitReview)
+	// Agent health (public)
+	v1.GET("/agents/:agent_id/health", h.AgentHealth)
+	v1.GET("/agents/:agent_id/origin-health", h.AgentOriginHealth)
 
 	// API key authenticated routes (write operations)
 	authenticated := v1.Group("")
@@ -77,8 +80,16 @@ func NewRouter(cfg *config.Config, h *handler.Handler, logger *zap.Logger) *gin.
 	{
 		authenticated.GET("/agents/me", h.GetMe)
 		authenticated.PUT("/agents/me/endpoint", h.UpdateOriginEndpoint)
-		authenticated.POST("/agents/:agent_id/gateway/enable", h.EnableGateway)
-		authenticated.POST("/agents/:agent_id/gateway/disable", h.DisableGateway)
+	}
+
+	// Owner-authenticated routes (API key or wallet address)
+	ownerAuth := v1.Group("")
+	ownerAuth.Use(WalletOwnerAuthMiddleware(h))
+	{
+		ownerAuth.PUT("/agents/:agent_id/endpoint", h.UpdateAgentEndpoint)
+		ownerAuth.POST("/agents/:agent_id/gateway/enable", h.EnableGateway)
+		ownerAuth.POST("/agents/:agent_id/gateway/disable", h.DisableGateway)
+		ownerAuth.POST("/agents/:agent_id/api-key/regenerate", h.RegenerateAPIKey)
 	}
 
 	// === Admin API ===

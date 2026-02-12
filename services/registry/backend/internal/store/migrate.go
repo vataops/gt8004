@@ -16,13 +16,13 @@ var migrationsFS embed.FS
 
 func (s *Store) Migrate(ctx context.Context) error {
 	_, err := s.pool.Exec(ctx, `
-		CREATE TABLE IF NOT EXISTS schema_migrations (
+		CREATE TABLE IF NOT EXISTS registry_migrations (
 			version INT PRIMARY KEY,
 			applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)
 	`)
 	if err != nil {
-		return fmt.Errorf("create schema_migrations: %w", err)
+		return fmt.Errorf("create registry_migrations: %w", err)
 	}
 
 	entries, err := migrationsFS.ReadDir("migrations")
@@ -46,7 +46,7 @@ func (s *Store) Migrate(ctx context.Context) error {
 		}
 
 		var exists bool
-		err = s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version = $1)`, version).Scan(&exists)
+		err = s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM registry_migrations WHERE version = $1)`, version).Scan(&exists)
 		if err != nil {
 			return fmt.Errorf("check migration %d: %w", version, err)
 		}
@@ -69,7 +69,7 @@ func (s *Store) Migrate(ctx context.Context) error {
 			return fmt.Errorf("execute migration %d (%s): %w", version, entry.Name(), err)
 		}
 
-		if _, err := tx.Exec(ctx, `INSERT INTO schema_migrations (version) VALUES ($1)`, version); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO registry_migrations (version) VALUES ($1)`, version); err != nil {
 			tx.Rollback(ctx)
 			return fmt.Errorf("record migration %d: %w", version, err)
 		}

@@ -19,10 +19,16 @@ async function openFetcher<T>(path: string, apiKey?: string): Promise<T> {
   return res.json();
 }
 
-async function openFetcherPost<T>(path: string, body: unknown, apiKey?: string): Promise<T> {
+async function openFetcherPost<T>(
+  path: string,
+  body: unknown,
+  auth?: string | { walletAddress: string },
+): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (apiKey) {
-    headers["Authorization"] = `Bearer ${apiKey}`;
+  if (typeof auth === "string") {
+    headers["Authorization"] = `Bearer ${auth}`;
+  } else if (auth?.walletAddress) {
+    headers["X-Wallet-Address"] = auth.walletAddress;
   }
   const res = await fetch(`${OPEN_API_BASE}${path}`, {
     method: "POST",
@@ -33,10 +39,12 @@ async function openFetcherPost<T>(path: string, body: unknown, apiKey?: string):
   return res.json();
 }
 
-async function openFetcherPut<T>(path: string, body: unknown, apiKey?: string): Promise<T> {
+async function openFetcherPut<T>(path: string, body: unknown, auth?: string | { walletAddress: string }): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (apiKey) {
-    headers["Authorization"] = `Bearer ${apiKey}`;
+  if (typeof auth === "string") {
+    headers["Authorization"] = `Bearer ${auth}`;
+  } else if (auth?.walletAddress) {
+    headers["X-Wallet-Address"] = auth.walletAddress;
   }
   const res = await fetch(`${OPEN_API_BASE}${path}`, {
     method: "PUT",
@@ -170,6 +178,20 @@ export interface PerformanceReport {
   error_requests: number;
   requests_per_min: number;
   uptime: number;
+  // New fields for Speed Insights improvement
+  p75_response_ms: number;
+  p90_response_ms: number;
+  health_score: number;
+  health_status: string;
+  p95_trend: number[];
+  error_rate_trend: number[];
+  throughput_trend: number[];
+  uptime_trend: number[];
+  health_delta: number;
+  p95_delta_ms: number;
+  error_delta: number;
+  throughput_delta: number;
+  uptime_delta: number;
 }
 
 export interface BenchmarkEntry {
@@ -230,6 +252,8 @@ export interface DailyStats {
   revenue: number;
   errors: number;
   unique_customers: number;
+  avg_response_ms: number;
+  p95_response_ms: number;
 }
 
 // ---------- Protocol Analytics ----------
@@ -248,6 +272,7 @@ export interface ToolUsage {
   tool_name: string;
   call_count: number;
   avg_response_ms: number;
+  p95_response_ms: number;
   error_rate: number;
   revenue: number;
 }
@@ -312,38 +337,6 @@ export interface EndpointStats {
   revenue: number;
 }
 
-export interface ReputationBreakdown {
-  agent_id: string;
-  reliability: number;
-  performance: number;
-  activity: number;
-  revenue_quality: number;
-  customer_retention: number;
-  peer_review: number;
-  onchain_score: number;
-  total_score: number;
-  onchain_count: number;
-  review_count: number;
-  calculated_at: string;
-}
-
-export interface AgentReview {
-  id: string;
-  agent_id: string;
-  reviewer_id: string;
-  score: number;
-  tags: string[];
-  comment: string;
-  created_at: string;
-}
-
-export interface TrustScoreResponse {
-  score: number;
-  breakdown: ReputationBreakdown;
-  reviews: AgentReview[];
-  review_total: number;
-}
-
 export interface AnalyticsReport {
   protocol: ProtocolStats[];
   tool_ranking: ToolUsage[];
@@ -354,7 +347,6 @@ export interface AnalyticsReport {
   mcp_tools: ToolUsage[];
   a2a_partners: A2APartner[];
   a2a_endpoints: EndpointStats[];
-  trust_score?: ReputationBreakdown;
 }
 
 // ---------- Conversion Funnel ----------
@@ -399,6 +391,30 @@ export interface FunnelReport {
   journeys: CustomerJourney[];
 }
 
+// ---------- On-Chain Reputation (IReputationRegistry) ----------
+
+export interface ReputationSummary {
+  token_id: number;
+  chain_id: number;
+  count: number;
+  score: number;
+}
+
+export interface ReputationFeedbackEntry {
+  client_address: string;
+  feedback_index: number;
+  value: number;
+  tag1: string;
+  tag2: string;
+  is_revoked: boolean;
+}
+
+export interface ReputationFeedbacksResponse {
+  token_id: number;
+  chain_id: number;
+  feedbacks: ReputationFeedbackEntry[];
+}
+
 // ---------- Network Agents (on-chain discovery) ----------
 
 export interface AgentService {
@@ -438,6 +454,8 @@ export interface NetworkAgent {
   description: string;
   image_url: string;
   metadata: AgentMetadata;
+  creator_address: string;
+  created_tx: string;
   created_at: string;
   synced_at: string;
 }
@@ -539,15 +557,6 @@ export const openApi = {
     openFetcher<FunnelReport>(
       `/v1/agents/${agentId}/funnel?days=${days}`
     ),
-  getTrustScore: (agentId: string) =>
-    openFetcher<TrustScoreResponse>(`/v1/agents/${agentId}/trust`),
-  getReviews: (agentId: string, limit = 20, offset = 0) =>
-    openFetcher<{ reviews: AgentReview[]; total: number }>(
-      `/v1/agents/${agentId}/reviews?limit=${limit}&offset=${offset}`
-    ),
-  submitReview: (agentId: string, body: { reviewer_id: string; score: number; tags?: string[]; comment?: string }) =>
-    openFetcherPost<{ status: string }>(`/v1/agents/${agentId}/reviews`, body),
-
   // Registration (no auth)
   registerAgent: (req: RegisterRequest) =>
     openFetcherPost<RegisterResponse>("/v1/agents/register", req),
@@ -594,23 +603,46 @@ export const openApi = {
       `/v1/agents/wallet/${address}`
     ),
 
-  // Gateway (auth required)
-  enableGateway: (agentId: string, apiKey: string) =>
-    openFetcherPost<{ message: string }>(
+  // Gateway (API key or wallet owner)
+  enableGateway: (agentId: string, auth: string | { walletAddress: string }) =>
+    openFetcherPost<{ gateway_enabled: boolean; gateway_url: string }>(
       `/v1/agents/${agentId}/gateway/enable`,
       {},
-      apiKey
+      auth
     ),
-  disableGateway: (agentId: string, apiKey: string) =>
-    openFetcherPost<{ message: string }>(
+  disableGateway: (agentId: string, auth: string | { walletAddress: string }) =>
+    openFetcherPost<{ gateway_enabled: boolean; origin_endpoint: string }>(
       `/v1/agents/${agentId}/gateway/disable`,
       {},
-      apiKey
+      auth
+    ),
+
+  // API key management (API key or wallet owner)
+  regenerateAPIKey: (agentId: string, auth: string | { walletAddress: string }) =>
+    openFetcherPost<{ api_key: string }>(
+      `/v1/agents/${agentId}/api-key/regenerate`,
+      {},
+      auth
     ),
 
   // Agent settings (auth required)
-  updateOriginEndpoint: (apiKey: string, endpoint: string) =>
-    openFetcherPut<Agent>("/v1/agents/me/endpoint", { origin_endpoint: endpoint }, apiKey),
+  updateOriginEndpoint: (agentId: string, endpoint: string, auth: string | { walletAddress: string }) =>
+    openFetcherPut<Agent>(`/v1/agents/${agentId}/endpoint`, { origin_endpoint: endpoint }, auth),
+
+  // On-chain reputation (public)
+  getReputationSummary: (tokenId: number, chainId?: number) =>
+    openFetcher<ReputationSummary>(
+      `/v1/erc8004/reputation/${tokenId}/summary${chainId ? `?chain_id=${chainId}` : ""}`
+    ),
+  getReputationFeedbacks: (tokenId: number, chainId?: number, limit?: number) => {
+    const query = new URLSearchParams();
+    if (chainId) query.set("chain_id", String(chainId));
+    if (limit) query.set("limit", String(limit));
+    const qs = query.toString();
+    return openFetcher<ReputationFeedbacksResponse>(
+      `/v1/erc8004/reputation/${tokenId}/feedbacks${qs ? `?${qs}` : ""}`
+    );
+  },
 
   // Network agents (public — on-chain discovery)
   getNetworkAgents: (params: { chain_id?: number; search?: string; limit?: number; offset?: number } = {}) => {
@@ -628,4 +660,7 @@ export const openApi = {
     openFetcher<NetworkAgent>(`/v1/network/agents/${chainId}/${tokenId}`),
   getNetworkStats: () =>
     openFetcher<NetworkStats>("/v1/network/stats"),
+
+  deregisterAgent: (agentId: string, apiKey: string) =>
+    openFetcherDelete(`/v1/services/${agentId}`, apiKey),
 };

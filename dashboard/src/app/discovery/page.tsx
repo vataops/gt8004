@@ -138,7 +138,7 @@ export default function DiscoveryPage() {
                 <th className="text-left p-3">Chain</th>
                 <th className="text-left p-3">Status</th>
                 <th className="text-left p-3">Owner</th>
-                <th className="text-left p-3">Agent URI</th>
+                <th className="text-left p-3">Services</th>
                 <th className="text-left p-3">Created</th>
               </tr>
             </thead>
@@ -208,15 +208,30 @@ export default function DiscoveryPage() {
                     </span>
                   </td>
 
-                  {/* Agent URI */}
+                  {/* Services */}
                   <td className="p-3">
-                    {agent.agent_uri ? (
-                      <span className="text-xs text-gray-400 truncate block max-w-[200px]">
-                        {agent.agent_uri}
-                      </span>
-                    ) : (
-                      <span className="text-gray-600">—</span>
-                    )}
+                    {(() => {
+                      const svcs = agent.metadata?.services ?? agent.metadata?.endpoints ?? [];
+                      return svcs.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {svcs.map((svc: { name: string }, i: number) => {
+                            const n = svc.name?.toUpperCase() || "";
+                            const style = n === "MCP" ? "bg-cyan-900/30 text-cyan-400"
+                              : n === "A2A" ? "bg-emerald-900/30 text-emerald-400"
+                              : n === "WEB" || n === "HTTP" ? "bg-blue-900/30 text-blue-400"
+                              : n === "OASF" ? "bg-purple-900/30 text-purple-400"
+                              : "bg-gray-800 text-gray-400";
+                            return (
+                              <span key={i} className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${style}`}>
+                                {n}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <span className="text-gray-600 text-xs">—</span>
+                      );
+                    })()}
                   </td>
 
                   {/* Created */}

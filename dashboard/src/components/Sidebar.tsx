@@ -5,11 +5,11 @@ import { useAuth } from "@/lib/auth";
 
 const publicNav = [
   { href: "/", label: "Overview" },
-  { href: "/discovery", label: "Agents" },
+  { href: "/discovery", label: "All Agents" },
 ];
 
 const privateNav = [
-  { href: "/my-agents", label: "My Agents" },
+  { href: "/my-agents", label: "Dashboard" },
 ];
 
 export function Sidebar() {
@@ -38,7 +38,7 @@ export function Sidebar() {
         {isConnected ? (
           <>
             <p className="px-3 pt-4 pb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              My Agent
+              My Agents
             </p>
             {privateNav.map((item) => (
               <Link

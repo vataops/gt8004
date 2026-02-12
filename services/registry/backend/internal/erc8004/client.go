@@ -23,14 +23,16 @@ type Client struct {
 	gt8004AgentURI string
 	logger         *zap.Logger
 
-	ethClient    *ethclient.Client
-	contractAddr common.Address
+	ethClient      *ethclient.Client
+	contractAddr   common.Address // Identity Registry
+	reputationAddr common.Address // Reputation Registry
 }
 
 // Config holds configuration for the ERC-8004 client.
 type Config struct {
 	ChainID        int
 	RegistryAddr   string
+	ReputationAddr string
 	RegistryRPC    string
 	GT8004TokenID  int64
 	GT8004AgentURI string
@@ -69,8 +71,12 @@ func NewClient(cfg Config, logger *zap.Logger) *Client {
 		} else {
 			c.ethClient = ec
 			c.contractAddr = common.HexToAddress(cfg.RegistryAddr)
+			if cfg.ReputationAddr != "" {
+				c.reputationAddr = common.HexToAddress(cfg.ReputationAddr)
+			}
 			logger.Info("ERC-8004 ethclient connected",
 				zap.String("registry", cfg.RegistryAddr),
+				zap.String("reputation", cfg.ReputationAddr),
 				zap.String("rpc", cfg.RegistryRPC))
 		}
 	}
