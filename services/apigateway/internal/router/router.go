@@ -33,12 +33,6 @@ func Setup(r *gin.Engine, cfg *config.Config, logger *zap.Logger) {
 		c.JSON(200, gin.H{"status": "healthy", "service": "api-gateway"})
 	})
 
-	// ── Ingest ──────────────────────────────────────
-	r.POST("/v1/ingest", proxy.ProxyTo(cfg.IngestURL, logger))
-
-	// Gateway proxy (agent reverse-proxy + automatic log collection)
-	r.Any("/gateway/:slug/*path", proxy.ProxyTo(cfg.IngestURL, logger))
-
 	// ── Analytics ───────────────────────────────────
 	r.Any("/v1/dashboard/*path", proxy.ProxyTo(cfg.AnalyticsURL, logger))
 	r.Any("/v1/benchmark", proxy.ProxyTo(cfg.AnalyticsURL, logger))

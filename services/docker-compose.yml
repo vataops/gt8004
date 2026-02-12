@@ -30,7 +30,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── API Gateway (central router, external entry point) ──
+  # ── API Gateway (internal service router) ──
   apigateway:
     build:
       context: ..
@@ -39,7 +39,6 @@ services:
       - "8080:8080"
     environment:
       PORT: 8080
-      INGEST_URL: http://ingest:9094
       ANALYTICS_URL: http://analytics:8080
       DISCOVERY_URL: http://discovery:8080
       REGISTRY_URL: http://registry:8080
@@ -48,7 +47,6 @@ services:
       - registry
       - analytics
       - discovery
-      - ingest
     restart: unless-stopped
 
   # ── Registry (agent CRUD, auth, ERC-8004 identity) ──
@@ -122,6 +120,8 @@ services:
     build:
       context: ..
       dockerfile: services/ingest/Dockerfile
+    ports:
+      - "9094:9094"
     environment:
       PORT: 9094
       LOG_LEVEL: debug
@@ -138,4 +138,8 @@ services:
 
 volumes:
   pgdata:
+    external: true
+    name: gt8004_pgdata
   redisdata:
+    external: true
+    name: gt8004_redisdata

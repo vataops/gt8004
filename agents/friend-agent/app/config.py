@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     agent_description: str = "General-purpose LLM agent supporting chat, summarization, translation, and code assistance via A2A protocol"
     agent_version: str = "1.0.0"
     agent_url: str = ""
+    provider_org: str = ""
+    provider_url: str = ""
     log_level: str = "info"
 
     # GT8004 SDK

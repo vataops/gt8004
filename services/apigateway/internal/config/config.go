@@ -8,7 +8,6 @@ import (
 
 type Config struct {
 	Port         string `mapstructure:"port"`
-	IngestURL    string `mapstructure:"ingest_url"`
 	AnalyticsURL string `mapstructure:"analytics_url"`
 	DiscoveryURL string `mapstructure:"discovery_url"`
 	RegistryURL  string `mapstructure:"registry_url"`
@@ -20,7 +19,6 @@ func Load() *Config {
 
 	// Defaults
 	viper.SetDefault("port", "8080")
-	viper.SetDefault("ingest_url", "http://ingest:9094")
 	viper.SetDefault("analytics_url", "http://analytics:8080")
 	viper.SetDefault("discovery_url", "http://discovery:8080")
 	viper.SetDefault("registry_url", "http://registry:8080")
