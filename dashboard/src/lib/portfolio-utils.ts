@@ -1,3 +1,8 @@
+export interface ParsedService {
+  name: string;
+  endpoint: string;
+}
+
 export interface AgentRow {
   agent_id: string;
   name: string;
@@ -8,6 +13,7 @@ export interface AgentRow {
   avg_response_ms: number;
   registered: boolean;
   origin_endpoint: string;
+  parsed_services: ParsedService[];
 }
 
 // Aggregation functions
@@ -64,8 +70,7 @@ export function calculateHealthSummary(
   minResponseMs: number;
   maxResponseMs: number;
 } {
-  const agentsWithEndpoints = agents.filter((a) => a.origin_endpoint && a.registered);
-  const total = agentsWithEndpoints.length;
+  const total = Object.keys(healthStatus).length;
   const healthy = Object.values(healthStatus).filter((s) => s === "healthy").length;
   const unhealthy = Object.values(healthStatus).filter((s) => s === "unhealthy").length;
   const checking = Object.values(healthStatus).filter((s) => s === "checking").length;
@@ -88,15 +93,20 @@ export function getAgentsRequiringAttention(
   const result: Array<{ agent: AgentRow; reason: string }> = [];
 
   for (const agent of agents) {
-    if (healthStatus[agent.agent_id] === "unhealthy") {
-      result.push({ agent, reason: "Unhealthy (origin endpoint check failed)" });
+    // Check if any service endpoint is unhealthy
+    const unhealthySvcs = agent.parsed_services.filter(
+      (s) => s.endpoint && healthStatus[`${agent.agent_id}:${s.endpoint}`] === "unhealthy"
+    );
+    if (unhealthySvcs.length > 0) {
+      const names = unhealthySvcs.map((s) => s.name).join(", ");
+      result.push({ agent, reason: `Unhealthy endpoint: ${names}` });
     } else if (agent.avg_response_ms > 1000) {
       result.push({
         agent,
         reason: `High latency (${agent.avg_response_ms.toFixed(0)}ms avg)`,
       });
-    } else if (agent.registered && !agent.origin_endpoint) {
-      result.push({ agent, reason: "No origin endpoint configured" });
+    } else if (agent.registered && agent.parsed_services.every((s) => !s.endpoint)) {
+      result.push({ agent, reason: "No service endpoints in on-chain metadata" });
     }
   }
 
