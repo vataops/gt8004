@@ -22,8 +22,8 @@ def get_llm() -> LLMBackend:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _llm, _gt8004_logger
-    _llm = create_backend(settings.openai_api_key, settings.llm_model)
-    logging.info(f"LLM backend: OpenAI ({settings.llm_model})")
+    _llm = create_backend(settings.google_api_key, settings.llm_model)
+    logging.info(f"LLM backend: Google AI Studio ({settings.llm_model})")
 
     # Start GT8004 SDK auto-flush and verify connection
     if _gt8004_logger:

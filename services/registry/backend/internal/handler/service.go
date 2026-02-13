@@ -42,9 +42,8 @@ type RegisterServiceRequest struct {
 	WalletAddress  string `json:"wallet_address" binding:"required"`
 
 	// Service-level settings
-	GatewayEnabled *bool    `json:"gateway_enabled"`
-	OriginEndpoint string   `json:"origin_endpoint"` // Only required if gateway_enabled is true
-	Tier           string   `json:"tier"`
+	GatewayEnabled *bool  `json:"gateway_enabled"`
+	Tier           string `json:"tier"`
 	Pricing        *Pricing `json:"pricing"`
 }
 
@@ -111,10 +110,6 @@ func (h *Handler) RegisterService(c *gin.Context) {
 	}
 
 	gatewayEnabled := req.GatewayEnabled != nil && *req.GatewayEnabled
-	if gatewayEnabled && req.OriginEndpoint == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "origin_endpoint required for gateway mode"})
-		return
-	}
 
 	// Resolve chain-specific client
 	chainID := *req.ChainID
@@ -168,20 +163,22 @@ func (h *Handler) RegisterService(c *gin.Context) {
 	hash := sha256.Sum256([]byte(hashInput))
 	agentID := fmt.Sprintf("%d-%s", chainID, hex.EncodeToString(hash[:])[:6])
 
-	// Extract origin endpoint from metadata if not provided
-	originEndpoint := req.OriginEndpoint
-	if originEndpoint == "" && !gatewayEnabled {
-		// Try to extract from metadata services
-		services := meta.Services
-		if len(services) == 0 {
-			services = meta.Endpoints
+	// Extract origin endpoint ONLY from on-chain metadata (no manual override)
+	var originEndpoint string
+	{
+		svc := meta.Services
+		if len(svc) == 0 {
+			svc = meta.Endpoints
 		}
-		if len(services) > 0 {
-			// Use the first service endpoint
-			originEndpoint = services[0].Endpoint
+		if len(svc) > 0 {
+			originEndpoint = svc[0].Endpoint
 		} else if meta.URL != "" {
 			originEndpoint = meta.URL
 		}
+	}
+	if gatewayEnabled && originEndpoint == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "gateway mode requires a service endpoint in on-chain metadata"})
+		return
 	}
 
 	// Extract protocols from metadata
