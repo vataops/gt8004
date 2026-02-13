@@ -34,7 +34,7 @@ gcloud run deploy "${SERVICE_NAME}" \
   --min-instances 0 \
   --max-instances 3 \
   --timeout 60 \
-  --set-env-vars "^;;^LLM_MODEL=${LLM_MODEL:-gpt-4o};;AGENT_NAME=${AGENT_NAME:-Companion-Agent};;AGENT_DESCRIPTION=${AGENT_DESCRIPTION:-General-purpose LLM agent};;AGENT_VERSION=${AGENT_VERSION:-1.0.0};;OPENAI_API_KEY=${OPENAI_API_KEY:?Set OPENAI_API_KEY}"
+  --set-env-vars "^;;^LLM_MODEL=${LLM_MODEL:-gemini-2.0-flash};;AGENT_NAME=${AGENT_NAME:-Companion-Agent};;AGENT_DESCRIPTION=${AGENT_DESCRIPTION:-General-purpose LLM agent};;AGENT_VERSION=${AGENT_VERSION:-1.0.0};;GOOGLE_API_KEY=${GOOGLE_API_KEY:?Set GOOGLE_API_KEY}"
 
 SERVICE_URL=$(gcloud run services describe "${SERVICE_NAME}" \
   --region "${REGION}" \

@@ -11,6 +11,7 @@ type Config struct {
 	AnalyticsURL string `mapstructure:"analytics_url"`
 	DiscoveryURL string `mapstructure:"discovery_url"`
 	RegistryURL  string `mapstructure:"registry_url"`
+	IngestURL    string `mapstructure:"ingest_url"`
 	LogLevel     string `mapstructure:"log_level"`
 }
 
@@ -22,6 +23,7 @@ func Load() *Config {
 	viper.SetDefault("analytics_url", "http://analytics:8080")
 	viper.SetDefault("discovery_url", "http://discovery:8080")
 	viper.SetDefault("registry_url", "http://registry:8080")
+	viper.SetDefault("ingest_url", "http://ingest:9094")
 	viper.SetDefault("log_level", "info")
 
 	var cfg Config

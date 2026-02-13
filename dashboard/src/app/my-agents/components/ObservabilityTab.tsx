@@ -35,9 +35,9 @@ export function ObservabilityTab({
   // Filter to only show registered agents
   const registeredAgents = useMemo(() => agents.filter(a => a.registered), [agents]);
 
-  // Filter to agents with endpoints (for health monitoring)
+  // Filter to agents with at least one service endpoint
   const agentsWithEndpoints = useMemo(
-    () => registeredAgents.filter(a => a.origin_endpoint),
+    () => registeredAgents.filter(a => a.parsed_services?.some(s => s.endpoint && s.name !== "OASF")),
     [registeredAgents]
   );
 
@@ -112,45 +112,37 @@ export function ObservabilityTab({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {agentsWithEndpoints
               .sort((a, b) => {
-                // Sort: unhealthy first, then healthy, then checking
-                const statusOrder = { unhealthy: 0, checking: 1, healthy: 2 };
-                const aStatus = healthStatus[a.agent_id] || "checking";
-                const bStatus = healthStatus[b.agent_id] || "checking";
-                return statusOrder[aStatus] - statusOrder[bStatus];
+                // Sort: any unhealthy first, then checking, then all healthy
+                const worstStatus = (agent: typeof a) => {
+                  const statuses = agent.parsed_services
+                    .filter(s => s.endpoint && s.name !== "OASF")
+                    .map(s => healthStatus[`${agent.agent_id}:${s.endpoint}`] || "checking");
+                  if (statuses.includes("unhealthy")) return 0;
+                  if (statuses.includes("checking")) return 1;
+                  return 2;
+                };
+                return worstStatus(a) - worstStatus(b);
               })
               .map((agent) => {
-                const status = healthStatus[agent.agent_id] || "checking";
-                const statusColors = {
-                  healthy: "border-green-800 bg-green-900/10",
-                  unhealthy: "border-red-800 bg-red-900/10",
-                  checking: "border-gray-700 bg-gray-800/30",
-                };
-                const statusIcons = {
-                  healthy: (
-                    <span className="w-2.5 h-2.5 rounded-full bg-green-400" />
-                  ),
-                  unhealthy: (
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-400" />
-                  ),
-                  checking: (
-                    <span className="w-2.5 h-2.5 rounded-full bg-gray-500 animate-pulse" />
-                  ),
-                };
+                const svcsWithEndpoint = agent.parsed_services.filter(s => s.endpoint && s.name !== "OASF");
+                const hasUnhealthy = svcsWithEndpoint.some(
+                  s => healthStatus[`${agent.agent_id}:${s.endpoint}`] === "unhealthy"
+                );
+                const allHealthy = svcsWithEndpoint.every(
+                  s => healthStatus[`${agent.agent_id}:${s.endpoint}`] === "healthy"
+                );
+                const cardColor = hasUnhealthy
+                  ? "border-red-800 bg-red-900/10"
+                  : allHealthy
+                  ? "border-green-800 bg-green-900/10"
+                  : "border-gray-700 bg-gray-800/30";
 
                 return (
                   <div
                     key={agent.agent_id}
-                    className={`border rounded-lg p-3 ${statusColors[status]}`}
+                    className={`border rounded-lg p-3 ${cardColor}`}
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        {statusIcons[status]}
-                        <span className="text-xs font-medium text-gray-300 capitalize">
-                          {status}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="font-medium text-sm text-gray-100 mb-1">
+                    <div className="font-medium text-sm text-gray-100 mb-2">
                       {agent.name}
                       {agent.token_id !== null &&
                         !agent.name.startsWith("Token #") && (
@@ -159,8 +151,24 @@ export function ObservabilityTab({
                           </span>
                         )}
                     </div>
+                    <div className="flex flex-col gap-1">
+                      {svcsWithEndpoint.map((svc, i) => {
+                        const status = healthStatus[`${agent.agent_id}:${svc.endpoint}`] || "checking";
+                        return (
+                          <div key={i} className="flex items-center gap-2">
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${
+                              status === "healthy" ? "bg-green-400"
+                              : status === "unhealthy" ? "bg-red-400"
+                              : "bg-gray-500 animate-pulse"
+                            }`} />
+                            <span className="text-xs text-gray-300">{svc.name}</span>
+                            <span className="text-[10px] text-gray-500 capitalize">{status}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
                     {agent.avg_response_ms > 0 && (
-                      <div className="text-xs text-gray-400">
+                      <div className="text-xs text-gray-400 mt-2">
                         Avg: {agent.avg_response_ms.toFixed(0)}ms
                       </div>
                     )}

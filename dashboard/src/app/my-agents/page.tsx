@@ -46,8 +46,13 @@ function parseAgentURIName(uri: string): string {
   try { return (JSON.parse(json) as { name?: string }).name || ""; } catch { return ""; }
 }
 
-/** Extract service names from on-chain agentURI metadata. */
-function parseAgentURIServices(uri: string): string[] {
+interface ParsedService {
+  name: string;
+  endpoint: string;
+}
+
+/** Extract service entries (name + endpoint) from on-chain agentURI metadata. */
+function parseAgentURIServiceEntries(uri: string): ParsedService[] {
   if (!uri) return [];
   let json: string | null = null;
   if (uri.startsWith("data:application/json;base64,")) {
@@ -59,10 +64,15 @@ function parseAgentURIServices(uri: string): string[] {
   }
   if (!json) return [];
   try {
-    const meta = JSON.parse(json) as { services?: { name: string }[]; endpoints?: { name: string }[] };
+    const meta = JSON.parse(json) as { services?: { name: string; endpoint: string }[]; endpoints?: { name: string; endpoint: string }[] };
     const svcs = meta.services ?? meta.endpoints ?? [];
-    return svcs.map((s) => s.name?.toUpperCase()).filter(Boolean);
+    return svcs.filter((s) => s.name).map((s) => ({ name: s.name.toUpperCase(), endpoint: s.endpoint || "" }));
   } catch { return []; }
+}
+
+/** Extract service names from on-chain agentURI metadata. */
+function parseAgentURIServices(uri: string): string[] {
+  return parseAgentURIServiceEntries(uri).map((s) => s.name);
 }
 
 /** Extract image URL from on-chain agentURI metadata. */
@@ -95,6 +105,7 @@ interface AgentRow {
   agent_uri: string;
   registered: boolean;
   services: string[];
+  parsed_services: ParsedService[];
   image_url: string;
   origin_endpoint: string;
 }
@@ -188,6 +199,7 @@ export default function MyAgentsPage() {
           agent_uri: token.agent_uri,
           registered: !!platformAgent,
           services: parseAgentURIServices(token.agent_uri),
+          parsed_services: parseAgentURIServiceEntries(token.agent_uri),
           image_url: imageUrl,
           origin_endpoint: platformAgent?.origin_endpoint || "",
         });
@@ -214,6 +226,7 @@ export default function MyAgentsPage() {
             agent_uri: agent.agent_uri || "",
             registered: true,
             services: parseAgentURIServices(agent.agent_uri || ""),
+            parsed_services: parseAgentURIServiceEntries(agent.agent_uri || ""),
             image_url: parseAgentURIImage(agent.agent_uri || ""),
             origin_endpoint: agent.origin_endpoint || "",
           });
@@ -233,39 +246,41 @@ export default function MyAgentsPage() {
     loadAgents();
   }, [loadAgents]);
 
-  // Health check for agents with origin endpoints
+  // Health check for each service endpoint (keyed by "agentId:endpoint")
   useEffect(() => {
     if (agents.length === 0) return;
 
-    const agentsWithEndpoints = agents.filter(a => a.origin_endpoint && a.registered);
-    if (agentsWithEndpoints.length === 0) return;
-
-    // Initialize checking status and record timestamp
-    const init: Record<string, "checking"> = {};
-    for (const agent of agentsWithEndpoints) {
-      init[agent.agent_id] = "checking";
+    // Collect all (agent, service) pairs that have an endpoint
+    const checks: { agentId: string; endpoint: string }[] = [];
+    for (const agent of agents) {
+      if (!agent.registered) continue;
+      for (const svc of agent.parsed_services) {
+        if (svc.endpoint && svc.name !== "OASF") checks.push({ agentId: agent.agent_id, endpoint: svc.endpoint });
+      }
     }
+    if (checks.length === 0) return;
+
+    const init: Record<string, "checking"> = {};
+    for (const c of checks) init[`${c.agentId}:${c.endpoint}`] = "checking";
     setHealthStatus(init);
     setLastChecked(new Date());
 
-    // Check health for each agent
-    for (const agent of agentsWithEndpoints) {
+    const BACKEND_URL = process.env.NEXT_PUBLIC_OPEN_API_URL || "http://localhost:8080";
+    for (const c of checks) {
+      const key = `${c.agentId}:${c.endpoint}`;
+      const healthUrl = `${BACKEND_URL}/v1/proxy/health?endpoint=${encodeURIComponent(c.endpoint)}`;
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
+      const timeout = setTimeout(() => controller.abort(), 35000);
 
-      fetch(`http://localhost:8080/v1/agents/${agent.agent_id}/origin-health`, {
-        method: "GET",
-        signal: controller.signal,
-      })
+      fetch(healthUrl, { method: "GET", signal: controller.signal })
         .then(async (res) => {
           clearTimeout(timeout);
           const data = await res.json().catch(() => ({}));
-          const status = data.status === "healthy" ? "healthy" : "unhealthy";
-          setHealthStatus((prev) => ({ ...prev, [agent.agent_id]: status }));
+          setHealthStatus((prev) => ({ ...prev, [key]: data.status === "healthy" ? "healthy" : "unhealthy" }));
         })
         .catch(() => {
           clearTimeout(timeout);
-          setHealthStatus((prev) => ({ ...prev, [agent.agent_id]: "unhealthy" }));
+          setHealthStatus((prev) => ({ ...prev, [key]: "unhealthy" }));
         });
     }
   }, [agents]);
@@ -273,8 +288,8 @@ export default function MyAgentsPage() {
   const totalAgents = agents.length;
   const totalRequests = agents.reduce((sum, a) => sum + a.total_requests, 0);
   const totalRevenue = agents.reduce((sum, a) => sum + a.total_revenue, 0);
-  const healthyAgents = Object.values(healthStatus).filter(status => status === "healthy").length;
-  const agentsWithEndpoint = agents.filter(a => a.registered && a.origin_endpoint).length;
+  const totalEndpoints = Object.keys(healthStatus).length;
+  const healthyEndpoints = Object.values(healthStatus).filter(s => s === "healthy").length;
   // Chart data: each agent as a segment in the stacked bar
   const chartAgents = agents.map((a, i) => ({
     key: `a${i}`,
@@ -355,8 +370,8 @@ export default function MyAgentsPage() {
           <div className="grid grid-cols-4 gap-4 mb-6">
             <StatCard label="Total Agents" value={totalAgents} />
             <StatCard
-              label="Healthy Agents"
-              value={agentsWithEndpoint > 0 ? `${healthyAgents} / ${agentsWithEndpoint}` : "—"}
+              label="Healthy Endpoints"
+              value={totalEndpoints > 0 ? `${healthyEndpoints} / ${totalEndpoints}` : "—"}
             />
             <StatCard label="Total Requests" value={totalRequests.toLocaleString()} />
             <StatCard label="Total Revenue" value={`$${totalRevenue.toFixed(2)}`} sub="USDC" />
@@ -480,27 +495,31 @@ export default function MyAgentsPage() {
                       <StatusBadge status={agent.status} />
                     </td>
 
-                    {/* Health */}
+                    {/* Health (per-service) */}
                     <td className="p-3">
-                      {agent.registered && agent.origin_endpoint ? (
-                        healthStatus[agent.agent_id] === "checking" ? (
-                          <span className="text-[10px] text-gray-500 flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-pulse" />
-                            Checking
-                          </span>
-                        ) : healthStatus[agent.agent_id] === "healthy" ? (
-                          <span className="text-[10px] text-green-400 flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
-                            Healthy
-                          </span>
-                        ) : healthStatus[agent.agent_id] === "unhealthy" ? (
-                          <span className="text-[10px] text-red-400 flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
-                            Unhealthy
-                          </span>
-                        ) : (
-                          <span className="text-gray-600 text-xs">—</span>
-                        )
+                      {agent.registered && agent.parsed_services.some(s => s.endpoint && s.name !== "OASF") ? (
+                        <div className="flex flex-col gap-1">
+                          {agent.parsed_services.filter(s => s.endpoint && s.name !== "OASF").map((svc, i) => {
+                            const key = `${agent.agent_id}:${svc.endpoint}`;
+                            const status = healthStatus[key];
+                            return (
+                              <span key={i} className={`text-[10px] flex items-center gap-1 ${
+                                status === "healthy" ? "text-green-400"
+                                : status === "unhealthy" ? "text-red-400"
+                                : status === "checking" ? "text-gray-500"
+                                : "text-gray-600"
+                              }`}>
+                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                  status === "healthy" ? "bg-green-400"
+                                  : status === "unhealthy" ? "bg-red-400"
+                                  : status === "checking" ? "bg-gray-500 animate-pulse"
+                                  : "bg-gray-700"
+                                }`} />
+                                {svc.name}
+                              </span>
+                            );
+                          })}
+                        </div>
                       ) : (
                         <span className="text-gray-600 text-xs">—</span>
                       )}

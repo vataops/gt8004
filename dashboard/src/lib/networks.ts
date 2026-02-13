@@ -41,6 +41,21 @@ export function resolveImageUrl(url: string | null | undefined): string | null {
   return null;
 }
 
+/** Extract image URL from on-chain agentURI metadata JSON. */
+export function parseAgentURIImage(uri: string | undefined | null): string {
+  if (!uri) return "";
+  let json: string | null = null;
+  if (uri.startsWith("data:application/json;base64,")) {
+    try { json = atob(uri.slice("data:application/json;base64,".length)); } catch { return ""; }
+  } else if (uri.startsWith("data:application/json,")) {
+    json = uri.slice("data:application/json,".length);
+  } else if (uri.startsWith("{")) {
+    json = uri;
+  }
+  if (!json) return "";
+  try { return (JSON.parse(json) as { image?: string }).image || ""; } catch { return ""; }
+}
+
 export const NETWORK_LIST = Object.entries(NETWORKS).map(([key, config]) => ({
   key,
   ...config,

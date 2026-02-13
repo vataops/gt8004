@@ -58,7 +58,7 @@ func (h *Handler) AgentOriginHealth(c *gin.Context) {
 		healthURL = fmt.Sprintf("%s/.well-known/agent.json", ep)
 	}
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Get(healthURL)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": agent.OriginEndpoint, "error": err.Error()})
@@ -97,7 +97,7 @@ func (h *Handler) ServiceHealth(c *gin.Context) {
 		healthURL = fmt.Sprintf("%s/.well-known/agent.json", base)
 	}
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Get(healthURL)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": endpoint, "error": err.Error()})
