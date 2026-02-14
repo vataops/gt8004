@@ -64,9 +64,6 @@ func Setup(r *gin.Engine, cfg *config.Config, logger *zap.Logger) {
 	r.Any("/v1/agents/:id", registryHandler)
 	r.GET("/v1/admin/*path", proxy.ProxyTo(cfg.AnalyticsURL, logger))
 
-	// ── Ingest ──────────────────────────────────────
-	r.Any("/v1/ingest", proxy.ProxyTo(cfg.IngestURL, logger))
-
 	// ── Discovery ───────────────────────────────────
 	r.Any("/v1/network/*path", proxy.ProxyTo(cfg.DiscoveryURL, logger))
 

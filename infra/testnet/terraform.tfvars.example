@@ -1,0 +1,15 @@
+# Copy to terraform.tfvars and fill in values
+# terraform.tfvars is gitignored — do NOT commit it
+
+project_id    = "vataops"
+region        = "us-central1"
+db_password   = "CHANGE_ME"
+admin_api_key = "CHANGE_ME"
+
+# Optional overrides (defaults shown)
+# identity_registry_address = "0x8004A818BFB912233c491871b3d84c89A494BD9e"
+# identity_registry_rpc     = "https://base-sepolia-rpc.publicnode.com"
+# scan_sync_interval        = 300
+# ingest_workers            = 4
+# ingest_rate_limit         = 10
+# ingest_rate_burst         = 100

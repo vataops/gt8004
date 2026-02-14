@@ -34,7 +34,7 @@ gcloud run deploy "${SERVICE_NAME}" \
   --min-instances 0 \
   --max-instances 3 \
   --timeout 60 \
-  --set-env-vars "^;;^LLM_MODEL=${LLM_MODEL:-gemini-2.0-flash};;AGENT_NAME=${AGENT_NAME:-Friend-Agent};;AGENT_DESCRIPTION=${AGENT_DESCRIPTION:-General-purpose LLM agent};;AGENT_VERSION=${AGENT_VERSION:-1.0.0};;GOOGLE_API_KEY=${GOOGLE_API_KEY:?Set GOOGLE_API_KEY};;GT8004_AGENT_ID=${GT8004_AGENT_ID:-};;GT8004_API_KEY=${GT8004_API_KEY:-};;GT8004_INGEST_URL=${GT8004_INGEST_URL:-https://api.gt8004.xyz/v1/ingest}"
+  --set-env-vars "^;;^LLM_MODEL=${LLM_MODEL:-gemini-2.0-flash};;AGENT_NAME=${AGENT_NAME:-Friend-Agent};;AGENT_DESCRIPTION=${AGENT_DESCRIPTION:-General-purpose LLM agent};;AGENT_VERSION=${AGENT_VERSION:-1.0.0};;GOOGLE_API_KEY=${GOOGLE_API_KEY:?Set GOOGLE_API_KEY};;GT8004_AGENT_ID=${GT8004_AGENT_ID:-};;GT8004_API_KEY=${GT8004_API_KEY:-};;GT8004_INGEST_URL=${GT8004_INGEST_URL:-https://ingest.gt8004.xyz/v1/ingest}"
 
 SERVICE_URL=$(gcloud run services describe "${SERVICE_NAME}" \
   --region "${REGION}" \
