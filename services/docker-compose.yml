@@ -42,13 +42,11 @@ services:
       ANALYTICS_URL: http://analytics:8080
       DISCOVERY_URL: http://discovery:8080
       REGISTRY_URL: http://registry:8080
-      INGEST_URL: http://ingest:9094
       LOG_LEVEL: debug
     depends_on:
       - registry
       - analytics
       - discovery
-      - ingest
     restart: unless-stopped
 
   # ── Registry (agent CRUD, auth, ERC-8004 identity) ──

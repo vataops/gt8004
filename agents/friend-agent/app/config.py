@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     # GT8004 SDK
     gt8004_agent_id: str = ""
     gt8004_api_key: str = ""
-    gt8004_ingest_url: str = "https://api.gt8004.xyz/v1/ingest"
+    gt8004_ingest_url: str = "https://ingest.gt8004.xyz/v1/ingest"
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

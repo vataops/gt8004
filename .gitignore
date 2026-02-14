@@ -63,3 +63,11 @@ contracts/credit/artifacts/
 # Logs
 *.log
 bot/logs/
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+!*.tfvars.example
+.terraform.lock.hcl
