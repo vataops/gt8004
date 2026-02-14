@@ -1,513 +1,518 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import Link from "next/link";
-import { useOverview, useAgents } from "@/lib/hooks";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useNetworkAgents, useNetworkStats, useOverview } from "@/lib/hooks";
 import { StatCard } from "@/components/StatCard";
-import { DataTable, type Column } from "@/components/DataTable";
-import type { Agent } from "@/lib/api";
-import { NETWORK_LIST, resolveImageUrl, parseAgentURIImage } from "@/lib/networks";
+import { NETWORKS, NETWORK_LIST, resolveImageUrl } from "@/lib/networks";
+import { openApi } from "@/lib/api";
+import type { NetworkAgent } from "@/lib/api";
 
-function getChainName(chainId: number): string {
-  const net = NETWORK_LIST.find((n) => n.chainId === chainId);
-  return net?.shortName ?? "";
+// Chain ID → display name
+const CHAIN_NAMES: Record<number, string> = {};
+for (const n of NETWORK_LIST) {
+  CHAIN_NAMES[n.chainId] = n.shortName;
 }
 
-const PROTOCOL_COLORS: Record<string, string> = {
-  MCP: "bg-blue-500",
-  A2A: "bg-purple-500",
-  OASF: "bg-green-500",
-  HTTP: "bg-gray-500",
-};
+// Chain ID → route key
+const CHAIN_ID_TO_KEY: Record<number, string> = {};
+for (const [key, cfg] of Object.entries(NETWORKS)) {
+  CHAIN_ID_TO_KEY[cfg.chainId] = key;
+}
 
-const PROTOCOL_TEXT_COLORS: Record<string, string> = {
-  MCP: "text-blue-400",
-  A2A: "text-purple-400",
-  OASF: "text-green-400",
-  HTTP: "text-gray-400",
-};
+const PAGE_SIZE = 20;
 
-const agentColumns: Column<Agent>[] = [
-  {
-    key: "name",
-    header: "Agent",
-    render: (row) => {
-      const hasOnChainId = row.erc8004_token_id != null && row.chain_id != null;
-      const imgUrl = resolveImageUrl(row.image_url ?? parseAgentURIImage(row.agent_uri));
-      const content = (
-        <div className="flex items-center gap-2.5">
-          {imgUrl ? (
-            <img
-              src={imgUrl}
-              alt=""
-              className="w-8 h-8 rounded-md object-cover bg-gray-800 shrink-0"
-            />
-          ) : (
-            <div className="w-8 h-8 rounded-md bg-gray-800 flex items-center justify-center text-xs text-gray-600 shrink-0">
-              #
-            </div>
-          )}
-          <div className="min-w-0">
-            <span className="font-medium text-white">
-              {row.name || (row.erc8004_token_id != null ? `Token #${row.erc8004_token_id}` : row.agent_id)}
-            </span>
-            {row.erc8004_token_id != null && (
-              <p className="text-xs text-gray-500 mt-0.5">
-                #{row.erc8004_token_id}
-              </p>
-            )}
-          </div>
-        </div>
-      );
-
-      if (hasOnChainId) {
-        return (
-          <Link
-            href={`/discovery/${row.chain_id}/${row.erc8004_token_id}`}
-            className="hover:opacity-70 transition-opacity"
-          >
-            {content}
-          </Link>
-        );
-      }
-
-      return content;
-    },
-  },
-  {
-    key: "chain_id",
-    header: "Network",
-    render: (row) => {
-      const chainId = row.chain_id ?? 0;
-      const chainName = getChainName(chainId);
-      if (!chainId || !chainName)
-        return <span className="text-gray-600">-</span>;
-      const isBase = chainId === 84532;
-      return (
-        <span
-          className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
-            isBase
-              ? "bg-blue-900/30 text-blue-400"
-              : "bg-purple-900/30 text-purple-400"
-          }`}
-        >
-          {chainName}
-        </span>
-      );
-    },
-  },
-  {
-    key: "protocols",
-    header: "Protocols",
-    render: (row) => (
-      <div className="flex gap-1 flex-wrap">
-        {(row.protocols || []).map((p: string) => (
-          <span
-            key={p}
-            className="px-1.5 py-0.5 rounded text-xs bg-blue-900/30 text-blue-400"
-          >
-            {p}
-          </span>
-        ))}
-      </div>
-    ),
-  },
-  {
-    key: "status",
-    header: "Status",
-    render: (row) => (
-      <span
-        className={`px-2 py-0.5 rounded text-xs ${
-          row.status === "active"
-            ? "bg-green-900/30 text-green-400"
-            : "bg-gray-700/30 text-gray-400"
-        }`}
-      >
-        {row.status}
-      </span>
-    ),
-  },
-  {
-    key: "total_requests",
-    header: "Requests",
-    render: (row) => row.total_requests?.toLocaleString() ?? "0",
-  },
-  {
-    key: "total_customers",
-    header: "Customers",
-    render: (row) =>
-      row.total_customers ? row.total_customers.toLocaleString() : "-",
-  },
-  {
-    key: "total_revenue_usdc",
-    header: "Revenue",
-    render: (row) =>
-      row.total_revenue_usdc ? `$${row.total_revenue_usdc.toFixed(2)}` : "-",
-  },
-  {
-    key: "reputation_score",
-    header: "Reputation",
-    render: (row) =>
-      row.reputation_score != null ? (
-        <span className="text-yellow-400 font-medium">
-          {row.reputation_score.toFixed(1)}
-        </span>
-      ) : (
-        <span className="text-gray-600">-</span>
-      ),
-  },
-  {
-    key: "avg_response_ms",
-    header: "Avg Latency",
-    render: (row) =>
-      row.avg_response_ms ? `${row.avg_response_ms.toFixed(0)}ms` : "-",
-  },
+const TABS = [
+  { label: "All", chainId: 0 },
+  ...NETWORK_LIST.map((n) => ({ label: n.shortName, chainId: n.chainId })),
 ];
 
-export default function OverviewPage() {
-  const { data: overview, loading } = useOverview();
-  const { data: agentsData } = useAgents();
-  const [chainFilter, setChainFilter] = useState<number | null>(null);
+type PlatformData = {
+  agent_id: string;
+  status: string;
+  total_requests: number;
+  total_revenue_usdc: number;
+  total_customers: number;
+  protocols: string[];
+  reputation_score?: number;
+};
 
-  const agents = agentsData?.agents || [];
+export default function ExplorerPage() {
+  const router = useRouter();
+  const [chainFilter, setChainFilter] = useState(0);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [platformOnly, setPlatformOnly] = useState(false);
 
-  // Filtered agents
-  const filteredAgents = chainFilter
-    ? agents.filter((a) => (a.chain_id ?? 0) === chainFilter)
-    : agents;
+  const handleChainFilter = (chainId: number) => {
+    setChainFilter(chainId);
+    setPlatformOnly(false);
+    setPage(1);
+  };
+  const handleSearch = (val: string) => {
+    setSearch(val);
+    setPage(1);
+  };
+  const handlePlatformToggle = () => {
+    setPlatformOnly((prev) => !prev);
+    setPage(1);
+  };
 
-  const activeCount = filteredAgents.filter(
-    (a) => a.status === "active"
-  ).length;
+  // On-chain agents (primary data source)
+  const { data, loading } = useNetworkAgents({
+    chain_id: chainFilter || undefined,
+    search: search || undefined,
+    limit: PAGE_SIZE,
+    offset: (page - 1) * PAGE_SIZE,
+  });
+  const { data: stats } = useNetworkStats();
+  const { data: overview } = useOverview();
 
-  // Available chains for filter (only chains that have agents)
-  const availableChains = useMemo(() => {
-    const chainIds = new Set<number>();
-    for (const a of agents) {
-      if (a.chain_id) chainIds.add(a.chain_id);
-    }
-    return NETWORK_LIST.filter((n) => chainIds.has(n.chainId));
-  }, [agents]);
-
-  // --- Computed metrics ---
-  const x402AgentCount = useMemo(
-    () => agents.filter((a) => a.total_revenue_usdc > 0).length,
-    [agents]
+  // Platform-registered agents (enrichment)
+  const [platformMap, setPlatformMap] = useState<Map<string, PlatformData>>(
+    new Map()
   );
+  useEffect(() => {
+    openApi
+      .searchAgents()
+      .then((res) => {
+        const map = new Map<string, PlatformData>();
+        for (const a of res.agents || []) {
+          if (a.erc8004_token_id != null && a.chain_id != null) {
+            map.set(`${a.chain_id}-${a.erc8004_token_id}`, {
+              agent_id: a.agent_id,
+              status: a.status,
+              total_requests: a.total_requests,
+              total_revenue_usdc: a.total_revenue_usdc,
+              total_customers: a.total_customers,
+              protocols: a.protocols || [],
+              reputation_score: a.reputation_score,
+            });
+          }
+        }
+        setPlatformMap(map);
+      })
+      .catch(() => {});
+  }, []);
 
-  const onChainVerifiedCount = useMemo(
-    () => agents.filter((a) => a.erc8004_token_id != null).length,
-    [agents]
-  );
-
-  const protocolDist = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const a of agents) {
-      for (const p of a.protocols || []) {
-        const key = p.toUpperCase();
-        counts[key] = (counts[key] || 0) + 1;
-      }
+  // Fetch full NetworkAgent data for platform-registered agents
+  const [platformAgents, setPlatformAgents] = useState<NetworkAgent[]>([]);
+  useEffect(() => {
+    if (!platformOnly || platformMap.size === 0) {
+      setPlatformAgents([]);
+      return;
     }
-    return Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .map(([protocol, count]) => ({ protocol, count }));
-  }, [agents]);
+    const entries = [...platformMap.entries()];
+    Promise.all(
+      entries.map(([key]) => {
+        const [cid, tid] = key.split("-");
+        return openApi.getNetworkAgent(Number(cid), Number(tid)).catch(() => null);
+      })
+    ).then((results) => {
+      setPlatformAgents(results.filter((r): r is NetworkAgent => r !== null));
+    });
+  }, [platformOnly, platformMap]);
 
-  const chainDist = useMemo(() => {
-    const counts: Record<number, number> = {};
-    for (const a of agents) {
-      if (a.chain_id) counts[a.chain_id] = (counts[a.chain_id] || 0) + 1;
-    }
-    return Object.entries(counts).map(([chainId, count]) => ({
-      chainId: Number(chainId),
-      name: getChainName(Number(chainId)) || `Chain ${chainId}`,
-      count,
-    }));
-  }, [agents]);
+  const displayAgents: NetworkAgent[] = platformOnly ? platformAgents : (data?.agents ?? []);
+  const totalRows = platformOnly ? platformAgents.length : (data?.total ?? 0);
+  const totalPages = platformOnly ? 1 : Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
 
-  const topReputation = useMemo(
-    () =>
-      agents
-        .filter((a) => a.reputation_score != null && a.reputation_score > 0)
-        .sort((a, b) => (b.reputation_score ?? 0) - (a.reputation_score ?? 0))
-        .slice(0, 5),
-    [agents]
-  );
+  const total = stats?.total ?? 0;
+  const chainCounts = stats?.by_chain ?? {};
+  const registeredCount = platformMap.size;
 
-  if (loading || !overview) {
-    return <p className="text-gray-500">Loading...</p>;
-  }
+  const handleAgentClick = (agent: NetworkAgent) => {
+    const chainKey =
+      CHAIN_ID_TO_KEY[agent.chain_id] || String(agent.chain_id);
+    router.push(`/discovery/${chainKey}/${agent.token_id}`);
+  };
 
   return (
     <div>
       {/* Header */}
       <div className="mb-6">
-        <h2 className="text-xl font-bold">Platform Overview</h2>
+        <h2 className="text-xl font-bold">Network Explorer</h2>
         <p className="text-sm text-gray-500 mt-1">
-          GT8004 network-wide metrics across all registered agents
+          All ERC-8004 agents across supported networks
         </p>
       </div>
 
-      {/* Primary stats — 6 cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <StatCard
-          label="Registered Agents"
-          value={overview.total_agents}
-          sub={`${overview.active_agents} active`}
+          label="On-chain Agents"
+          value={total}
+          sub={`${registeredCount} on GT8004`}
         />
         <StatCard
           label="Total Requests"
-          value={overview.total_requests.toLocaleString()}
-          sub={`${overview.today_requests.toLocaleString()} today`}
+          value={overview?.total_requests.toLocaleString() ?? "0"}
+          sub={`${overview?.today_requests.toLocaleString() ?? "0"} today`}
         />
         <StatCard
           label="Total Revenue"
-          value={`$${overview.total_revenue_usdc.toFixed(2)}`}
+          value={`$${overview?.total_revenue_usdc.toFixed(2) ?? "0.00"}`}
           sub="USDC"
         />
         <StatCard
           label="Avg Response"
-          value={`${overview.avg_response_ms.toFixed(0)}ms`}
+          value={`${overview?.avg_response_ms.toFixed(0) ?? "0"}ms`}
           sub="across all agents"
         />
-        <StatCard
-          label="X-402 Payments"
-          value={`$${overview.total_revenue_usdc.toFixed(2)}`}
-          sub={`${x402AgentCount} agents earning`}
-        />
-        <StatCard
-          label="On-chain Verified"
-          value={
-            agents.length > 0
-              ? `${Math.round((onChainVerifiedCount / agents.length) * 100)}%`
-              : "0%"
-          }
-          sub={`${onChainVerifiedCount}/${agents.length} ERC-8004`}
-        />
       </div>
 
-      {/* Protocol Distribution + On-chain Identity — 2 column */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        {/* Protocol Distribution */}
-        <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-5">
-          <h3 className="text-sm font-semibold text-gray-300 mb-4">
-            Protocol Distribution
-          </h3>
-          {protocolDist.length > 0 ? (
-            <div className="space-y-3">
-              {protocolDist.map(({ protocol, count }) => {
-                const pct =
-                  agents.length > 0
-                    ? Math.round((count / agents.length) * 100)
-                    : 0;
-                const barColor =
-                  PROTOCOL_COLORS[protocol] || PROTOCOL_COLORS.HTTP;
-                const textColor =
-                  PROTOCOL_TEXT_COLORS[protocol] || PROTOCOL_TEXT_COLORS.HTTP;
-                return (
-                  <div key={protocol}>
-                    <div className="flex justify-between items-center mb-1">
-                      <span className={`text-sm font-medium ${textColor}`}>
-                        {protocol}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {count} agents ({pct}%)
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-800 rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full ${barColor}`}
-                        style={{ width: `${Math.max(pct, 4)}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="text-sm text-gray-600">No protocol data</p>
-          )}
-        </div>
-
-        {/* On-chain Identity */}
-        <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-5">
-          <h3 className="text-sm font-semibold text-gray-300 mb-4">
-            On-chain Identity
-          </h3>
-          <div className="flex items-center gap-6 mb-5">
-            {/* Verification circle */}
-            <div className="relative w-20 h-20 shrink-0">
-              <svg viewBox="0 0 36 36" className="w-20 h-20 -rotate-90">
-                <circle
-                  cx="18"
-                  cy="18"
-                  r="15.5"
-                  fill="none"
-                  stroke="#1f2937"
-                  strokeWidth="3"
-                />
-                <circle
-                  cx="18"
-                  cy="18"
-                  r="15.5"
-                  fill="none"
-                  stroke="#22c55e"
-                  strokeWidth="3"
-                  strokeDasharray={`${
-                    agents.length > 0
-                      ? (onChainVerifiedCount / agents.length) * 97.4
-                      : 0
-                  } 97.4`}
-                  strokeLinecap="round"
-                />
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-lg font-bold text-green-400">
-                  {agents.length > 0
-                    ? `${Math.round(
-                        (onChainVerifiedCount / agents.length) * 100
-                      )}%`
-                    : "0%"}
-                </span>
-              </div>
-            </div>
-            <div>
-              <p className="text-sm text-gray-400 mb-1">
-                <span className="text-green-400 font-semibold">
-                  {onChainVerifiedCount}
-                </span>{" "}
-                of {agents.length} agents verified
-              </p>
-              <p className="text-xs text-gray-600">
-                ERC-8004 Identity Registry
-              </p>
-            </div>
-          </div>
-          {/* Chain breakdown */}
-          <div className="border-t border-gray-800 pt-3">
-            <p className="text-xs text-gray-500 mb-2">Chain Distribution</p>
-            <div className="flex flex-wrap gap-2">
-              {chainDist.map(({ chainId, name, count }) => (
-                <span
-                  key={chainId}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-800 text-xs"
-                >
-                  <span className="w-2 h-2 rounded-full bg-blue-500" />
-                  <span className="text-gray-300">{name}</span>
-                  <span className="text-gray-500 font-medium">{count}</span>
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Reputation Leaderboard */}
-      {topReputation.length > 0 && (
-        <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-5 mb-6">
-          <h3 className="text-sm font-semibold text-gray-300 mb-4">
-            Reputation Leaderboard
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
-            {topReputation.map((agent, idx) => {
-              const imgUrl = resolveImageUrl(
-                parseAgentURIImage(agent.agent_uri)
-              );
-              return (
-                <Link
-                  key={agent.id}
-                  href={
-                    agent.chain_id && agent.erc8004_token_id != null
-                      ? `/discovery/${agent.chain_id}/${agent.erc8004_token_id}`
-                      : "#"
-                  }
-                  className="flex items-center gap-3 p-3 rounded-lg bg-gray-800/50 hover:bg-gray-800 transition-colors"
-                >
-                  <span className="text-lg font-bold text-gray-600 w-5 shrink-0">
-                    {idx + 1}
-                  </span>
-                  {imgUrl ? (
-                    <img
-                      src={imgUrl}
-                      alt=""
-                      className="w-9 h-9 rounded-md object-cover bg-gray-800 shrink-0"
-                    />
-                  ) : (
-                    <div className="w-9 h-9 rounded-md bg-gray-700 flex items-center justify-center text-xs text-gray-500 shrink-0">
-                      #
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-white truncate">
-                      {agent.name || `Token #${agent.erc8004_token_id}`}
-                    </p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-xs text-yellow-400 font-medium">
-                        {agent.reputation_score?.toFixed(1)}
-                      </span>
-                      <span className="text-xs text-gray-600">
-                        {agent.total_requests.toLocaleString()} req
-                      </span>
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Agents table */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <h3 className="text-lg font-semibold">Agents on Network</h3>
-          {availableChains.length > 0 && (
-            <div className="flex items-center gap-1">
+      {/* Chain Tabs + Search */}
+      <div className="flex items-center justify-between gap-4 mb-4">
+        <div className="flex items-center gap-1">
+          {TABS.map((tab) => {
+            const count =
+              tab.chainId === 0 ? total : (chainCounts[tab.chainId] ?? 0);
+            const active = !platformOnly && chainFilter === tab.chainId;
+            return (
               <button
-                onClick={() => setChainFilter(null)}
-                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                  chainFilter === null
-                    ? "bg-gray-700 text-white"
-                    : "text-gray-500 hover:text-gray-300"
+                key={tab.chainId}
+                onClick={() => handleChainFilter(tab.chainId)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  active
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200"
                 }`}
               >
-                All
+                {tab.label}
+                <span
+                  className={`ml-1.5 text-xs ${
+                    active ? "text-blue-200" : "text-gray-500"
+                  }`}
+                >
+                  {count}
+                </span>
               </button>
-              {availableChains.map((net) => {
-                const isBase = net.chainId === 84532;
-                const isActive = chainFilter === net.chainId;
+            );
+          })}
+          {registeredCount > 0 && (
+            <button
+              onClick={handlePlatformToggle}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                platformOnly
+                  ? "bg-green-600 text-white"
+                  : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200"
+              }`}
+            >
+              GT8004
+              <span
+                className={`ml-1.5 text-xs ${
+                  platformOnly ? "text-green-200" : "text-gray-500"
+                }`}
+              >
+                {registeredCount}
+              </span>
+            </button>
+          )}
+        </div>
+        <span className="text-xs text-gray-500 shrink-0">
+          {totalRows} agents
+        </span>
+      </div>
+
+      <div className="mb-4">
+        <input
+          type="text"
+          placeholder="Search by name, owner, or token ID..."
+          value={search}
+          onChange={(e) => handleSearch(e.target.value)}
+          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        />
+      </div>
+
+      {/* Table */}
+      {loading ? (
+        <p className="text-gray-500">Loading...</p>
+      ) : (
+        <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-800 text-gray-500">
+                <th className="text-left p-3">Agent</th>
+                <th className="text-left p-3">Network</th>
+                <th className="text-left p-3">Services</th>
+                <th className="text-center p-3">x402</th>
+                <th className="text-left p-3">GT8004</th>
+                <th className="text-right p-3">Requests</th>
+                <th className="text-right p-3">Revenue</th>
+                <th className="text-left p-3">Owner</th>
+              </tr>
+            </thead>
+            <tbody>
+              {displayAgents.map((agent) => {
+                const key = `${agent.chain_id}-${agent.token_id}`;
+                const platform = platformMap.get(key);
                 return (
-                  <button
-                    key={net.chainId}
-                    onClick={() =>
-                      setChainFilter(
-                        chainFilter === net.chainId ? null : net.chainId
-                      )
-                    }
-                    className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                      isActive
-                        ? isBase
-                          ? "bg-blue-900/50 text-blue-400"
-                          : "bg-purple-900/50 text-purple-400"
-                        : "text-gray-500 hover:text-gray-300"
-                    }`}
+                  <tr
+                    key={key}
+                    onClick={() => handleAgentClick(agent)}
+                    className="border-b border-gray-800/50 hover:bg-gray-800/30 cursor-pointer"
                   >
-                    {net.shortName}
-                  </button>
+                    {/* Agent */}
+                    <td className="p-3">
+                      <div className="flex items-center gap-2.5">
+                        {resolveImageUrl(agent.image_url) ? (
+                          <img
+                            src={resolveImageUrl(agent.image_url)!}
+                            alt=""
+                            className="w-8 h-8 rounded-md object-cover bg-gray-800 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-md bg-gray-800 flex items-center justify-center text-xs text-gray-600 shrink-0">
+                            #
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-medium text-gray-100">
+                              {agent.name || `Token #${agent.token_id}`}
+                            </span>
+                            {agent.name && (
+                              <span className="text-gray-600 text-xs">
+                                #{agent.token_id}
+                              </span>
+                            )}
+                          </div>
+                          {agent.description && (
+                            <p className="text-xs text-gray-600 truncate max-w-[280px] mt-0.5">
+                              {agent.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Network */}
+                    <td className="p-3">
+                      <ChainBadge chainId={agent.chain_id} />
+                    </td>
+
+                    {/* Services */}
+                    <td className="p-3">
+                      <ServiceBadges agent={agent} platform={platform} />
+                    </td>
+
+                    {/* x402 */}
+                    <td className="p-3 text-center">
+                      {agent.metadata?.x402Support || agent.metadata?.x402support ? (
+                        <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-900/30 text-amber-400">
+                          x402
+                        </span>
+                      ) : (
+                        <span className="text-gray-700 text-xs">—</span>
+                      )}
+                    </td>
+
+                    {/* Platform */}
+                    <td className="p-3">
+                      {platform ? (
+                        <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-900/30 text-green-400">
+                          {platform.status === "active" ? "Active" : platform.status}
+                        </span>
+                      ) : (
+                        <span className="text-gray-700 text-xs">—</span>
+                      )}
+                    </td>
+
+                    {/* Requests */}
+                    <td className="p-3 text-right">
+                      {platform ? (
+                        <span className="text-gray-300">
+                          {platform.total_requests.toLocaleString()}
+                        </span>
+                      ) : (
+                        <span className="text-gray-700">—</span>
+                      )}
+                    </td>
+
+                    {/* Revenue */}
+                    <td className="p-3 text-right">
+                      {platform && platform.total_revenue_usdc > 0 ? (
+                        <span className="text-gray-300">
+                          ${platform.total_revenue_usdc.toFixed(2)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-700">—</span>
+                      )}
+                    </td>
+
+                    {/* Owner */}
+                    <td className="p-3">
+                      {agent.owner_address ? (
+                        <AddressCell address={agent.owner_address} />
+                      ) : (
+                        <span className="text-gray-700 text-xs">—</span>
+                      )}
+                    </td>
+                  </tr>
                 );
               })}
+              {displayAgents.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="p-6 text-center text-gray-600">
+                    No agents found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-800">
+              <span className="text-xs text-gray-500">
+                {(page - 1) * PAGE_SIZE + 1}–
+                {Math.min(page * PAGE_SIZE, totalRows)} of {totalRows}
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="px-2 py-1 rounded text-xs text-gray-400 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  Prev
+                </button>
+                {pageNumbers(page, totalPages).map((p, i) =>
+                  p === -1 ? (
+                    <span
+                      key={`dots-${i}`}
+                      className="px-1 text-xs text-gray-600"
+                    >
+                      ...
+                    </span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => setPage(p)}
+                      className={`min-w-[28px] px-1.5 py-1 rounded text-xs font-medium ${
+                        p === page
+                          ? "bg-blue-600 text-white"
+                          : "text-gray-400 hover:bg-gray-800"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
+                <button
+                  onClick={() =>
+                    setPage((p) => Math.min(totalPages, p + 1))
+                  }
+                  disabled={page === totalPages}
+                  className="px-2 py-1 rounded text-xs text-gray-400 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
             </div>
           )}
         </div>
-        <span className="text-sm text-gray-500">
-          {filteredAgents.length} registered &middot; {activeCount} active
-        </span>
-      </div>
-      <DataTable
-        columns={agentColumns}
-        data={filteredAgents}
-        emptyMessage="No agents registered on the network yet"
-      />
+      )}
     </div>
   );
+}
+
+// --- Helper Components ---
+
+function AddressCell({ address }: { address: string }) {
+  const [showTooltip, setShowTooltip] = useState(false);
+  const truncated = `${address.slice(0, 6)}...${address.slice(-4)}`;
+
+  return (
+    <span
+      className="relative text-xs font-mono text-gray-400 cursor-pointer hover:text-gray-200 transition-colors"
+      onClick={(e) => {
+        e.stopPropagation();
+        setShowTooltip((prev) => !prev);
+      }}
+      onMouseLeave={() => setShowTooltip(false)}
+    >
+      {truncated}
+      {showTooltip && (
+        <span className="absolute z-50 left-0 top-full mt-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg shadow-lg text-xs font-mono text-gray-200 whitespace-nowrap">
+          {address}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function ChainBadge({ chainId }: { chainId: number }) {
+  const isBase = chainId === 84532;
+  const name = CHAIN_NAMES[chainId] || `Chain ${chainId}`;
+  return (
+    <span
+      className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+        isBase
+          ? "bg-blue-900/30 text-blue-400"
+          : "bg-purple-900/30 text-purple-400"
+      }`}
+    >
+      {name}
+    </span>
+  );
+}
+
+const SVC_STYLE: Record<string, string> = {
+  MCP: "bg-cyan-900/30 text-cyan-400",
+  A2A: "bg-emerald-900/30 text-emerald-400",
+  WEB: "bg-blue-900/30 text-blue-400",
+  HTTP: "bg-blue-900/30 text-blue-400",
+  OASF: "bg-purple-900/30 text-purple-400",
+};
+
+function ServiceBadges({
+  agent,
+  platform,
+}: {
+  agent: NetworkAgent;
+  platform?: PlatformData;
+}) {
+  // Merge on-chain services + platform protocols (x402 shown in separate column)
+  const names = new Set<string>();
+  const svcs =
+    agent.metadata?.services ?? agent.metadata?.endpoints ?? [];
+  for (const s of svcs) {
+    const n = (s as { name?: string }).name?.toUpperCase();
+    if (n && n !== "X402") names.add(n);
+  }
+  if (platform) {
+    for (const p of platform.protocols) {
+      names.add(p.toUpperCase());
+    }
+  }
+
+  if (names.size === 0) return <span className="text-gray-700 text-xs">—</span>;
+
+  return (
+    <div className="flex flex-wrap gap-1">
+      {[...names].map((n) => (
+        <span
+          key={n}
+          className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${
+            SVC_STYLE[n] || "bg-gray-800 text-gray-400"
+          }`}
+        >
+          {n}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** Generate page numbers with ellipsis */
+function pageNumbers(current: number, total: number): number[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages: number[] = [1];
+  if (current > 3) pages.push(-1);
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  for (let i = start; i <= end; i++) pages.push(i);
+  if (current < total - 2) pages.push(-1);
+  pages.push(total);
+  return pages;
 }

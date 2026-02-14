@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useNetworkAgent } from "@/lib/hooks";
 import { NETWORKS, resolveImageUrl } from "@/lib/networks";
 import { openApi } from "@/lib/api";
-import type { AgentService, ReputationSummary, ReputationFeedbackEntry } from "@/lib/api";
+import type { Agent, AgentService, ReputationSummary, ReputationFeedbackEntry } from "@/lib/api";
 
 // chain key → chainId mapping
 const CHAIN_KEY_TO_ID: Record<string, number> = {};
@@ -54,6 +54,7 @@ export default function AgentDetailPage() {
 
   const [reputation, setReputation] = useState<ReputationSummary | null>(null);
   const [feedbacks, setFeedbacks] = useState<ReputationFeedbackEntry[]>([]);
+  const [platformAgent, setPlatformAgent] = useState<Agent | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
 
   useEffect(() => {
@@ -64,6 +65,13 @@ export default function AgentDetailPage() {
     openApi.getReputationFeedbacks(tokenId, chainId, 20)
       .then((res) => setFeedbacks(res.feedbacks ?? []))
       .catch(() => setFeedbacks([]));
+    // Check if this agent is registered on the platform
+    openApi.searchAgents().then((res) => {
+      const match = (res.agents || []).find(
+        (a) => a.erc8004_token_id === tokenId && a.chain_id === chainId
+      );
+      setPlatformAgent(match ?? null);
+    }).catch(() => {});
   }, [tokenId, chainId]);
 
   if (!chainId) {
@@ -91,10 +99,10 @@ export default function AgentDetailPage() {
     <div>
       {/* Back button */}
       <button
-        onClick={() => router.push("/discovery")}
+        onClick={() => router.push("/")}
         className="text-sm text-gray-400 hover:text-gray-200 mb-6 flex items-center gap-1"
       >
-        <span>←</span> Back to Registry
+        <span>←</span> Back to Explorer
       </button>
 
       {loading ? (
@@ -170,6 +178,11 @@ export default function AgentDetailPage() {
                     Reputation
                   </span>
                 )}
+                {platformAgent && (
+                  <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-green-900/30 text-green-400 border border-green-800/50">
+                    GT8004
+                  </span>
+                )}
                 {hasX402 && (
                   <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-amber-900/30 text-amber-400 border border-amber-800/50">
                     x402
@@ -235,6 +248,43 @@ export default function AgentDetailPage() {
                     />
                   </div>
                 </Section>
+
+                {/* Platform Analytics */}
+                {platformAgent && (
+                  <Section title="Platform Analytics">
+                    <div className="grid grid-cols-3 gap-3 mb-3">
+                      <StatCard
+                        label="Total Requests"
+                        value={platformAgent.total_requests.toLocaleString()}
+                        color="blue"
+                      />
+                      <StatCard
+                        label="Revenue (USDC)"
+                        value={`$${platformAgent.total_revenue_usdc.toFixed(2)}`}
+                        color="green"
+                      />
+                      <StatCard
+                        label="Customers"
+                        value={String(platformAgent.total_customers)}
+                        color="amber"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-3 text-gray-500">
+                        <span>Avg response: {platformAgent.avg_response_ms.toFixed(0)}ms</span>
+                        {platformAgent.protocols.length > 0 && (
+                          <span>Protocols: {platformAgent.protocols.join(", ")}</span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => router.push(`/agents/${platformAgent.agent_id}`)}
+                        className="text-blue-400 hover:text-blue-300 transition-colors"
+                      >
+                        View Full Analytics →
+                      </button>
+                    </div>
+                  </Section>
+                )}
 
                 {/* Services */}
                 <ServicesWithHealth services={services} />
@@ -327,6 +377,17 @@ export default function AgentDetailPage() {
                         <SidebarRow label="TYPE" value={agent.metadata.type} truncate />
                       )}
                     </SidebarSection>
+
+                    {/* Platform Status */}
+                    {platformAgent && (
+                      <SidebarSection label="PLATFORM">
+                        <SidebarRow label="STATUS" value={platformAgent.status === "active" ? "Active" : platformAgent.status} />
+                        <SidebarRow label="AGENT ID" value={platformAgent.agent_id} truncate copyable />
+                        {platformAgent.reputation_score != null && platformAgent.reputation_score > 0 && (
+                          <SidebarRow label="REPUTATION" value={platformAgent.reputation_score.toFixed(1)} />
+                        )}
+                      </SidebarSection>
+                    )}
 
                     {/* Timestamps */}
                     <SidebarSection label="TIMESTAMPS">

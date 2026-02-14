@@ -59,7 +59,6 @@ services:
       METRICS_PORT: 8081
       LOG_LEVEL: debug
       DATABASE_URL: postgres://gt8004:gt8004@postgres:5432/gt8004?sslmode=disable
-      ADMIN_API_KEY: ${ADMIN_API_KEY:-changeme}
       REDIS_URL: redis://redis:6379/0
       IDENTITY_REGISTRY_ADDRESS: ${IDENTITY_REGISTRY_ADDRESS:-0x8004A169FB4a3325136EB29fA0ceB6D2e539a432}
       IDENTITY_REGISTRY_RPC: ${IDENTITY_REGISTRY_RPC:-https://sepolia.base.org}
@@ -88,7 +87,6 @@ services:
       METRICS_PORT: 8081
       LOG_LEVEL: debug
       DATABASE_URL: postgres://gt8004:gt8004@postgres:5432/gt8004?sslmode=disable
-      ADMIN_API_KEY: ${ADMIN_API_KEY:-changeme}
       REDIS_URL: redis://redis:6379/1
       GEOIP_DB_PATH: /data/GeoLite2-City.mmdb
     volumes:

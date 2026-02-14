@@ -3,8 +3,7 @@
 
 project_id    = "vataops"
 region        = "us-central1"
-db_password   = "CHANGE_ME"
-admin_api_key = "CHANGE_ME"
+db_password   = "test123!"
 
 # Optional overrides (defaults shown)
 # identity_registry_address = "0x8004A818BFB912233c491871b3d84c89A494BD9e"

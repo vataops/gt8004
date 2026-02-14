@@ -13,7 +13,7 @@ func corsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*")
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization, X-Customer-ID, X-Admin-Key")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization, X-Customer-ID")
 		c.Header("Access-Control-Max-Age", "86400")
 		if c.Request.Method == http.MethodOptions {
 			c.AbortWithStatus(http.StatusNoContent)
@@ -58,25 +58,5 @@ func NewRouter(cfg *config.Config, h *handler.Handler) *gin.Engine {
 	v1.GET("/wallet/:address/daily", h.WalletDailyStats)
 	v1.GET("/wallet/:address/errors", h.WalletErrors)
 
-	// Admin
-	admin := v1.Group("/admin")
-	admin.Use(adminAuthMiddleware(cfg.AdminAPIKey))
-	admin.GET("/overview", h.AdminOverview)
-
 	return r
-}
-
-func adminAuthMiddleware(apiKey string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if apiKey == "" {
-			c.Next()
-			return
-		}
-		key := c.GetHeader("X-Admin-Key")
-		if key != apiKey {
-			c.AbortWithStatusJSON(401, gin.H{"error": "unauthorized"})
-			return
-		}
-		c.Next()
-	}
 }

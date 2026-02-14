@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 
 const publicNav = [
-  { href: "/", label: "Overview" },
-  { href: "/discovery", label: "All Agents" },
+  { href: "/", label: "Explorer" },
+  { href: "/create", label: "Create Agent" },
 ];
 
 const privateNav = [

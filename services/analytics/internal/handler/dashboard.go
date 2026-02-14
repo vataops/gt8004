@@ -29,13 +29,3 @@ func (h *Handler) DashboardOverview(c *gin.Context) {
 	h.cache.Set(c.Request.Context(), cacheKey, data, 10*time.Second)
 	c.Data(http.StatusOK, "application/json", data)
 }
-
-// AdminOverview handles GET /v1/admin/overview.
-func (h *Handler) AdminOverview(c *gin.Context) {
-	overview, err := h.store.GetDashboardOverview(c.Request.Context())
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, overview)
-}
