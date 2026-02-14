@@ -14,7 +14,7 @@ func corsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*")
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization, X-Customer-ID, X-Admin-Key, X-Wallet-Address")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization, X-Customer-ID, X-Wallet-Address")
 		c.Header("Access-Control-Max-Age", "86400")
 		if c.Request.Method == http.MethodOptions {
 			c.AbortWithStatus(http.StatusNoContent)
@@ -93,16 +93,6 @@ func NewRouter(cfg *config.Config, h *handler.Handler, logger *zap.Logger) *gin.
 		ownerAuth.POST("/agents/:agent_id/api-key/regenerate", h.RegenerateAPIKey)
 	}
 
-	// === Admin API ===
-	admin := v1.Group("/admin")
-	admin.Use(adminAuthMiddleware(cfg.AdminAPIKey))
-	{
-		admin.GET("/overview", h.AdminOverview)
-		admin.GET("/agents", h.AdminListAgents)
-		admin.GET("/agents/:id", h.AdminGetAgent)
-		admin.GET("/events/ws", h.AdminEventsWebSocket)
-	}
-
 	// === Internal API (service-to-service) ===
 	internal := r.Group("/internal")
 	{
@@ -113,19 +103,4 @@ func NewRouter(cfg *config.Config, h *handler.Handler, logger *zap.Logger) *gin.
 	}
 
 	return r
-}
-
-func adminAuthMiddleware(apiKey string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if apiKey == "" {
-			c.Next()
-			return
-		}
-		key := c.GetHeader("X-Admin-Key")
-		if key != apiKey {
-			c.AbortWithStatusJSON(401, gin.H{"error": "unauthorized"})
-			return
-		}
-		c.Next()
-	}
 }

@@ -29,9 +29,6 @@ type Config struct {
 	// Redis
 	RedisURL string `mapstructure:"REDIS_URL"`
 
-	// Admin
-	AdminAPIKey string `mapstructure:"ADMIN_API_KEY"`
-
 	// ERC-8004 Registration
 	GT8004TokenID  int64  `mapstructure:"GT8004_TOKEN_ID"`
 	GT8004AgentURI string `mapstructure:"GT8004_AGENT_URI"`
@@ -57,7 +54,6 @@ func Load() (*Config, error) {
 	cfg.IdentityRegistryAddr = viper.GetString("IDENTITY_REGISTRY_ADDRESS")
 	cfg.IdentityRegistryRPC = viper.GetString("IDENTITY_REGISTRY_RPC")
 	cfg.RedisURL = viper.GetString("REDIS_URL")
-	cfg.AdminAPIKey = viper.GetString("ADMIN_API_KEY")
 	cfg.GT8004TokenID = viper.GetInt64("GT8004_TOKEN_ID")
 	cfg.GT8004AgentURI = viper.GetString("GT8004_AGENT_URI")
 	cfg.GatewayBaseURL = viper.GetString("GATEWAY_BASE_URL")

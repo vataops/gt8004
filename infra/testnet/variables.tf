@@ -15,12 +15,6 @@ variable "db_password" {
   sensitive   = true
 }
 
-variable "admin_api_key" {
-  description = "Admin API key for registry and analytics"
-  type        = string
-  sensitive   = true
-}
-
 variable "identity_registry_address" {
   description = "ERC-8004 Identity Registry contract address"
   type        = string
@@ -55,4 +49,16 @@ variable "ingest_rate_burst" {
   description = "Ingest rate limit burst size"
   type        = number
   default     = 100
+}
+
+variable "gt8004_token_id" {
+  description = "ERC-8004 token ID for registry service"
+  type        = number
+  default     = 0
+}
+
+variable "gt8004_agent_uri" {
+  description = "GT8004 agent URI (set to apigateway URL after first deploy)"
+  type        = string
+  default     = "https://api.gt8004.xyz"
 }

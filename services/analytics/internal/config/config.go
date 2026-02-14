@@ -8,7 +8,6 @@ type Config struct {
 	LogLevel          string `mapstructure:"LOG_LEVEL"`
 	DatabaseURL       string `mapstructure:"DATABASE_URL"`
 	RedisURL          string `mapstructure:"REDIS_URL"`
-	AdminAPIKey       string `mapstructure:"ADMIN_API_KEY"`
 	IngestWorkers     int    `mapstructure:"INGEST_WORKERS"`
 	IngestBufferSize  int    `mapstructure:"INGEST_BUFFER_SIZE"`
 	BenchmarkInterval  int    `mapstructure:"BENCHMARK_INTERVAL"`
@@ -35,7 +34,6 @@ func Load() (*Config, error) {
 	cfg.LogLevel = viper.GetString("LOG_LEVEL")
 	cfg.DatabaseURL = viper.GetString("DATABASE_URL")
 	cfg.RedisURL = viper.GetString("REDIS_URL")
-	cfg.AdminAPIKey = viper.GetString("ADMIN_API_KEY")
 	cfg.IngestWorkers = viper.GetInt("INGEST_WORKERS")
 	cfg.IngestBufferSize = viper.GetInt("INGEST_BUFFER_SIZE")
 	cfg.BenchmarkInterval = viper.GetInt("BENCHMARK_INTERVAL")

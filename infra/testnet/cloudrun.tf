@@ -66,16 +66,20 @@ resource "google_cloud_run_v2_service" "registry" {
         value = local.database_url
       }
       env {
-        name  = "ADMIN_API_KEY"
-        value = var.admin_api_key
-      }
-      env {
         name  = "IDENTITY_REGISTRY_ADDRESS"
         value = var.identity_registry_address
       }
       env {
         name  = "IDENTITY_REGISTRY_RPC"
         value = var.identity_registry_rpc
+      }
+      env {
+        name  = "GT8004_TOKEN_ID"
+        value = tostring(var.gt8004_token_id)
+      }
+      env {
+        name  = "GT8004_AGENT_URI"
+        value = var.gt8004_agent_uri
       }
     }
   }
@@ -147,10 +151,6 @@ resource "google_cloud_run_v2_service" "analytics" {
       env {
         name  = "DATABASE_URL"
         value = local.database_url
-      }
-      env {
-        name  = "ADMIN_API_KEY"
-        value = var.admin_api_key
       }
     }
   }

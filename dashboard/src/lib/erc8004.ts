@@ -12,6 +12,8 @@ const ERC8004_ABI = [
   "function getAgentURI(uint256 tokenId) view returns (string)",
   "function ownerOf(uint256 tokenId) view returns (address)",
   "function setAgentURI(uint256 tokenId, string uri)",
+  "function register(string agentURI) external returns (uint256)",
+  "event AgentRegistered(uint256 indexed tokenId, address indexed wallet, string agentURI)",
 ];
 
 /**
@@ -61,7 +63,7 @@ function networkByChainId(chainId: number) {
 /**
  * Switch the user's wallet to the required chain. Throws if rejected.
  */
-async function ensureChain(chainId: number) {
+export async function ensureChain(chainId: number) {
   if (!window.ethereum) throw new Error("No wallet found");
   try {
     await window.ethereum.request({
@@ -109,6 +111,51 @@ export async function updateAgentURI(
   const tx = await contract.setAgentURI(tokenId, newUri);
   await tx.wait();
   return tx.hash;
+}
+
+/**
+ * Mint a new ERC-8004 agent token via MetaMask.
+ * Calls register(agentURI) and returns the token ID from the AgentRegistered event.
+ */
+export async function registerNewAgent(
+  chainId: number,
+  agentUri: string,
+): Promise<{ tokenId: number; txHash: string }> {
+  const net = networkByChainId(chainId);
+  if (!net) throw new Error(`Unsupported chain: ${chainId}`);
+
+  await ensureChain(chainId);
+
+  const provider = new ethers.BrowserProvider(window.ethereum!);
+  const signer = await provider.getSigner();
+  const contract = new ethers.Contract(net.contractAddress, ERC8004_ABI, signer);
+
+  const tx = await contract.register(agentUri);
+  const receipt = await tx.wait();
+
+  // Parse AgentRegistered event to get tokenId
+  const iface = new ethers.Interface(ERC8004_ABI);
+  for (const log of receipt.logs) {
+    try {
+      const parsed = iface.parseLog({ topics: log.topics as string[], data: log.data });
+      if (parsed?.name === "AgentRegistered") {
+        return { tokenId: Number(parsed.args.tokenId), txHash: tx.hash };
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  // Fallback: check for Transfer event (ERC-721 mint)
+  const transferTopic = ethers.id("Transfer(address,address,uint256)");
+  for (const log of receipt.logs) {
+    if (log.topics[0] === transferTopic && log.topics.length >= 3) {
+      const tokenId = Number(BigInt(log.topics[3]));
+      return { tokenId, txHash: tx.hash };
+    }
+  }
+
+  throw new Error("Transaction succeeded but token ID could not be extracted from events");
 }
 
 /** Decode a data:application/json;base64,... URI into a JSON object. */
