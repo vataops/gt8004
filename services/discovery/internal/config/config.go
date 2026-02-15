@@ -1,6 +1,10 @@
 package config
 
-import "github.com/spf13/viper"
+import (
+	"os"
+
+	"github.com/spf13/viper"
+)
 
 // NetworkConfig holds ERC-8004 registry info for a specific chain.
 type NetworkConfig struct {
@@ -10,9 +14,21 @@ type NetworkConfig struct {
 }
 
 // SupportedNetworks maps chain ID to its ERC-8004 registry configuration.
-var SupportedNetworks = map[int]NetworkConfig{
-	84532:    {ChainID: 84532, RegistryAddr: "0x8004A818BFB912233c491871b3d84c89A494BD9e", RegistryRPC: "https://base-sepolia-rpc.publicnode.com"},
-	11155111: {ChainID: 11155111, RegistryAddr: "0x8004A818BFB912233c491871b3d84c89A494BD9e", RegistryRPC: "https://ethereum-sepolia-rpc.publicnode.com"},
+// Populated by init() based on NETWORK_MODE env var.
+var SupportedNetworks map[int]NetworkConfig
+
+func init() {
+	switch os.Getenv("NETWORK_MODE") {
+	case "mainnet":
+		SupportedNetworks = map[int]NetworkConfig{
+			1: {ChainID: 1, RegistryAddr: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432", RegistryRPC: "https://ethereum-rpc.publicnode.com"},
+		}
+	default: // "testnet" or unset
+		SupportedNetworks = map[int]NetworkConfig{
+			84532:    {ChainID: 84532, RegistryAddr: "0x8004A818BFB912233c491871b3d84c89A494BD9e", RegistryRPC: "https://base-sepolia-rpc.publicnode.com"},
+			11155111: {ChainID: 11155111, RegistryAddr: "0x8004A818BFB912233c491871b3d84c89A494BD9e", RegistryRPC: "https://ethereum-sepolia-rpc.publicnode.com"},
+		}
+	}
 }
 
 type Config struct {

@@ -1,6 +1,10 @@
 package config
 
-import "github.com/spf13/viper"
+import (
+	"os"
+
+	"github.com/spf13/viper"
+)
 
 // NetworkConfig holds ERC-8004 registry info for a specific chain.
 type NetworkConfig struct {
@@ -11,9 +15,21 @@ type NetworkConfig struct {
 }
 
 // SupportedNetworks maps chain ID to its ERC-8004 registry configuration.
-var SupportedNetworks = map[int]NetworkConfig{
-	84532:    {ChainID: 84532, RegistryAddr: "0x8004A818BFB912233c491871b3d84c89A494BD9e", ReputationAddr: "0x8004B663056A597Dffe9eCcC1965A193B7388713", RegistryRPC: "https://base-sepolia-rpc.publicnode.com"},
-	11155111: {ChainID: 11155111, RegistryAddr: "0x8004A818BFB912233c491871b3d84c89A494BD9e", ReputationAddr: "", RegistryRPC: "https://ethereum-sepolia-rpc.publicnode.com"},
+// Populated by init() based on NETWORK_MODE env var.
+var SupportedNetworks map[int]NetworkConfig
+
+func init() {
+	switch os.Getenv("NETWORK_MODE") {
+	case "mainnet":
+		SupportedNetworks = map[int]NetworkConfig{
+			1: {ChainID: 1, RegistryAddr: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432", ReputationAddr: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63", RegistryRPC: "https://ethereum-rpc.publicnode.com"},
+		}
+	default: // "testnet" or unset
+		SupportedNetworks = map[int]NetworkConfig{
+			84532:    {ChainID: 84532, RegistryAddr: "0x8004A818BFB912233c491871b3d84c89A494BD9e", ReputationAddr: "0x8004B663056A597Dffe9eCcC1965A193B7388713", RegistryRPC: "https://base-sepolia-rpc.publicnode.com"},
+			11155111: {ChainID: 11155111, RegistryAddr: "0x8004A818BFB912233c491871b3d84c89A494BD9e", ReputationAddr: "", RegistryRPC: "https://ethereum-sepolia-rpc.publicnode.com"},
+		}
+	}
 }
 
 type Config struct {
@@ -43,7 +59,12 @@ func Load() (*Config, error) {
 	viper.SetDefault("PORT", 8080)
 	viper.SetDefault("METRICS_PORT", 8081)
 	viper.SetDefault("LOG_LEVEL", "debug")
-	viper.SetDefault("IDENTITY_REGISTRY_RPC", "https://sepolia.base.org")
+
+	if os.Getenv("NETWORK_MODE") == "mainnet" {
+		viper.SetDefault("IDENTITY_REGISTRY_RPC", "https://ethereum-rpc.publicnode.com")
+	} else {
+		viper.SetDefault("IDENTITY_REGISTRY_RPC", "https://sepolia.base.org")
+	}
 	viper.SetDefault("IDENTITY_REGISTRY_ADDRESS", "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432")
 
 	cfg := &Config{}

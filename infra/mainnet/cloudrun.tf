@@ -1,6 +1,5 @@
 locals {
   registry_path = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.main.repository_id}"
-  database_url  = "postgres://gt8004:${var.db_password}@${google_sql_database_instance.main.private_ip_address}:5432/gt8004?sslmode=disable"
 }
 
 # ── Registry ──────────────────────────────────────────
@@ -17,7 +16,7 @@ resource "google_cloud_run_v2_service" "registry" {
     }
 
     vpc_access {
-      connector = google_vpc_access_connector.main.id
+      connector = var.vpc_connector_id
       egress    = "PRIVATE_RANGES_ONLY"
     }
 
@@ -63,11 +62,11 @@ resource "google_cloud_run_v2_service" "registry" {
       }
       env {
         name  = "DATABASE_URL"
-        value = local.database_url
+        value = var.database_url
       }
       env {
         name  = "NETWORK_MODE"
-        value = "testnet"
+        value = "mainnet"
       }
       env {
         name  = "IDENTITY_REGISTRY_ADDRESS"
@@ -88,10 +87,6 @@ resource "google_cloud_run_v2_service" "registry" {
     }
   }
 
-  depends_on = [
-    google_sql_database.gt8004,
-    google_sql_user.gt8004,
-  ]
 }
 
 # ── Analytics ─────────────────────────────────────────
@@ -108,7 +103,7 @@ resource "google_cloud_run_v2_service" "analytics" {
     }
 
     vpc_access {
-      connector = google_vpc_access_connector.main.id
+      connector = var.vpc_connector_id
       egress    = "PRIVATE_RANGES_ONLY"
     }
 
@@ -154,15 +149,11 @@ resource "google_cloud_run_v2_service" "analytics" {
       }
       env {
         name  = "DATABASE_URL"
-        value = local.database_url
+        value = var.database_url
       }
     }
   }
 
-  depends_on = [
-    google_sql_database.gt8004,
-    google_sql_user.gt8004,
-  ]
 }
 
 # ── Discovery ─────────────────────────────────────────
@@ -179,7 +170,7 @@ resource "google_cloud_run_v2_service" "discovery" {
     }
 
     vpc_access {
-      connector = google_vpc_access_connector.main.id
+      connector = var.vpc_connector_id
       egress    = "PRIVATE_RANGES_ONLY"
     }
 
@@ -225,11 +216,11 @@ resource "google_cloud_run_v2_service" "discovery" {
       }
       env {
         name  = "DATABASE_URL"
-        value = local.database_url
+        value = var.database_url
       }
       env {
         name  = "NETWORK_MODE"
-        value = "testnet"
+        value = "mainnet"
       }
       env {
         name  = "SCAN_SYNC_INTERVAL"
@@ -238,13 +229,9 @@ resource "google_cloud_run_v2_service" "discovery" {
     }
   }
 
-  depends_on = [
-    google_sql_database.gt8004,
-    google_sql_user.gt8004,
-  ]
 }
 
-# ── Ingest (독립 서비스 — ingest.gt8004.xyz) ──────────
+# ── Ingest (독립 서비스) ──────────────────────────────
 resource "google_cloud_run_v2_service" "ingest" {
   name     = "gt8004-ingest"
   location = var.region
@@ -258,7 +245,7 @@ resource "google_cloud_run_v2_service" "ingest" {
     }
 
     vpc_access {
-      connector = google_vpc_access_connector.main.id
+      connector = var.vpc_connector_id
       egress    = "PRIVATE_RANGES_ONLY"
     }
 
@@ -304,7 +291,7 @@ resource "google_cloud_run_v2_service" "ingest" {
       }
       env {
         name  = "DATABASE_URL"
-        value = local.database_url
+        value = var.database_url
       }
       env {
         name  = "INGEST_WORKERS"
@@ -329,14 +316,9 @@ resource "google_cloud_run_v2_service" "ingest" {
     }
   }
 
-  depends_on = [
-    google_sql_database.gt8004,
-    google_sql_user.gt8004,
-  ]
 }
 
 # ── API Gateway ───────────────────────────────────────
-# NOTE: apigateway에 INGEST_URL 없음 — ingest는 독립 서비스
 resource "google_cloud_run_v2_service" "apigateway" {
   name     = "gt8004-apigateway"
   location = var.region
@@ -350,7 +332,7 @@ resource "google_cloud_run_v2_service" "apigateway" {
     }
 
     vpc_access {
-      connector = google_vpc_access_connector.main.id
+      connector = var.vpc_connector_id
       egress    = "PRIVATE_RANGES_ONLY"
     }
 

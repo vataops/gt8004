@@ -60,6 +60,7 @@ services:
       LOG_LEVEL: debug
       DATABASE_URL: postgres://gt8004:gt8004@postgres:5432/gt8004?sslmode=disable
       REDIS_URL: redis://redis:6379/0
+      NETWORK_MODE: ${NETWORK_MODE:-testnet}
       IDENTITY_REGISTRY_ADDRESS: ${IDENTITY_REGISTRY_ADDRESS:-0x8004A169FB4a3325136EB29fA0ceB6D2e539a432}
       IDENTITY_REGISTRY_RPC: ${IDENTITY_REGISTRY_RPC:-https://sepolia.base.org}
       GT8004_TOKEN_ID: ${GT8004_TOKEN_ID:-0}
@@ -107,6 +108,7 @@ services:
       PORT: 8080
       LOG_LEVEL: debug
       DATABASE_URL: postgres://gt8004:gt8004@postgres:5432/gt8004?sslmode=disable
+      NETWORK_MODE: ${NETWORK_MODE:-testnet}
       SCAN_SYNC_INTERVAL: 300
     depends_on:
       postgres:
