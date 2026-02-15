@@ -71,7 +71,7 @@ export function Navbar() {
                 href="/login"
                 className="px-4 py-1.5 rounded-md text-sm font-medium bg-[#00FFE0] text-black hover:shadow-[0_0_20px_rgba(0,255,224,0.4)] transition-all"
               >
-                Login
+                Connect Wallet
               </Link>
             </>
           )}
