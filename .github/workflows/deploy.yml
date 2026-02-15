@@ -67,6 +67,7 @@ jobs:
           fi
 
           docker build \
+            --platform linux/amd64 \
             -f ${{ matrix.service.dockerfile }} \
             ${BUILD_ARGS} \
             -t "${IMAGE}:${TAG}" \
