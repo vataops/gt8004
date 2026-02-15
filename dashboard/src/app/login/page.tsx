@@ -158,7 +158,7 @@ export default function LoginPage() {
     <div className="flex items-center justify-center min-h-[60vh]">
       <div className="w-full max-w-md">
         <h2 className="text-xl font-bold mb-2">Agent Login</h2>
-        <p className="text-sm text-gray-500 mb-6">
+        <p className="text-sm text-zinc-500 mb-6">
           Connect and sign with your wallet to verify ownership.
         </p>
 
@@ -166,7 +166,7 @@ export default function LoginPage() {
         <button
           onClick={connectSignAndScan}
           disabled={loading}
-          className="w-full px-4 py-3 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-700 disabled:text-gray-500 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2"
+          className="w-full px-4 py-3 bg-[#00FFE0] text-black hover:shadow-[0_0_20px_rgba(0,255,224,0.4)] disabled:bg-[#141414] disabled:text-zinc-500 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2"
         >
           {loading ? (
             "Verifying..."
@@ -191,41 +191,41 @@ export default function LoginPage() {
         {/* Network Token Scan Results (shown after signature verification) */}
         {verified && networkTokens.length > 0 && (
           <div className="mt-4 space-y-3">
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+            <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
               ERC-8004 Tokens by Network
             </h3>
 
             {networkTokens.map((nt) => (
               <div
                 key={nt.networkKey}
-                className="border border-gray-800 rounded-lg p-3 bg-gray-900/50"
+                className="border border-[#1a1a1a] rounded-lg p-3 bg-[#0f0f0f]"
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-medium">{nt.networkName}</span>
-                  <span className="text-xs text-gray-500">Chain {nt.chainId}</span>
+                  <span className="text-xs text-zinc-500">Chain {nt.chainId}</span>
                 </div>
 
                 {nt.loading ? (
-                  <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <span className="inline-block w-3 h-3 border-2 border-gray-600 border-t-orange-500 rounded-full animate-spin" />
+                  <div className="flex items-center gap-2 text-xs text-zinc-500">
+                    <span className="inline-block w-3 h-3 border-2 border-[#1a1a1a] border-t-[#00FFE0] rounded-full animate-spin" />
                     Scanning...
                   </div>
                 ) : nt.error ? (
                   <p className="text-xs text-red-400">{nt.error}</p>
                 ) : nt.tokens.length === 0 ? (
-                  <p className="text-xs text-gray-600">No tokens found</p>
+                  <p className="text-xs text-zinc-600">No tokens found</p>
                 ) : (
                   <div className="space-y-1.5">
                     {nt.tokens.map((t) => (
                       <div
                         key={t.token_id}
-                        className="flex items-center justify-between text-xs bg-gray-800/50 rounded px-2 py-1.5"
+                        className="flex items-center justify-between text-xs bg-[#141414] rounded px-2 py-1.5"
                       >
-                        <span className="text-orange-400 font-mono">
+                        <span className="text-[#00FFE0] font-mono">
                           Token #{t.token_id}
                         </span>
                         {t.agent_uri && (
-                          <span className="text-gray-400 truncate ml-2 max-w-[200px]">
+                          <span className="text-zinc-400 truncate ml-2 max-w-[200px]">
                             {t.agent_uri}
                           </span>
                         )}
@@ -238,7 +238,7 @@ export default function LoginPage() {
 
             {/* Summary */}
             {allDone && (
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="text-xs text-zinc-500 mt-2">
                 {totalTokens > 0
                   ? `Found ${totalTokens} token${totalTokens > 1 ? "s" : ""} across ${networkTokens.filter((nt) => nt.tokens.length > 0).length} network${networkTokens.filter((nt) => nt.tokens.length > 0).length > 1 ? "s" : ""}. No agent registered in the platform yet — go to Register Agent.`
                   : "No ERC-8004 tokens found on any network. Register an agent first."}
@@ -249,14 +249,14 @@ export default function LoginPage() {
 
         {/* Divider */}
         <div className="flex items-center gap-3 my-6">
-          <div className="flex-1 border-t border-gray-700" />
+          <div className="flex-1 border-t border-[#1f1f1f]" />
           <button
             onClick={() => setShowApiKey(!showApiKey)}
-            className="text-xs text-gray-500 hover:text-gray-400 transition-colors"
+            className="text-xs text-zinc-500 hover:text-zinc-400 transition-colors"
           >
             {showApiKey ? "Hide" : "Use API Key instead"}
           </button>
-          <div className="flex-1 border-t border-gray-700" />
+          <div className="flex-1 border-t border-[#1f1f1f]" />
         </div>
 
         {/* API Key Login */}
@@ -265,7 +265,7 @@ export default function LoginPage() {
             <div>
               <label
                 htmlFor="apiKey"
-                className="block text-xs text-gray-400 mb-1"
+                className="block text-xs text-zinc-400 mb-1"
               >
                 API Key
               </label>
@@ -275,7 +275,7 @@ export default function LoginPage() {
                 placeholder="gt8004_sk_..."
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500"
+                className="w-full px-3 py-2 bg-[#141414] border border-[#1f1f1f] rounded-md text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-[#00FFE0]/50"
                 required
               />
             </div>
@@ -287,7 +287,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={keyLoading || !key.trim()}
-              className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:text-gray-500 rounded-md text-sm font-medium transition-colors"
+              className="w-full px-3 py-2 bg-[#00FFE0]/10 text-[#00FFE0] border border-[#00FFE0]/30 hover:bg-[#00FFE0]/20 disabled:bg-[#141414] disabled:text-zinc-500 disabled:border-[#1f1f1f] rounded-md text-sm font-medium transition-colors"
             >
               {keyLoading ? "Verifying..." : "Login with API Key"}
             </button>

@@ -37,8 +37,8 @@ export function StatCardWithTrend({
   const chartData = trend?.map((v, i) => ({ x: i, y: v })) || [];
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-      <p className="text-xs text-gray-500 uppercase tracking-wider">{label}</p>
+    <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-4">
+      <p className="text-xs text-zinc-500 uppercase tracking-wider">{label}</p>
       <p className={`text-2xl font-bold mt-1 ${valueColor}`}>{value}</p>
 
       {/* Delta indicator */}
@@ -47,7 +47,7 @@ export function StatCardWithTrend({
           <span className={delta > 0 ? "text-green-400" : "text-red-400"}>
             {delta > 0 ? "↑" : "↓"}
           </span>
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-zinc-500">
             {Math.abs(delta).toFixed(label.toLowerCase().includes("uptime") ? 2 : 1)}
             {label.toLowerCase().includes("throughput") ? "" : label.toLowerCase().includes("latency") ? "ms" : "%"}
           </span>
@@ -62,7 +62,7 @@ export function StatCardWithTrend({
               <Line
                 type="monotone"
                 dataKey="y"
-                stroke="#3B82F6"
+                stroke="#00FFE0"
                 strokeWidth={1.5}
                 dot={false}
               />

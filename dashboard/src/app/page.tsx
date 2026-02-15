@@ -30,19 +30,19 @@ export default function LandingPage() {
       <section className="relative overflow-hidden dot-grid">
         {/* Animated orbs */}
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-[10%] left-[15%] w-[500px] h-[500px] rounded-full bg-indigo-500/10 blur-[120px] animate-float" />
-          <div className="absolute top-[20%] right-[10%] w-[400px] h-[400px] rounded-full bg-purple-500/10 blur-[100px] animate-float" style={{ animationDelay: "-2s" }} />
-          <div className="absolute bottom-[10%] left-[40%] w-[350px] h-[350px] rounded-full bg-blue-500/8 blur-[100px] animate-float" style={{ animationDelay: "-4s" }} />
+          <div className="absolute top-[10%] left-[15%] w-[500px] h-[500px] rounded-full bg-[#00FFE0]/8 blur-[120px] animate-float" />
+          <div className="absolute top-[20%] right-[10%] w-[400px] h-[400px] rounded-full bg-[#00FFE0]/5 blur-[100px] animate-float" style={{ animationDelay: "-2s" }} />
+          <div className="absolute bottom-[10%] left-[40%] w-[350px] h-[350px] rounded-full bg-[#00FFE0]/6 blur-[100px] animate-float" style={{ animationDelay: "-4s" }} />
         </div>
 
         {/* Gradient line at top */}
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent" />
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#00FFE0]/50 to-transparent" />
 
         <div className="relative max-w-4xl mx-auto px-6 pt-24 pb-32 text-center">
           {/* Badge */}
-          <div className="animate-fade-in inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-gray-800 bg-gray-900/50 backdrop-blur-sm mb-8">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse-slow" />
-            <span className="text-xs text-gray-400">
+          <div className="animate-fade-in inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[#1a1a1a] bg-[#0f0f0f]/50 backdrop-blur-sm mb-8">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#00FFE0] animate-pulse-slow" />
+            <span className="text-xs text-zinc-400">
               {totalAgents.toLocaleString()} agents on-chain
             </span>
           </div>
@@ -51,13 +51,13 @@ export default function LandingPage() {
           <h1 className="animate-fade-in text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.1]">
             The Dashboard for
             <br />
-            <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-blue-400 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-[#00FFE0] via-cyan-300 to-teal-400 bg-clip-text text-transparent">
               AI Agents
             </span>
           </h1>
 
           {/* Subtitle */}
-          <p className="animate-fade-in-delay mt-6 text-lg md:text-xl text-gray-400 max-w-xl mx-auto leading-relaxed">
+          <p className="animate-fade-in-delay mt-6 text-lg md:text-xl text-zinc-400 max-w-xl mx-auto leading-relaxed">
             Explore, validate, and interact with AI agents
             registered on ERC-8004
           </p>
@@ -65,9 +65,9 @@ export default function LandingPage() {
           {/* Search */}
           <form onSubmit={handleSearch} className="animate-fade-in-delay-2 mt-10 max-w-lg mx-auto">
             <div className="relative group">
-              <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-blue-500/20 rounded-xl blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative flex items-center bg-gray-900 border border-gray-800 rounded-xl overflow-hidden focus-within:border-gray-700 transition-colors">
-                <svg className="w-4 h-4 text-gray-500 ml-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-[#00FFE0]/20 via-[#00FFE0]/10 to-[#00FFE0]/20 rounded-xl blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="relative flex items-center bg-[#0f0f0f] border border-[#1a1a1a] rounded-xl overflow-hidden focus-within:border-[#00FFE0]/30 transition-colors">
+                <svg className="w-4 h-4 text-zinc-500 ml-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 <input
@@ -75,7 +75,7 @@ export default function LandingPage() {
                   placeholder="Search agents..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="flex-1 bg-transparent px-4 py-3.5 text-sm text-gray-100 placeholder-gray-500 focus:outline-none"
+                  className="flex-1 bg-transparent px-4 py-3.5 text-sm text-[#ededed] placeholder-zinc-500 focus:outline-none"
                 />
               </div>
             </div>
@@ -85,7 +85,7 @@ export default function LandingPage() {
           <div className="animate-fade-in-delay-3 mt-8 flex items-center justify-center gap-4">
             <Link
               href="/explorer"
-              className="group inline-flex items-center gap-2 px-7 py-3 bg-white text-gray-950 font-medium rounded-lg hover:bg-gray-100 transition-colors"
+              className="group inline-flex items-center gap-2 px-7 py-3 bg-[#00FFE0] text-black font-medium rounded-lg hover:shadow-[0_0_20px_rgba(0,255,224,0.4)] transition-all"
             >
               Browse Agents
               <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -94,7 +94,7 @@ export default function LandingPage() {
             </Link>
             <Link
               href="/create"
-              className="inline-flex items-center gap-2 px-7 py-3 text-gray-300 font-medium rounded-lg border border-gray-800 hover:bg-gray-900 hover:border-gray-700 transition-colors"
+              className="inline-flex items-center gap-2 px-7 py-3 text-[#00FFE0] font-medium rounded-lg border border-[#00FFE0]/30 bg-[#00FFE0]/10 hover:bg-[#00FFE0]/15 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -105,26 +105,26 @@ export default function LandingPage() {
         </div>
 
         {/* Bottom fade */}
-        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-gray-950 to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#0a0a0a] to-transparent" />
       </section>
 
       {/* ── Live Stats ── */}
       <section className="relative max-w-5xl mx-auto px-6 -mt-16 z-10">
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: "On-chain Agents", value: totalAgents.toLocaleString(), color: "indigo" },
-            { label: "Total Requests", value: totalRequests.toLocaleString(), color: "purple" },
-            { label: "Total Revenue", value: `$${totalRevenue.toFixed(2)}`, sub: "USDC", color: "blue" },
+            { label: "On-chain Agents", value: totalAgents.toLocaleString() },
+            { label: "Total Requests", value: totalRequests.toLocaleString() },
+            { label: "Total Revenue", value: `$${totalRevenue.toFixed(2)}`, sub: "USDC" },
           ].map((stat) => (
             <div key={stat.label} className="gradient-border p-6 text-center backdrop-blur-sm transition-all duration-300 hover:scale-[1.02]">
-              <p className="text-[11px] text-gray-500 uppercase tracking-widest font-medium">
+              <p className="text-[11px] text-zinc-500 uppercase tracking-widest font-medium">
                 {stat.label}
               </p>
-              <p className="text-3xl md:text-4xl font-bold mt-3 tracking-tight bg-gradient-to-b from-white to-gray-400 bg-clip-text text-transparent">
+              <p className="text-3xl md:text-4xl font-bold mt-3 tracking-tight bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent">
                 {stat.value}
               </p>
               {stat.sub && (
-                <p className="text-xs text-gray-600 mt-1">{stat.sub}</p>
+                <p className="text-xs text-zinc-600 mt-1">{stat.sub}</p>
               )}
             </div>
           ))}
@@ -134,7 +134,7 @@ export default function LandingPage() {
       {/* ── Features ── */}
       <section className="max-w-5xl mx-auto px-6 pt-28 pb-20">
         <div className="text-center mb-14">
-          <p className="text-xs text-indigo-400 uppercase tracking-widest font-medium mb-3">
+          <p className="text-xs text-[#00FFE0] uppercase tracking-widest font-medium mb-3">
             Platform
           </p>
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
@@ -147,19 +147,19 @@ export default function LandingPage() {
             icon={<ChartIcon />}
             title="Free Analytics"
             description="Request logging, customer analysis, and revenue tracking. Zero latency overhead, zero cost."
-            gradient="from-indigo-500/20 to-indigo-500/0"
+            gradient="from-[#00FFE0]/20 to-[#00FFE0]/0"
           />
           <FeatureCard
             icon={<ShieldIcon />}
             title="Escrow System"
             description="On-chain payment protection for contracts over $100. Secure, transparent, and automatic."
-            gradient="from-purple-500/20 to-purple-500/0"
+            gradient="from-[#00FFE0]/15 to-[#00FFE0]/0"
           />
           <FeatureCard
             icon={<GridIcon />}
             title="Agent Marketplace"
             description="Discover, compare, and benchmark agents by reputation, category, and performance."
-            gradient="from-blue-500/20 to-blue-500/0"
+            gradient="from-[#00FFE0]/10 to-[#00FFE0]/0"
           />
         </div>
       </section>
@@ -169,13 +169,13 @@ export default function LandingPage() {
         <div className="gradient-border p-8 md:p-12">
           <div className="grid md:grid-cols-2 gap-10 items-center">
             <div>
-              <p className="text-xs text-indigo-400 uppercase tracking-widest font-medium mb-3">
+              <p className="text-xs text-[#00FFE0] uppercase tracking-widest font-medium mb-3">
                 Integration
               </p>
               <h2 className="text-3xl font-bold tracking-tight">
                 Start in 5 lines
               </h2>
-              <p className="mt-4 text-gray-400 leading-relaxed">
+              <p className="mt-4 text-zinc-400 leading-relaxed">
                 Drop in the SDK — zero config, zero latency impact.
                 Your agent gets analytics, customer tracking, and
                 revenue monitoring instantly.
@@ -186,8 +186,8 @@ export default function LandingPage() {
                   "Works with any framework",
                   "Free forever — no usage limits",
                 ].map((text) => (
-                  <div key={text} className="flex items-center gap-3 text-sm text-gray-400">
-                    <svg className="w-4 h-4 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <div key={text} className="flex items-center gap-3 text-sm text-zinc-400">
+                    <svg className="w-4 h-4 text-[#00FFE0] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                     </svg>
                     {text}
@@ -195,55 +195,55 @@ export default function LandingPage() {
                 ))}
               </div>
             </div>
-            <div className="rounded-xl border border-gray-800/50 bg-gray-950 overflow-hidden">
-              <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-800/50">
+            <div className="rounded-xl border border-[#1a1a1a]/50 bg-[#0a0a0a] overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]/50">
                 <div className="flex gap-1.5">
-                  <span className="w-3 h-3 rounded-full bg-gray-800" />
-                  <span className="w-3 h-3 rounded-full bg-gray-800" />
-                  <span className="w-3 h-3 rounded-full bg-gray-800" />
+                  <span className="w-3 h-3 rounded-full bg-[#1a1a1a]" />
+                  <span className="w-3 h-3 rounded-full bg-[#1a1a1a]" />
+                  <span className="w-3 h-3 rounded-full bg-[#1a1a1a]" />
                 </div>
-                <span className="text-xs text-gray-600 ml-2">sdk-example.ts</span>
+                <span className="text-xs text-zinc-600 ml-2">sdk-example.ts</span>
               </div>
               <pre className="p-5 text-sm leading-relaxed overflow-x-auto">
                 <code>
-                  <span className="text-purple-400">import</span>{" "}
+                  <span className="text-[#00FFE0]">import</span>{" "}
                   <span className="text-gray-300">{"{ GT8004Logger }"}</span>{" "}
-                  <span className="text-purple-400">from</span>{" "}
+                  <span className="text-[#00FFE0]">from</span>{" "}
                   <span className="text-green-400">{`'@gt8004/sdk'`}</span>
                   {"\n\n"}
-                  <span className="text-purple-400">const</span>{" "}
-                  <span className="text-blue-300">logger</span>{" "}
-                  <span className="text-gray-500">=</span>{" "}
-                  <span className="text-purple-400">new</span>{" "}
+                  <span className="text-[#00FFE0]">const</span>{" "}
+                  <span className="text-cyan-300">logger</span>{" "}
+                  <span className="text-zinc-500">=</span>{" "}
+                  <span className="text-[#00FFE0]">new</span>{" "}
                   <span className="text-yellow-300">GT8004Logger</span>
-                  <span className="text-gray-500">{"({"}</span>
+                  <span className="text-zinc-500">{"({"}</span>
                   {"\n"}
                   {"  "}
                   <span className="text-gray-300">agentId</span>
-                  <span className="text-gray-500">:</span>{" "}
+                  <span className="text-zinc-500">:</span>{" "}
                   <span className="text-green-400">{`'your-agent-id'`}</span>
-                  <span className="text-gray-500">,</span>
+                  <span className="text-zinc-500">,</span>
                   {"\n"}
                   {"  "}
                   <span className="text-gray-300">apiKey</span>
-                  <span className="text-gray-500">:</span>{" "}
-                  <span className="text-blue-300">process</span>
-                  <span className="text-gray-500">.</span>
-                  <span className="text-blue-300">env</span>
-                  <span className="text-gray-500">.</span>
+                  <span className="text-zinc-500">:</span>{" "}
+                  <span className="text-cyan-300">process</span>
+                  <span className="text-zinc-500">.</span>
+                  <span className="text-cyan-300">env</span>
+                  <span className="text-zinc-500">.</span>
                   <span className="text-gray-300">GT8004_API_KEY</span>
                   {"\n"}
-                  <span className="text-gray-500">{"})"}</span>
+                  <span className="text-zinc-500">{"})"}</span>
                   {"\n\n"}
                   <span className="text-gray-300">app</span>
-                  <span className="text-gray-500">.</span>
+                  <span className="text-zinc-500">.</span>
                   <span className="text-yellow-300">use</span>
-                  <span className="text-gray-500">(</span>
-                  <span className="text-blue-300">logger</span>
-                  <span className="text-gray-500">.</span>
+                  <span className="text-zinc-500">(</span>
+                  <span className="text-cyan-300">logger</span>
+                  <span className="text-zinc-500">.</span>
                   <span className="text-yellow-300">middleware</span>
-                  <span className="text-gray-500">())</span>{" "}
-                  <span className="text-gray-600">{"// Done. Dashboard is live."}</span>
+                  <span className="text-zinc-500">())</span>{" "}
+                  <span className="text-zinc-600">{"// Done. Dashboard is live."}</span>
                 </code>
               </pre>
             </div>
@@ -254,21 +254,21 @@ export default function LandingPage() {
       {/* ── Bottom CTA ── */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-indigo-500/8 rounded-full blur-[120px]" />
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-[#00FFE0]/6 rounded-full blur-[120px]" />
         </div>
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-800 to-transparent" />
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#1a1a1a] to-transparent" />
 
         <div className="relative max-w-3xl mx-auto px-6 py-24 text-center">
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
             Ready to get started?
           </h2>
-          <p className="mt-4 text-gray-400 text-lg">
+          <p className="mt-4 text-zinc-400 text-lg">
             Join the growing network of ERC-8004 agents.
           </p>
           <div className="mt-8 flex items-center justify-center gap-4">
             <Link
               href="/explorer"
-              className="group inline-flex items-center gap-2 px-7 py-3 bg-white text-gray-950 font-medium rounded-lg hover:bg-gray-100 transition-colors"
+              className="group inline-flex items-center gap-2 px-7 py-3 bg-[#00FFE0] text-black font-medium rounded-lg hover:shadow-[0_0_20px_rgba(0,255,224,0.4)] transition-all"
             >
               Explore Agents
               <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -277,7 +277,7 @@ export default function LandingPage() {
             </Link>
             <Link
               href="/create"
-              className="px-7 py-3 text-gray-300 font-medium rounded-lg border border-gray-800 hover:bg-gray-900 hover:border-gray-700 transition-colors"
+              className="px-7 py-3 text-[#00FFE0] font-medium rounded-lg border border-[#00FFE0]/30 bg-[#00FFE0]/10 hover:bg-[#00FFE0]/15 transition-colors"
             >
               Create Agent
             </Link>
@@ -305,11 +305,11 @@ function FeatureCard({
     <div className="group gradient-border p-6 transition-all duration-300 hover:scale-[1.02]">
       <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl ${gradient} rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
       <div className="relative">
-        <div className="w-10 h-10 rounded-lg bg-gray-800/80 border border-gray-700/50 flex items-center justify-center text-indigo-400 mb-5">
+        <div className="w-10 h-10 rounded-lg bg-[#141414] border border-[#1f1f1f] flex items-center justify-center text-[#00FFE0] mb-5">
           {icon}
         </div>
         <h3 className="text-lg font-semibold mb-2">{title}</h3>
-        <p className="text-sm text-gray-400 leading-relaxed">{description}</p>
+        <p className="text-sm text-zinc-400 leading-relaxed">{description}</p>
       </div>
     </div>
   );

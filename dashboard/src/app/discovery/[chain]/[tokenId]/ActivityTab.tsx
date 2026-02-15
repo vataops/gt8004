@@ -23,8 +23,8 @@ for (const cfg of Object.values(NETWORKS)) {
 const PAGE_SIZE = 25;
 
 const tooltipStyle = {
-  backgroundColor: "#111827",
-  border: "1px solid #1F2937",
+  backgroundColor: "#0f0f0f",
+  border: "1px solid #1a1a1a",
   borderRadius: "8px",
   fontSize: 12,
   boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
@@ -52,12 +52,12 @@ export function ActivityTab({
           {[...Array(4)].map((_, i) => (
             <div
               key={i}
-              className="h-24 bg-gray-800/50 rounded-lg animate-pulse"
+              className="h-24 bg-[#141414] rounded-lg animate-pulse"
             />
           ))}
         </div>
-        <div className="h-64 bg-gray-800/50 rounded-lg animate-pulse" />
-        <div className="h-48 bg-gray-800/50 rounded-lg animate-pulse" />
+        <div className="h-64 bg-[#141414] rounded-lg animate-pulse" />
+        <div className="h-48 bg-[#141414] rounded-lg animate-pulse" />
       </div>
     );
   }
@@ -65,12 +65,12 @@ export function ActivityTab({
   // ── Error ──
   if (error) {
     return (
-      <div className="bg-gray-900 border border-gray-800 rounded-lg py-12 text-center">
-        <p className="text-gray-400">Unable to load on-chain activity</p>
+      <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg py-12 text-center">
+        <p className="text-zinc-400">Unable to load on-chain activity</p>
         <p className="text-sm text-gray-600 mt-1">{error.message}</p>
         <button
           onClick={refresh}
-          className="text-xs text-blue-400 hover:text-blue-300 mt-3"
+          className="text-xs text-[#00FFE0] hover:text-[#00FFE0]/80 mt-3"
         >
           Retry
         </button>
@@ -88,19 +88,19 @@ export function ActivityTab({
           <KpiCard label="Gas Spent" value="—" color="amber" />
           <KpiCard label="Failed Txs" value="—" color="amber" />
         </div>
-        <div className="bg-gray-900 border border-gray-800 rounded-lg py-10 text-center">
-          <p className="text-gray-400 font-medium">
+        <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg py-10 text-center">
+          <p className="text-zinc-400 font-medium">
             Transaction history requires an API key
           </p>
           <p className="text-sm text-gray-600 mt-1">
-            Set <code className="text-gray-400 bg-gray-800 px-1.5 py-0.5 rounded text-xs">NEXT_PUBLIC_ETHERSCAN_API_KEY</code> to enable full activity data.
+            Set <code className="text-zinc-400 bg-[#141414] px-1.5 py-0.5 rounded text-xs">NEXT_PUBLIC_ETHERSCAN_API_KEY</code> to enable full activity data.
           </p>
           {explorer && (
             <a
               href={`${explorer}/address/${ownerAddress}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-blue-400 hover:text-blue-300 mt-3 inline-block"
+              className="text-xs text-[#00FFE0] hover:text-[#00FFE0]/80 mt-3 inline-block"
             >
               View on Explorer &rarr;
             </a>
@@ -113,8 +113,8 @@ export function ActivityTab({
   // ── Empty (genuinely no activity) ──
   if (!data || (data.totalTxCount === 0 && data.balance === "0.0")) {
     return (
-      <div className="bg-gray-900 border border-gray-800 rounded-lg py-16 text-center">
-        <p className="text-gray-400 font-medium">No on-chain activity</p>
+      <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg py-16 text-center">
+        <p className="text-zinc-400 font-medium">No on-chain activity</p>
         <p className="text-sm text-gray-600 mt-1">
           This wallet has no transactions on this network yet.
         </p>
@@ -123,7 +123,7 @@ export function ActivityTab({
             href={`${explorer}/address/${ownerAddress}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-blue-400 hover:text-blue-300 mt-3 inline-block"
+            className="text-xs text-[#00FFE0] hover:text-[#00FFE0]/80 mt-3 inline-block"
           >
             View on Explorer &rarr;
           </a>
@@ -179,14 +179,14 @@ export function ActivityTab({
 
       {/* ── Value Summary ── */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-          <p className="text-xs text-gray-500 mb-1">Total Sent</p>
+        <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-4">
+          <p className="text-xs text-zinc-500 mb-1">Total Sent</p>
           <p className="text-lg font-bold text-gray-100">
             {fmtEth(data.totalValueSentEth)} ETH
           </p>
         </div>
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-          <p className="text-xs text-gray-500 mb-1">Total Received</p>
+        <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-4">
+          <p className="text-xs text-zinc-500 mb-1">Total Received</p>
           <p className="text-lg font-bold text-green-400">
             {fmtEth(data.totalValueReceivedEth)} ETH
           </p>
@@ -195,21 +195,21 @@ export function ActivityTab({
 
       {/* ── Daily Activity Chart ── */}
       {chartData.length > 1 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
-          <h3 className="text-sm font-medium text-gray-400 mb-4">
+        <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-5">
+          <h3 className="text-sm font-medium text-zinc-400 mb-4">
             Daily Transaction Activity
           </h3>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
               <XAxis
                 dataKey="date"
-                tick={{ fontSize: 11, fill: "#6B7280" }}
+                tick={{ fontSize: 11, fill: "#71717a" }}
                 axisLine={false}
                 tickLine={false}
               />
               <YAxis
-                tick={{ fontSize: 11, fill: "#6B7280" }}
+                tick={{ fontSize: 11, fill: "#71717a" }}
                 axisLine={false}
                 tickLine={false}
                 allowDecimals={false}
@@ -217,7 +217,7 @@ export function ActivityTab({
               <Tooltip contentStyle={tooltipStyle} />
               <Bar
                 dataKey="transactions"
-                fill="#3B82F6"
+                fill="#00FFE0"
                 radius={[4, 4, 0, 0]}
                 name="Transactions"
               />
@@ -227,9 +227,9 @@ export function ActivityTab({
       )}
 
       {/* ── Transaction History ── */}
-      <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800">
-          <h3 className="text-sm font-medium text-gray-400">
+      <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-[#1a1a1a]">
+          <h3 className="text-sm font-medium text-zinc-400">
             Recent Transactions
           </h3>
           {explorer && (
@@ -237,7 +237,7 @@ export function ActivityTab({
               href={`${explorer}/address/${ownerAddress}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-blue-400 hover:text-blue-300"
+              className="text-xs text-[#00FFE0] hover:text-[#00FFE0]/80"
             >
               View all on Explorer &rarr;
             </a>
@@ -247,7 +247,7 @@ export function ActivityTab({
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-800 text-gray-500 text-xs">
+              <tr className="border-b border-[#1a1a1a] text-zinc-500 text-xs">
                 <th className="text-left px-4 py-2.5">Tx Hash</th>
                 <th className="text-left px-4 py-2.5">Method</th>
                 <th className="text-left px-4 py-2.5">Direction</th>
@@ -272,8 +272,8 @@ export function ActivityTab({
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-800">
-            <span className="text-xs text-gray-500">
+          <div className="flex items-center justify-between px-4 py-3 border-t border-[#1a1a1a]">
+            <span className="text-xs text-zinc-500">
               {(page - 1) * PAGE_SIZE + 1}–
               {Math.min(page * PAGE_SIZE, transactions.length)} of{" "}
               {transactions.length}
@@ -282,14 +282,14 @@ export function ActivityTab({
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="px-2 py-1 rounded text-xs text-gray-400 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
+                className="px-2 py-1 rounded text-xs text-zinc-400 hover:bg-[#141414] disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 Prev
               </button>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="px-2 py-1 rounded text-xs text-gray-400 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
+                className="px-2 py-1 rounded text-xs text-zinc-400 hover:bg-[#141414] disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 Next
               </button>
@@ -315,15 +315,15 @@ function KpiCard({
   color: "blue" | "green" | "amber";
 }) {
   const colorMap = {
-    blue: "bg-blue-900/20 border-blue-800/40 text-blue-400",
+    blue: "bg-[#00FFE0]/10 border-[#00FFE0]/30 text-[#00FFE0]",
     green: "bg-green-900/20 border-green-800/40 text-green-400",
     amber: "bg-amber-900/20 border-amber-800/40 text-amber-400",
   };
   return (
     <div className={`rounded-lg border p-4 ${colorMap[color]}`}>
-      <p className="text-xs text-gray-500 mb-1">{label}</p>
+      <p className="text-xs text-zinc-500 mb-1">{label}</p>
       <p className="text-lg font-bold">{value}</p>
-      {sub && <p className="text-xs text-gray-500 mt-0.5">{sub}</p>}
+      {sub && <p className="text-xs text-zinc-500 mt-0.5">{sub}</p>}
     </div>
   );
 }
@@ -354,7 +354,7 @@ function TxRow({
       : truncAddr(tx.from);
 
   return (
-    <tr className="border-b border-gray-800/50 hover:bg-gray-800/20">
+    <tr className="border-b border-[#1a1a1a] hover:bg-[#141414]/20">
       {/* Tx Hash */}
       <td className="px-4 py-2.5">
         {explorer ? (
@@ -362,12 +362,12 @@ function TxRow({
             href={`${explorer}/tx/${tx.hash}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-mono text-xs text-blue-400 hover:text-blue-300"
+            className="font-mono text-xs text-[#00FFE0] hover:text-[#00FFE0]/80"
           >
             {truncAddr(tx.hash)}
           </a>
         ) : (
-          <span className="font-mono text-xs text-gray-400">
+          <span className="font-mono text-xs text-zinc-400">
             {truncAddr(tx.hash)}
           </span>
         )}
@@ -375,7 +375,7 @@ function TxRow({
 
       {/* Method */}
       <td className="px-4 py-2.5">
-        <span className="text-xs text-gray-400 bg-gray-800 px-1.5 py-0.5 rounded font-mono">
+        <span className="text-xs text-zinc-400 bg-[#141414] px-1.5 py-0.5 rounded font-mono">
           {method}
         </span>
       </td>
@@ -385,7 +385,7 @@ function TxRow({
         <span
           className={`text-xs font-medium ${
             isSelf
-              ? "text-gray-400"
+              ? "text-zinc-400"
               : isOutgoing
                 ? "text-amber-400"
                 : "text-green-400"
@@ -413,14 +413,14 @@ function TxRow({
 
       {/* Gas Fee */}
       <td className="px-4 py-2.5 text-right">
-        <span className="font-mono text-xs text-gray-500">
+        <span className="font-mono text-xs text-zinc-500">
           {fmtEth(formatWei(gasFee))}
         </span>
       </td>
 
       {/* Age */}
       <td className="px-4 py-2.5 text-right">
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-zinc-500">
           {timeAgo(Number(tx.timeStamp) * 1000)}
         </span>
       </td>

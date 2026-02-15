@@ -6,7 +6,8 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { StatCard } from "@/components/StatCard";
 import { openApi, Agent } from "@/lib/api";
-import { NETWORK_LIST, resolveImageUrl } from "@/lib/networks";
+import { NETWORK_LIST } from "@/lib/networks";
+import { AgentAvatar } from "@/components/RobotIcon";
 import {
   BarChart,
   Bar,
@@ -20,7 +21,7 @@ import { RevenueTab } from "./components/RevenueTab";
 import { ObservabilityTab } from "./components/ObservabilityTab";
 import { useWalletStats, useWalletDailyStats, useWalletErrors } from "@/lib/hooks";
 
-const AGENT_COLORS = ["#3b82f6", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#ec4899"];
+const AGENT_COLORS = ["#00FFE0", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#ec4899"];
 
 const TABS = [
   { key: "overview", label: "Overview" },
@@ -309,7 +310,7 @@ export default function MyAgentsPage() {
   ];
 
   if (authLoading || loading) {
-    return <p className="text-gray-500">Loading agents...</p>;
+    return <p className="text-zinc-500">Loading agents...</p>;
   }
 
   if (!walletAddress) {
@@ -321,28 +322,21 @@ export default function MyAgentsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-xl font-bold">My Agents</h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <h2 className="text-xl font-bold">My Dashboard</h2>
+          <p className="text-sm text-zinc-500 mt-1">
             Manage your agents registered on the ERC-8004 registry
           </p>
         </div>
         <button
           onClick={logout}
-          className="px-4 py-2 rounded-md text-sm font-medium text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 transition-colors"
+          className="px-4 py-2 rounded-md text-sm font-medium text-zinc-400 hover:text-white border border-[#1f1f1f] hover:border-zinc-500 transition-colors"
         >
           Disconnect
         </button>
       </div>
 
-      {/* Wallet address */}
-      {walletAddress && (
-        <p className="text-xs text-gray-500 mb-4 font-mono">
-          {walletAddress}
-        </p>
-      )}
-
       {/* Tab Navigation */}
-      <div className="border-b border-gray-800 mb-6">
+      <div className="border-b border-[#1a1a1a] mb-6">
         <nav className="flex gap-0 -mb-px">
           {TABS.map((tab) => (
             <button
@@ -350,13 +344,13 @@ export default function MyAgentsPage() {
               onClick={() => setActiveTab(tab.key)}
               className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
                 activeTab === tab.key
-                  ? "text-white"
-                  : "text-gray-500 hover:text-gray-300"
+                  ? "text-[#00FFE0]"
+                  : "text-zinc-500 hover:text-zinc-300"
               }`}
             >
               {tab.label}
               {activeTab === tab.key && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-white rounded-full" />
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#00FFE0] rounded-full" />
               )}
             </button>
           ))}
@@ -398,10 +392,10 @@ export default function MyAgentsPage() {
           )}
 
           {/* Agent Table */}
-          <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
+          <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-800 text-gray-500">
+                <tr className="border-b border-[#1a1a1a] text-zinc-400">
                   <th className="text-left p-3">Agent</th>
                   <th className="text-left p-3">Chain</th>
                   <th className="text-left p-3">Requests</th>
@@ -425,22 +419,12 @@ export default function MyAgentsPage() {
                 {agents.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE).map((agent) => (
                   <tr
                     key={`${agent.chain_id}-${agent.agent_id}`}
-                    className={`border-b border-gray-800/50 hover:bg-gray-800/30 ${!agent.registered ? "opacity-50 hover:opacity-80 transition-opacity" : ""}`}
+                    className={`border-b border-[#1a1a1a]/50 hover:bg-[#00FFE0]/5 ${!agent.registered ? "opacity-50 hover:opacity-80 transition-opacity" : ""}`}
                   >
                     {/* Agent name + token */}
                     <td className="p-3">
                       <div className="flex items-center gap-2.5">
-                        {resolveImageUrl(agent.image_url) ? (
-                          <img
-                            src={resolveImageUrl(agent.image_url)!}
-                            alt=""
-                            className="w-8 h-8 rounded-md object-cover bg-gray-800 shrink-0"
-                          />
-                        ) : (
-                          <div className="w-8 h-8 rounded-md bg-gray-800 flex items-center justify-center text-xs text-gray-600 shrink-0">
-                            #
-                          </div>
-                        )}
+                        <AgentAvatar imageUrl={agent.image_url} />
                         <div className="min-w-0">
                           <div>
                             <span className="font-medium text-gray-100">
@@ -448,7 +432,7 @@ export default function MyAgentsPage() {
                             </span>
                             {agent.token_id !== null &&
                               !agent.name.startsWith("Token #") && (
-                                <span className="text-gray-500 ml-1.5">
+                                <span className="text-zinc-500 ml-1.5">
                                   #{agent.token_id}
                                 </span>
                               )}
@@ -464,9 +448,9 @@ export default function MyAgentsPage() {
                                 const n = svc.toUpperCase();
                                 const style = n === "MCP" ? "bg-cyan-900/30 text-cyan-400"
                                   : n === "A2A" ? "bg-emerald-900/30 text-emerald-400"
-                                  : n === "WEB" || n === "HTTP" ? "bg-blue-900/30 text-blue-400"
+                                  : n === "WEB" || n === "HTTP" ? "bg-[#00FFE0]/10 text-[#00FFE0]"
                                   : n === "OASF" ? "bg-purple-900/30 text-purple-400"
-                                  : "bg-gray-800 text-gray-400";
+                                  : "bg-[#141414] text-zinc-400";
                                 return (
                                   <span key={i} className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${style}`}>
                                     {n}
@@ -506,13 +490,13 @@ export default function MyAgentsPage() {
                               <span key={i} className={`text-[10px] flex items-center gap-1 ${
                                 status === "healthy" ? "text-green-400"
                                 : status === "unhealthy" ? "text-red-400"
-                                : status === "checking" ? "text-gray-500"
+                                : status === "checking" ? "text-zinc-500"
                                 : "text-gray-600"
                               }`}>
                                 <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                                   status === "healthy" ? "bg-green-400"
                                   : status === "unhealthy" ? "bg-red-400"
-                                  : status === "checking" ? "bg-gray-500 animate-pulse"
+                                  : status === "checking" ? "bg-zinc-500 animate-pulse"
                                   : "bg-gray-700"
                                 }`} />
                                 {svc.name}
@@ -530,7 +514,7 @@ export default function MyAgentsPage() {
                       {agent.registered ? (
                         <Link
                           href={`/agents/${agent.agent_id}`}
-                          className="text-blue-400 hover:text-blue-300 text-xs transition-colors"
+                          className="text-[#00FFE0] hover:text-[#00FFE0]/80 text-xs transition-colors"
                         >
                           View
                         </Link>
@@ -558,8 +542,8 @@ export default function MyAgentsPage() {
               </tbody>
             </table>
             {agents.length > PAGE_SIZE && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-800">
-                <span className="text-xs text-gray-500">
+              <div className="flex items-center justify-between px-4 py-3 border-t border-[#1a1a1a]">
+                <span className="text-xs text-zinc-500">
                   {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, agents.length)} of {agents.length} agents
                 </span>
                 <div className="flex items-center gap-1">
@@ -569,8 +553,8 @@ export default function MyAgentsPage() {
                       onClick={() => setCurrentPage(page)}
                       className={`min-w-[28px] h-7 rounded text-xs font-medium transition-colors ${
                         page === currentPage
-                          ? "bg-blue-600 text-white"
-                          : "text-gray-400 hover:bg-gray-800 hover:text-gray-200"
+                          ? "bg-[#00FFE0] text-black"
+                          : "text-zinc-400 hover:bg-[#1a1a1a] hover:text-gray-200"
                       }`}
                     >
                       {page}
@@ -612,8 +596,8 @@ function ChainBadge({
 }) {
   // Color by chain
   const isBase = chainId === 84532 || chain.toLowerCase().includes("base");
-  const bgColor = isBase ? "bg-blue-900/30" : "bg-purple-900/30";
-  const textColor = isBase ? "text-blue-400" : "text-purple-400";
+  const bgColor = isBase ? "bg-[#00FFE0]/10" : "bg-purple-900/30";
+  const textColor = isBase ? "text-[#00FFE0]" : "text-purple-400";
 
   if (chain === "-") return <span className="text-gray-600">—</span>;
 
@@ -646,9 +630,9 @@ function BreakdownChart({
   formatValue: (v: number) => string;
 }) {
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+    <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-gray-400">{title}</h3>
+        <h3 className="text-sm font-semibold text-zinc-400">{title}</h3>
         <span className="text-sm text-gray-300 font-medium">
           {formatValue(total)}
         </span>
@@ -672,7 +656,7 @@ function BreakdownChart({
                   );
                   if (!items.length) return null;
                   return (
-                    <div className="bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-xs shadow-lg">
+                    <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-2.5 text-xs shadow-lg">
                       {items.map((p) => {
                         const agent = agents.find((a) => a.key === p.dataKey);
                         const val = p.value as number;
@@ -690,7 +674,7 @@ function BreakdownChart({
                             <span className="text-gray-300">
                               {agent?.label}
                             </span>
-                            <span className="text-gray-500 ml-auto pl-3">
+                            <span className="text-zinc-500 ml-auto pl-3">
                               {formatValue(val)} ({pct}%)
                             </span>
                           </div>
@@ -712,7 +696,7 @@ function BreakdownChart({
           </ResponsiveContainer>
         </div>
       ) : (
-        <div className="h-8 bg-gray-800/50 rounded flex items-center justify-center">
+        <div className="h-8 bg-[#141414]/50 rounded flex items-center justify-center">
           <span className="text-xs text-gray-600">No data</span>
         </div>
       )}
@@ -726,7 +710,7 @@ function BreakdownChart({
                 className="w-2.5 h-2.5 rounded-sm shrink-0"
                 style={{ backgroundColor: a.color }}
               />
-              <span className="text-gray-400">{a.label}</span>
+              <span className="text-zinc-400">{a.label}</span>
               <span className="text-gray-600">{formatValue(val)}</span>
             </div>
           );
@@ -739,7 +723,7 @@ function BreakdownChart({
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
     active: "bg-green-900/30 text-green-400",
-    inactive: "bg-gray-800 text-gray-400",
+    inactive: "bg-[#141414] text-zinc-400",
     deregistered: "bg-red-900/30 text-red-400",
   };
 

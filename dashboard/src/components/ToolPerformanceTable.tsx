@@ -8,8 +8,8 @@ export function ToolPerformanceTable({ tools }: { tools: ToolUsage[] }) {
 
   if (!tools || tools.length === 0) {
     return (
-      <div className="bg-gray-900 border border-gray-800 rounded-lg p-8 text-center">
-        <p className="text-gray-500 text-sm">No tool usage data available yet.</p>
+      <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-8 text-center">
+        <p className="text-zinc-500 text-sm">No tool usage data available yet.</p>
       </div>
     );
   }
@@ -26,9 +26,9 @@ export function ToolPerformanceTable({ tools }: { tools: ToolUsage[] }) {
   const displayTools = sortedTools.slice(0, 10);
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+    <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-medium text-gray-400">
+        <h3 className="text-sm font-medium text-zinc-400">
           Tool Performance (Top 10)
         </h3>
         <div className="flex gap-2">
@@ -36,8 +36,8 @@ export function ToolPerformanceTable({ tools }: { tools: ToolUsage[] }) {
             onClick={() => setSortBy("p95")}
             className={`px-3 py-1 text-xs rounded ${
               sortBy === "p95"
-                ? "bg-blue-500 text-white"
-                : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                ? "bg-[#00FFE0] text-black"
+                : "bg-[#141414] text-zinc-400 hover:bg-[#1a1a1a]"
             }`}
           >
             By P95
@@ -46,8 +46,8 @@ export function ToolPerformanceTable({ tools }: { tools: ToolUsage[] }) {
             onClick={() => setSortBy("calls")}
             className={`px-3 py-1 text-xs rounded ${
               sortBy === "calls"
-                ? "bg-blue-500 text-white"
-                : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                ? "bg-[#00FFE0] text-black"
+                : "bg-[#141414] text-zinc-400 hover:bg-[#1a1a1a]"
             }`}
           >
             By Calls
@@ -56,8 +56,8 @@ export function ToolPerformanceTable({ tools }: { tools: ToolUsage[] }) {
             onClick={() => setSortBy("errors")}
             className={`px-3 py-1 text-xs rounded ${
               sortBy === "errors"
-                ? "bg-blue-500 text-white"
-                : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                ? "bg-[#00FFE0] text-black"
+                : "bg-[#141414] text-zinc-400 hover:bg-[#1a1a1a]"
             }`}
           >
             By Errors
@@ -68,7 +68,7 @@ export function ToolPerformanceTable({ tools }: { tools: ToolUsage[] }) {
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
-            <tr className="text-gray-500 border-b border-gray-800">
+            <tr className="text-zinc-400 border-b border-[#1a1a1a]">
               <th className="text-left pb-2 font-medium">Tool Name</th>
               <th className="text-right pb-2 font-medium">Calls</th>
               <th className="text-right pb-2 font-medium">Avg Latency</th>
@@ -91,10 +91,10 @@ export function ToolPerformanceTable({ tools }: { tools: ToolUsage[] }) {
               return (
                 <tr
                   key={tool.tool_name}
-                  className="border-b border-gray-800/50 hover:bg-gray-800/30"
+                  className="border-b border-[#1a1a1a]/50 hover:bg-[#00FFE0]/5"
                 >
                   <td className="py-2 text-white font-mono flex items-center gap-2">
-                    <span className="text-gray-500 w-4">{idx + 1}.</span>
+                    <span className="text-zinc-500 w-4">{idx + 1}.</span>
                     {tool.tool_name}
                     {isSlowTool && (
                       <span
@@ -108,10 +108,10 @@ export function ToolPerformanceTable({ tools }: { tools: ToolUsage[] }) {
                   <td className="py-2 text-right text-gray-300 font-mono">
                     {(tool.call_count || 0).toLocaleString()}
                   </td>
-                  <td className="py-2 text-right text-gray-400 font-mono">
+                  <td className="py-2 text-right text-zinc-400 font-mono">
                     {(tool.avg_response_ms || 0).toFixed(0)}ms
                   </td>
-                  <td className="py-2 text-right text-blue-400 font-mono font-medium">
+                  <td className="py-2 text-right text-[#00FFE0] font-mono font-medium">
                     {(tool.p95_response_ms || 0).toFixed(0)}ms
                   </td>
                   <td className={`py-2 text-right font-mono ${errorColor}`}>

@@ -10,7 +10,7 @@ import { NETWORKS, NETWORK_LIST, DEFAULT_NETWORK } from "@/lib/networks";
 
 export default function RegisterPage() {
   return (
-    <Suspense fallback={<p className="text-gray-500">Loading...</p>}>
+    <Suspense fallback={<p className="text-zinc-500">Loading...</p>}>
       <RegisterPageInner />
     </Suspense>
   );
@@ -207,7 +207,7 @@ function RegisterPageInner() {
       {/* Step Indicator */}
       {phase !== "apikey" && (
         <div className="mb-6">
-          <div className="flex items-center justify-between text-xs text-gray-500">
+          <div className="flex items-center justify-between text-xs text-zinc-500">
             <span>Step {stepInfo.current} of {stepInfo.total}</span>
             <span>{stepInfo.label}</span>
           </div>
@@ -225,7 +225,7 @@ function RegisterPageInner() {
               </svg>
             </div>
             <h2 className="text-2xl font-bold mb-2">Agent Registered Successfully!</h2>
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-zinc-400">
               Your agent <span className="text-white font-mono">{registeredAgentId}</span> is ready to integrate.
             </p>
           </div>
@@ -233,28 +233,28 @@ function RegisterPageInner() {
           {/* SDK Setup Instructions */}
           <div className="space-y-6">
             {/* Step 1: Install SDK */}
-            <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+            <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-5">
               <h3 className="text-sm font-semibold text-gray-300 mb-3">Step 1: Install SDK</h3>
-              <div className="bg-gray-950 rounded-md p-3 border border-gray-800 relative group">
+              <div className="bg-[#0a0a0a] rounded-md p-3 border border-[#1a1a1a] relative group">
                 <code className="text-sm font-mono text-gray-300">
                   pip install gt8004-sdk
                 </code>
                 <button
                   onClick={() => copyToClipboard("pip install gt8004-sdk", "install")}
-                  className="absolute top-2 right-2 px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-2 right-2 px-2 py-1 rounded bg-[#1a1a1a] hover:bg-[#00FFE0]/10 hover:text-[#00FFE0] text-xs text-zinc-400 opacity-0 group-hover:opacity-100 transition-all"
                 >
                   {copied === "install" ? "Copied!" : "Copy"}
                 </button>
               </div>
-              <p className="text-xs text-gray-600 mt-2">
+              <p className="text-xs text-zinc-600 mt-2">
                 Note: SDK is coming soon. For now, use the manual Ingest API.
               </p>
             </div>
 
             {/* Step 2: Integration Code */}
-            <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+            <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-5">
               <h3 className="text-sm font-semibold text-gray-300 mb-3">Step 2: Add to Your Agent Code</h3>
-              <div className="bg-gray-950 rounded-md p-3 border border-gray-800 relative group">
+              <div className="bg-[#0a0a0a] rounded-md p-3 border border-[#1a1a1a] relative group">
                 <pre className="text-xs font-mono text-gray-300 overflow-x-auto">
 {`from gt8004 import GT8004Logger
 
@@ -286,7 +286,7 @@ app = FastAPI()
 @app.middleware("http")
 async def gt8004_middleware(request, call_next):
     return await logger.middleware(request, call_next)`, "code")}
-                  className="absolute top-2 right-2 px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-2 right-2 px-2 py-1 rounded bg-[#1a1a1a] hover:bg-[#00FFE0]/10 hover:text-[#00FFE0] text-xs text-zinc-400 opacity-0 group-hover:opacity-100 transition-all"
                 >
                   {copied === "code" ? "Copied!" : "Copy"}
                 </button>
@@ -294,15 +294,15 @@ async def gt8004_middleware(request, call_next):
             </div>
 
             {/* Step 3: API Key */}
-            <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+            <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-5">
               <h3 className="text-sm font-semibold text-gray-300 mb-3">Your API Key</h3>
-              <div className="bg-gray-950 rounded-md p-3 border border-gray-800 relative group">
+              <div className="bg-[#0a0a0a] rounded-md p-3 border border-[#1a1a1a] relative group">
                 <code className="text-sm font-mono text-gray-300 break-all">
                   {apiKey}
                 </code>
                 <button
                   onClick={() => copyToClipboard(apiKey, "apikey")}
-                  className="absolute top-2 right-2 px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-2 right-2 px-2 py-1 rounded bg-[#1a1a1a] hover:bg-[#00FFE0]/10 hover:text-[#00FFE0] text-xs text-zinc-400 opacity-0 group-hover:opacity-100 transition-all"
                 >
                   {copied === "apikey" ? "Copied!" : "Copy"}
                 </button>
@@ -315,7 +315,7 @@ async def gt8004_middleware(request, call_next):
             {/* Continue Button */}
             <button
               onClick={handleContinue}
-              className="w-full py-3 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors"
+              className="w-full py-3 rounded-md bg-[#00FFE0] text-black text-sm font-medium hover:shadow-[0_0_20px_rgba(0,255,224,0.4)] transition-all"
             >
               Continue to Dashboard →
             </button>
@@ -329,22 +329,22 @@ async def gt8004_middleware(request, call_next):
           {/* Auto-registering loading state */}
           {isAutoRegistering ? (
             <div className="py-20 text-center">
-              <div className="inline-block w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mb-4" />
+              <div className="inline-block w-12 h-12 border-4 border-[#00FFE0] border-t-transparent rounded-full animate-spin mb-4" />
               <h2 className="text-xl font-bold mb-2">Registering Agent...</h2>
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-zinc-400">
                 Please wait while we register your agent to GT8004.
               </p>
             </div>
           ) : (
             <>
               <h2 className="text-xl font-bold mb-2">Register New Agent</h2>
-              <p className="text-sm text-gray-400 mb-4">
+              <p className="text-sm text-zinc-400 mb-4">
                 Connect your wallet to register your ERC-8004 agents to GT8004.
               </p>
 
           {/* Network Selector */}
           <div className="mb-4">
-            <label className="block text-xs text-gray-500 mb-1.5">Network</label>
+            <label className="block text-xs text-zinc-500 mb-1.5">Network</label>
             <div className="flex gap-2">
               {NETWORK_LIST.map((net) => (
                 <button
@@ -353,8 +353,8 @@ async def gt8004_middleware(request, call_next):
                   onClick={() => setSelectedNetwork(net.key)}
                   className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
                     selectedNetwork === net.key
-                      ? "bg-purple-600/20 border-purple-500 text-purple-300"
-                      : "bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500"
+                      ? "bg-[#00FFE0]/10 border-[#00FFE0]/30 text-[#00FFE0]"
+                      : "bg-[#0f0f0f] border-[#1f1f1f] text-zinc-400 hover:border-zinc-500"
                   }`}
                 >
                   {net.shortName}
@@ -362,7 +362,7 @@ async def gt8004_middleware(request, call_next):
               ))}
             </div>
             {currentNetwork && (
-              <p className="mt-1.5 text-xs text-gray-600 font-mono truncate">
+              <p className="mt-1.5 text-xs text-zinc-600 font-mono truncate">
                 {currentNetwork.contractAddress}
               </p>
             )}
@@ -373,7 +373,7 @@ async def gt8004_middleware(request, call_next):
               <button
                 onClick={handleConnectWallet}
                 disabled={loading}
-                className="w-full py-2 rounded-md bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium disabled:opacity-50 transition-colors"
+                className="w-full py-2 rounded-md bg-[#00FFE0] text-black text-sm font-medium disabled:opacity-50 hover:shadow-[0_0_20px_rgba(0,255,224,0.4)] transition-all"
               >
                 {loading ? "Connecting..." : "Connect Wallet"}
               </button>
@@ -384,9 +384,9 @@ async def gt8004_middleware(request, call_next):
           ) : (
             <>
               {/* Connected address */}
-              <div className="p-3 rounded-lg border border-gray-700 bg-gray-900/50 mb-4 flex items-center justify-between">
+              <div className="p-3 rounded-lg border border-[#1f1f1f] bg-[#0f0f0f] mb-4 flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-gray-500">Connected</p>
+                  <p className="text-xs text-zinc-500">Connected</p>
                   <p className="text-sm font-mono text-gray-300">
                     {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
                   </p>
@@ -397,19 +397,19 @@ async def gt8004_middleware(request, call_next):
               {/* Token list */}
               {tokensLoading ? (
                 <div className="py-12 text-center">
-                  <div className="inline-block w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mb-3" />
-                  <p className="text-sm text-gray-400">Loading tokens from {currentNetwork?.shortName}...</p>
+                  <div className="inline-block w-6 h-6 border-2 border-[#00FFE0] border-t-transparent rounded-full animate-spin mb-3" />
+                  <p className="text-sm text-zinc-400">Loading tokens from {currentNetwork?.shortName}...</p>
                 </div>
               ) : ownedTokens.length > 0 ? (
                 <div className="space-y-2">
-                  <p className="text-xs text-gray-500 mb-2">
+                  <p className="text-xs text-zinc-500 mb-2">
                     {ownedTokens.length} unregistered agent{ownedTokens.length !== 1 ? "s" : ""} found on {currentNetwork?.shortName}
                   </p>
                   {ownedTokens.map((token) => (
                     <button
                       key={token.token_id}
                       onClick={() => handleSelectToken(token)}
-                      className="w-full text-left p-4 rounded-lg border border-gray-700 bg-gray-900/50 hover:border-purple-500 hover:bg-purple-900/10 transition-colors group"
+                      className="w-full text-left p-4 rounded-lg border border-[#1f1f1f] bg-[#0f0f0f] hover:border-[#00FFE0]/50 hover:bg-[#00FFE0]/5 transition-colors group"
                     >
                       <div className="flex items-center justify-between">
                         <div className="min-w-0 flex-1">
@@ -419,14 +419,14 @@ async def gt8004_middleware(request, call_next):
                             </span>
                           </div>
                           {token.agent_uri ? (
-                            <p className="text-xs font-mono text-gray-400 truncate">
+                            <p className="text-xs font-mono text-zinc-400 truncate">
                               {token.agent_uri}
                             </p>
                           ) : (
-                            <p className="text-xs text-gray-600 italic">No agent URI set</p>
+                            <p className="text-xs text-zinc-600 italic">No agent URI set</p>
                           )}
                         </div>
-                        <span className="text-gray-600 group-hover:text-purple-400 transition-colors ml-3">
+                        <span className="text-zinc-600 group-hover:text-[#00FFE0] transition-colors ml-3">
                           &rarr;
                         </span>
                       </div>
@@ -435,8 +435,8 @@ async def gt8004_middleware(request, call_next):
                 </div>
               ) : (
                 <div className="py-8 text-center">
-                  <p className="text-sm text-gray-400 mb-2">No unregistered agents</p>
-                  <p className="text-xs text-gray-600">
+                  <p className="text-sm text-zinc-400 mb-2">No unregistered agents</p>
+                  <p className="text-xs text-zinc-600">
                     All your ERC-8004 tokens on {currentNetwork?.shortName} are already registered,
                     or you don&apos;t own any tokens yet. Mint a new token to register more agents.
                   </p>

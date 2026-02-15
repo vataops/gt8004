@@ -7,7 +7,7 @@
       {
         "source": "**",
         "run": {
-          "serviceId": "gt8004-dashboard",
+          "serviceId": "testnet-gt8004-dashboard",
           "region": "us-central1"
         }
       }

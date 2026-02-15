@@ -60,7 +60,7 @@ export function ObservabilityTab({
           value={
             healthSummary.total > 0
               ? `${healthSummary.healthy} / ${healthSummary.total}`
-              : "—"
+              : "\u2014"
           }
           sub={
             healthSummary.total > 0
@@ -73,7 +73,7 @@ export function ObservabilityTab({
           value={
             healthSummary.avgResponseMs > 0
               ? `${healthSummary.avgResponseMs.toFixed(0)}ms`
-              : "—"
+              : "\u2014"
           }
           sub={
             healthSummary.maxResponseMs > 0
@@ -86,7 +86,7 @@ export function ObservabilityTab({
           value={
             walletErrors
               ? `${(walletErrors.error_rate * 100).toFixed(2)}%`
-              : "—"
+              : "\u2014"
           }
           sub={
             walletErrors
@@ -98,15 +98,15 @@ export function ObservabilityTab({
 
       {/* Last Checked */}
       {lastChecked && (
-        <div className="text-xs text-gray-500">
+        <div className="text-xs text-zinc-500">
           Last health check: {lastChecked.toLocaleString()}
         </div>
       )}
 
       {/* Health Status Grid */}
       {agentsWithEndpoints.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
-          <h3 className="text-sm font-semibold text-gray-400 mb-4">
+        <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-6">
+          <h3 className="text-sm font-semibold text-zinc-400 mb-4">
             Agent Health Overview
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -135,7 +135,7 @@ export function ObservabilityTab({
                   ? "border-red-800 bg-red-900/10"
                   : allHealthy
                   ? "border-green-800 bg-green-900/10"
-                  : "border-gray-700 bg-gray-800/30";
+                  : "border-[#1f1f1f] bg-[#141414]/30";
 
                 return (
                   <div
@@ -146,7 +146,7 @@ export function ObservabilityTab({
                       {agent.name}
                       {agent.token_id !== null &&
                         !agent.name.startsWith("Token #") && (
-                          <span className="text-gray-500 ml-1">
+                          <span className="text-zinc-500 ml-1">
                             #{agent.token_id}
                           </span>
                         )}
@@ -159,16 +159,16 @@ export function ObservabilityTab({
                             <span className={`w-2 h-2 rounded-full shrink-0 ${
                               status === "healthy" ? "bg-green-400"
                               : status === "unhealthy" ? "bg-red-400"
-                              : "bg-gray-500 animate-pulse"
+                              : "bg-zinc-500 animate-pulse"
                             }`} />
                             <span className="text-xs text-gray-300">{svc.name}</span>
-                            <span className="text-[10px] text-gray-500 capitalize">{status}</span>
+                            <span className="text-[10px] text-zinc-500 capitalize">{status}</span>
                           </div>
                         );
                       })}
                     </div>
                     {agent.avg_response_ms > 0 && (
-                      <div className="text-xs text-gray-400 mt-2">
+                      <div className="text-xs text-zinc-400 mt-2">
                         Avg: {agent.avg_response_ms.toFixed(0)}ms
                       </div>
                     )}
@@ -206,18 +206,18 @@ export function ObservabilityTab({
                 key={agent.agent_id}
                 className="flex items-start gap-3 text-sm"
               >
-                <span className="text-yellow-400 mt-0.5">•</span>
+                <span className="text-yellow-400 mt-0.5">{"\u2022"}</span>
                 <div className="flex-1">
                   <span className="font-medium text-gray-100">
                     {agent.name}
                     {agent.token_id !== null &&
                       !agent.name.startsWith("Token #") && (
-                        <span className="text-gray-500 ml-1">
+                        <span className="text-zinc-500 ml-1">
                           #{agent.token_id}
                         </span>
                       )}
                   </span>
-                  <span className="text-gray-400 ml-2">{reason}</span>
+                  <span className="text-zinc-400 ml-2">{reason}</span>
                 </div>
               </div>
             ))}
@@ -227,20 +227,20 @@ export function ObservabilityTab({
 
       {/* Error Analysis */}
       {walletErrors && walletErrors.by_status_code.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
-          <h3 className="text-sm font-semibold text-gray-400 mb-4">
+        <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-6">
+          <h3 className="text-sm font-semibold text-zinc-400 mb-4">
             Errors by Status Code
           </h3>
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs text-gray-500 border-b border-gray-800">
+              <tr className="text-left text-xs text-zinc-400 border-b border-[#1a1a1a]">
                 <th className="pb-2">Status Code</th>
                 <th className="pb-2 text-right">Count</th>
               </tr>
             </thead>
             <tbody>
               {walletErrors.by_status_code.map((sc) => (
-                <tr key={sc.status_code} className="border-b border-gray-800/50">
+                <tr key={sc.status_code} className="border-b border-[#1a1a1a]/50">
                   <td className="py-2 text-sm">{sc.status_code}</td>
                   <td className="py-2 text-sm text-right">{sc.count.toLocaleString()}</td>
                 </tr>
@@ -251,13 +251,13 @@ export function ObservabilityTab({
       )}
 
       {walletErrors && walletErrors.by_agent.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
-          <h3 className="text-sm font-semibold text-gray-400 mb-4">
+        <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-6">
+          <h3 className="text-sm font-semibold text-zinc-400 mb-4">
             Agents with Highest Error Rates
           </h3>
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs text-gray-500 border-b border-gray-800">
+              <tr className="text-left text-xs text-zinc-400 border-b border-[#1a1a1a]">
                 <th className="pb-2">Agent</th>
                 <th className="pb-2 text-right">Errors</th>
                 <th className="pb-2 text-right">Error Rate</th>
@@ -265,7 +265,7 @@ export function ObservabilityTab({
             </thead>
             <tbody>
               {walletErrors.by_agent.slice(0, 10).map((agent) => (
-                <tr key={agent.agent_id} className="border-b border-gray-800/50">
+                <tr key={agent.agent_id} className="border-b border-[#1a1a1a]/50">
                   <td className="py-2 text-sm">{agent.agent_name}</td>
                   <td className="py-2 text-sm text-right">
                     {agent.error_count.toLocaleString()}
@@ -274,7 +274,7 @@ export function ObservabilityTab({
                     <span className={
                       agent.error_rate > 0.1 ? "text-red-400" :
                       agent.error_rate > 0.05 ? "text-yellow-400" :
-                      "text-gray-400"
+                      "text-zinc-400"
                     }>
                       {(agent.error_rate * 100).toFixed(2)}%
                     </span>
@@ -287,7 +287,7 @@ export function ObservabilityTab({
       )}
 
       {agentsWithEndpoints.length === 0 && (
-        <div className="text-center py-12 text-gray-500">
+        <div className="text-center py-12 text-zinc-500">
           No agents with origin endpoints configured
         </div>
       )}
