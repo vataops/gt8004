@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { openApi } from "./api";
+import { fetchOnChainActivity } from "./etherscan";
 
 function usePolling<T>(fetchFn: () => Promise<T>, intervalMs: number) {
   const [data, setData] = useState<T | null>(null);
@@ -207,4 +208,14 @@ export function useWalletErrors(address: string | null) {
     [address]
   );
   return usePolling(fn, 30_000); // Poll every 30 seconds
+}
+
+// ========== On-Chain Activity Hooks ==========
+
+export function useOnChainActivity(chainId: number, address: string | undefined) {
+  const fn = useCallback(
+    () => (address ? fetchOnChainActivity(chainId, address) : Promise.resolve(null)),
+    [chainId, address]
+  );
+  return usePolling(fn, 90_000);
 }
