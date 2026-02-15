@@ -1,16 +1,32 @@
 {
-  "hosting": {
-    "site": "vataops-gt8004",
-    "public": "public",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-    "rewrites": [
-      {
-        "source": "**",
-        "run": {
-          "serviceId": "testnet-gt8004-dashboard",
-          "region": "us-central1"
+  "hosting": [
+    {
+      "site": "vataops-gt8004",
+      "public": "public",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "rewrites": [
+        {
+          "source": "**",
+          "run": {
+            "serviceId": "testnet-gt8004-dashboard",
+            "region": "us-central1"
+          }
         }
-      }
-    ]
-  }
+      ]
+    },
+    {
+      "site": "vataops-gt8004-mainnet",
+      "public": "public",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "rewrites": [
+        {
+          "source": "**",
+          "run": {
+            "serviceId": "mainnet-gt8004-dashboard",
+            "region": "us-central1"
+          }
+        }
+      ]
+    }
+  ]
 }
