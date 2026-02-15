@@ -1,10 +1,16 @@
-# Binaries
+# Binaries (files only — don't ignore cmd/ source directories)
 **/aesd
+!**/aesd/
 **/analyticsd
+!**/analyticsd/
 **/discoveryd
+!**/discoveryd/
 **/gatewayd
+!**/gatewayd/
 **/registryd
+!**/registryd/
 **/gt8004d
+!**/gt8004d/
 **/bin/
 *.exe
 *.dll
