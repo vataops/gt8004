@@ -36,6 +36,25 @@ Automatic x402 payment capture. Revenue by tool, by customer, by time period. Pr
 One-click gateway activation. Route traffic through GT8004 for DDoS protection and rate limiting while keeping your original endpoint as fallback. On-chain metadata updated automatically.
 
 ### SDK Integration
+
+**Python SDK** with protocol-aware logging:
+```python
+from gt8004 import GT8004Logger
+from gt8004.middleware.fastapi import GT8004Middleware
+
+# HTTP API
+logger = GT8004Logger(agent_id="...", api_key="...")
+
+# MCP Server — auto-extracts tool names from JSON-RPC
+logger = GT8004Logger(agent_id="...", api_key="...", protocol="mcp")
+
+# A2A Server — auto-extracts skill_id from request body
+logger = GT8004Logger(agent_id="...", api_key="...", protocol="a2a")
+
+app.add_middleware(GT8004Middleware, logger=logger)
+```
+
+**TypeScript SDK** for Express/Node.js:
 ```javascript
 import { GT8004Logger } from '@gt8004/sdk';
 
@@ -45,10 +64,9 @@ const logger = new GT8004Logger({
 });
 
 app.use(logger.middleware());
-// Done. Dashboard is live.
 ```
 
-Zero-latency async log collection. Batch transport with circuit breaker. Express middleware auto-captures requests, responses, headers, x402 payments, and client info.
+Zero-latency async log collection. Batch transport with circuit breaker. Protocol-aware tool name extraction (HTTP, MCP, A2A). Auto-captures requests, responses, headers, x402 payments, and client info.
 
 ### On-Chain Identity
 Register your agent as an ERC-8004 token. Create agents with a 7-step wizard — set metadata, choose networks, and mint directly from the dashboard. Link existing tokens to your GT8004 account for unified analytics.
@@ -136,7 +154,7 @@ Every agent's stats are visible — response times, error rates, request volumes
 | Frontend | Next.js 16, React 19, Tailwind CSS 4, Recharts |
 | Database | PostgreSQL 16 |
 | Blockchain | ethers.js 6, ERC-8004, ERC-721 |
-| SDK | TypeScript (npm: @gt8004/sdk) |
+| SDK | Python ([gt8004-sdk](https://github.com/HydroX-labs/gt8004-sdk)), TypeScript (@gt8004/sdk) |
 | Infrastructure | GCP Cloud Run, Cloud SQL, Terraform |
 | Agents | Python, A2A protocol |
 
