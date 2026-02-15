@@ -8,7 +8,7 @@ export interface NetworkConfig {
   blockExplorer: string;
 }
 
-export const NETWORKS: Record<string, NetworkConfig> = {
+const TESTNET_NETWORKS: Record<string, NetworkConfig> = {
   "base-sepolia": {
     chainId: 84532,
     name: "Base Sepolia",
@@ -29,7 +29,25 @@ export const NETWORKS: Record<string, NetworkConfig> = {
   },
 };
 
-export const DEFAULT_NETWORK = "base-sepolia";
+const MAINNET_NETWORKS: Record<string, NetworkConfig> = {
+  ethereum: {
+    chainId: 1,
+    name: "Ethereum",
+    shortName: "Ethereum",
+    rpcUrl: "https://ethereum-rpc.publicnode.com",
+    contractAddress: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    reputationAddress: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63",
+    blockExplorer: "https://etherscan.io",
+  },
+};
+
+const isMainnet = process.env.NEXT_PUBLIC_NETWORK_MODE === "mainnet";
+
+export const NETWORKS: Record<string, NetworkConfig> = isMainnet
+  ? MAINNET_NETWORKS
+  : TESTNET_NETWORKS;
+
+export const DEFAULT_NETWORK = isMainnet ? "ethereum" : "base-sepolia";
 
 const IPFS_GATEWAY = "https://w3s.link/ipfs/";
 

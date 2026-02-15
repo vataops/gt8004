@@ -37,3 +37,15 @@ output "artifact_registry" {
   description = "Artifact Registry repository path"
   value       = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.main.repository_id}"
 }
+
+# ── Shared resources (used by mainnet) ─────────────────
+output "database_url" {
+  description = "Cloud SQL connection string (shared with mainnet)"
+  value       = "postgres://gt8004:${var.db_password}@${google_sql_database_instance.main.private_ip_address}:5432/gt8004?sslmode=disable"
+  sensitive   = true
+}
+
+output "vpc_connector_id" {
+  description = "VPC connector ID (shared with mainnet)"
+  value       = google_vpc_access_connector.main.id
+}

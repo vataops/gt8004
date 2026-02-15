@@ -437,12 +437,12 @@ function AddressCell({ address }: { address: string }) {
 }
 
 function ChainBadge({ chainId }: { chainId: number }) {
-  const isBase = chainId === 84532;
+  const isPrimary = chainId === NETWORK_LIST[0]?.chainId;
   const name = CHAIN_NAMES[chainId] || `Chain ${chainId}`;
   return (
     <span
       className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
-        isBase
+        isPrimary
           ? "bg-blue-900/30 text-blue-400"
           : "bg-purple-900/30 text-purple-400"
       }`}
