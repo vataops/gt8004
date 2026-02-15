@@ -1,0 +1,16 @@
+{
+  "hosting": {
+    "site": "vataops-gt8004",
+    "public": "public",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      {
+        "source": "**",
+        "run": {
+          "serviceId": "gt8004-dashboard",
+          "region": "us-central1"
+        }
+      }
+    ]
+  }
+}

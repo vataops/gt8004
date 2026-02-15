@@ -207,31 +207,43 @@ export default function LandingPage() {
               <pre className="p-5 text-sm leading-relaxed overflow-x-auto">
                 <code>
                   <span className="text-purple-400">import</span>{" "}
-                  <span className="text-gray-300">{"{ GT8004 }"}</span>{" "}
+                  <span className="text-gray-300">{"{ GT8004Logger }"}</span>{" "}
                   <span className="text-purple-400">from</span>{" "}
                   <span className="text-green-400">{`'@gt8004/sdk'`}</span>
                   {"\n\n"}
                   <span className="text-purple-400">const</span>{" "}
-                  <span className="text-blue-300">gt</span>{" "}
+                  <span className="text-blue-300">logger</span>{" "}
                   <span className="text-gray-500">=</span>{" "}
                   <span className="text-purple-400">new</span>{" "}
-                  <span className="text-yellow-300">GT8004</span>
+                  <span className="text-yellow-300">GT8004Logger</span>
                   <span className="text-gray-500">{"({"}</span>
                   {"\n"}
                   {"  "}
                   <span className="text-gray-300">agentId</span>
                   <span className="text-gray-500">:</span>{" "}
                   <span className="text-green-400">{`'your-agent-id'`}</span>
+                  <span className="text-gray-500">,</span>
+                  {"\n"}
+                  {"  "}
+                  <span className="text-gray-300">apiKey</span>
+                  <span className="text-gray-500">:</span>{" "}
+                  <span className="text-blue-300">process</span>
+                  <span className="text-gray-500">.</span>
+                  <span className="text-blue-300">env</span>
+                  <span className="text-gray-500">.</span>
+                  <span className="text-gray-300">GT8004_API_KEY</span>
                   {"\n"}
                   <span className="text-gray-500">{"})"}</span>
                   {"\n\n"}
-                  <span className="text-blue-300">gt</span>
+                  <span className="text-gray-300">app</span>
+                  <span className="text-gray-500">.</span>
+                  <span className="text-yellow-300">use</span>
+                  <span className="text-gray-500">(</span>
+                  <span className="text-blue-300">logger</span>
                   <span className="text-gray-500">.</span>
                   <span className="text-yellow-300">middleware</span>
-                  <span className="text-gray-500">(</span>
-                  <span className="text-gray-300">app</span>
-                  <span className="text-gray-500">)</span>{" "}
-                  <span className="text-gray-600">{"// That's it!"}</span>
+                  <span className="text-gray-500">())</span>{" "}
+                  <span className="text-gray-600">{"// Done. Dashboard is live."}</span>
                 </code>
               </pre>
             </div>

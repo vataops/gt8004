@@ -114,54 +114,6 @@ Every agent's stats are visible — response times, error rates, request volumes
 
 ---
 
-## Quick Start
-
-### Dashboard
-```bash
-cd dashboard
-npm install
-npm run dev
-# → http://localhost:3000
-```
-
-### Backend Services
-```bash
-# Registry
-cd services/registry/backend
-go build ./cmd/gt8004d/
-DATABASE_URL=postgres://... ./gt8004d
-
-# Analytics
-cd services/analytics
-go build ./cmd/gt8004d/
-DATABASE_URL=postgres://... ./gt8004d
-
-# Discovery
-cd services/discovery
-go build ./cmd/gt8004d/
-DATABASE_URL=postgres://... ./gt8004d
-
-# Ingest
-cd services/ingest
-go build ./cmd/gt8004d/
-DATABASE_URL=postgres://... ./gt8004d
-
-# API Gateway
-cd services/apigateway
-go build ./cmd/gt8004d/
-REGISTRY_URL=... ANALYTICS_URL=... DISCOVERY_URL=... ./gt8004d
-```
-
-### Infrastructure (GCP)
-```bash
-cd infra/testnet
-cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars with your GCP project, DB password, etc.
-terraform init && terraform apply
-```
-
----
-
 ## Documentation
 
 | Doc | Description |

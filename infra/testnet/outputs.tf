@@ -23,6 +23,16 @@ output "ingest_url" {
   value       = google_cloud_run_v2_service.ingest.uri
 }
 
+output "dashboard_url" {
+  description = "Dashboard Cloud Run URL"
+  value       = google_cloud_run_v2_service.dashboard.uri
+}
+
+output "firebase_hosting_url" {
+  description = "Firebase Hosting URL (public frontend)"
+  value       = "https://${google_firebase_hosting_site.dashboard.site_id}.web.app"
+}
+
 output "db_connection_name" {
   description = "Cloud SQL connection name"
   value       = google_sql_database_instance.main.connection_name

@@ -44,6 +44,21 @@ build_and_push "analytics"  "services/analytics/Dockerfile"
 build_and_push "discovery"  "services/discovery/Dockerfile"
 build_and_push "ingest"     "services/ingest/Dockerfile"
 
+# Dashboard — Next.js needs API URLs baked in at build time
+APIGATEWAY_URL="${APIGATEWAY_URL:-https://testnet.api.gt8004.xyz}"
+echo "── Building dashboard ──"
+echo "  Dockerfile: dashboard/Dockerfile"
+echo "  Image:      ${REGISTRY}/dashboard:${TAG}"
+echo "  NEXT_PUBLIC_OPEN_API_URL: ${APIGATEWAY_URL}"
+docker build \
+  --build-arg "NEXT_PUBLIC_OPEN_API_URL=${APIGATEWAY_URL}" \
+  --build-arg "NEXT_PUBLIC_NETWORK_MODE=testnet" \
+  -t "${REGISTRY}/dashboard:${TAG}" \
+  ./dashboard
+docker push "${REGISTRY}/dashboard:${TAG}"
+echo "  ✓ dashboard pushed"
+echo ""
+
 echo "=== All images built and pushed ==="
 echo ""
 echo "Images:"
@@ -52,5 +67,8 @@ echo "  ${REGISTRY}/registry:${TAG}"
 echo "  ${REGISTRY}/analytics:${TAG}"
 echo "  ${REGISTRY}/discovery:${TAG}"
 echo "  ${REGISTRY}/ingest:${TAG}"
+echo "  ${REGISTRY}/dashboard:${TAG}"
 echo ""
-echo "Next: cd infra/testnet && terraform apply"
+echo "Next:"
+echo "  1. cd infra/testnet && terraform apply"
+echo "  2. firebase deploy --only hosting"
