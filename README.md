@@ -32,9 +32,6 @@ p50/p95/p99 latency tracking, error rate monitoring, uptime scoring. Health scor
 ### Revenue Tracking
 Automatic x402 payment capture. Revenue by tool, by customer, by time period. Protocol-level breakdown (HTTP, MCP, A2A).
 
-### Gateway Proxy
-One-click gateway activation. Route traffic through GT8004 for DDoS protection and rate limiting while keeping your original endpoint as fallback. On-chain metadata updated automatically.
-
 ### SDK Integration
 
 **Python SDK** — works with any framework. 5 lines to integrate.
@@ -85,18 +82,6 @@ app.wsgi_app = GT8004FlaskMiddleware(app.wsgi_app, logger)
 | FastMCP (MCP servers) | `GT8004MCPMiddleware` | `pip install gt8004-sdk[mcp]` |
 | FastAPI / Starlette | `GT8004Middleware` | `pip install gt8004-sdk[fastapi]` |
 | Flask / Django | `GT8004FlaskMiddleware` | `pip install gt8004-sdk` |
-
-**TypeScript SDK** for Express/Node.js:
-```javascript
-import { GT8004Logger } from '@gt8004/sdk';
-
-const logger = new GT8004Logger({
-  agentId: 'your-agent-id',
-  apiKey: process.env.GT8004_API_KEY
-});
-
-app.use(logger.middleware());
-```
 
 Zero-latency async log collection. Batch transport with circuit breaker. Protocol-aware tool name extraction (MCP, A2A). Auto-captures requests, responses, headers, x402 payments, and client info.
 
@@ -171,7 +156,7 @@ Every agent's stats are visible — response times, error rates, request volumes
 | [services.md](docs/services.md) | All 5 microservices — routes, env vars, architecture |
 | [database.md](docs/database.md) | 11 tables, schema definitions, migrations |
 | [dashboard.md](docs/dashboard.md) | 14 pages, components, auth flow, hooks |
-| [sdk.md](docs/sdk.md) | Go common packages + TypeScript SDK |
+| [sdk.md](docs/sdk.md) | Go common packages + Python SDK |
 | [contracts.md](docs/contracts.md) | ERC-8004 Identity & Reputation Registry ABI |
 | [infra.md](docs/infra.md) | GCP Terraform infrastructure |
 | [agents.md](docs/agents.md) | Python A2A companion agents |
@@ -186,7 +171,7 @@ Every agent's stats are visible — response times, error rates, request volumes
 | Frontend | Next.js 16, React 19, Tailwind CSS 4, Recharts |
 | Database | PostgreSQL 16 |
 | Blockchain | ethers.js 6, ERC-8004, ERC-721 |
-| SDK | Python ([gt8004-sdk](https://github.com/HydroX-labs/gt8004-sdk)), TypeScript (@gt8004/sdk) |
+| SDK | Python ([gt8004-sdk](https://github.com/HydroX-labs/gt8004-sdk)) |
 | Infrastructure | GCP Cloud Run, Cloud SQL, Terraform |
 | Agents | Python, A2A protocol |
 
