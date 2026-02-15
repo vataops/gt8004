@@ -1,518 +1,330 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import Link from "next/link";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useNetworkAgents, useNetworkStats, useOverview } from "@/lib/hooks";
-import { StatCard } from "@/components/StatCard";
-import { NETWORKS, NETWORK_LIST, resolveImageUrl } from "@/lib/networks";
-import { openApi } from "@/lib/api";
-import type { NetworkAgent } from "@/lib/api";
+import { useNetworkStats, useOverview } from "@/lib/hooks";
 
-// Chain ID → display name
-const CHAIN_NAMES: Record<number, string> = {};
-for (const n of NETWORK_LIST) {
-  CHAIN_NAMES[n.chainId] = n.shortName;
-}
-
-// Chain ID → route key
-const CHAIN_ID_TO_KEY: Record<number, string> = {};
-for (const [key, cfg] of Object.entries(NETWORKS)) {
-  CHAIN_ID_TO_KEY[cfg.chainId] = key;
-}
-
-const PAGE_SIZE = 20;
-
-const TABS = [
-  { label: "All", chainId: 0 },
-  ...NETWORK_LIST.map((n) => ({ label: n.shortName, chainId: n.chainId })),
-];
-
-type PlatformData = {
-  agent_id: string;
-  status: string;
-  total_requests: number;
-  total_revenue_usdc: number;
-  total_customers: number;
-  protocols: string[];
-  reputation_score?: number;
-};
-
-export default function ExplorerPage() {
+export default function LandingPage() {
   const router = useRouter();
-  const [chainFilter, setChainFilter] = useState(0);
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
-  const [platformOnly, setPlatformOnly] = useState(false);
-
-  const handleChainFilter = (chainId: number) => {
-    setChainFilter(chainId);
-    setPlatformOnly(false);
-    setPage(1);
-  };
-  const handleSearch = (val: string) => {
-    setSearch(val);
-    setPage(1);
-  };
-  const handlePlatformToggle = () => {
-    setPlatformOnly((prev) => !prev);
-    setPage(1);
-  };
-
-  // On-chain agents (primary data source)
-  const { data, loading } = useNetworkAgents({
-    chain_id: chainFilter || undefined,
-    search: search || undefined,
-    limit: PAGE_SIZE,
-    offset: (page - 1) * PAGE_SIZE,
-  });
   const { data: stats } = useNetworkStats();
   const { data: overview } = useOverview();
+  const [search, setSearch] = useState("");
 
-  // Platform-registered agents (enrichment)
-  const [platformMap, setPlatformMap] = useState<Map<string, PlatformData>>(
-    new Map()
-  );
-  useEffect(() => {
-    openApi
-      .searchAgents()
-      .then((res) => {
-        const map = new Map<string, PlatformData>();
-        for (const a of res.agents || []) {
-          if (a.erc8004_token_id != null && a.chain_id != null) {
-            map.set(`${a.chain_id}-${a.erc8004_token_id}`, {
-              agent_id: a.agent_id,
-              status: a.status,
-              total_requests: a.total_requests,
-              total_revenue_usdc: a.total_revenue_usdc,
-              total_customers: a.total_customers,
-              protocols: a.protocols || [],
-              reputation_score: a.reputation_score,
-            });
-          }
-        }
-        setPlatformMap(map);
-      })
-      .catch(() => {});
-  }, []);
+  const totalAgents = stats?.total ?? 0;
+  const totalRequests = overview?.total_requests ?? 0;
+  const totalRevenue = overview?.total_revenue_usdc ?? 0;
 
-  // Fetch full NetworkAgent data for platform-registered agents
-  const [platformAgents, setPlatformAgents] = useState<NetworkAgent[]>([]);
-  useEffect(() => {
-    if (!platformOnly || platformMap.size === 0) {
-      setPlatformAgents([]);
-      return;
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (search.trim()) {
+      router.push(`/explorer?q=${encodeURIComponent(search.trim())}`);
+    } else {
+      router.push("/explorer");
     }
-    const entries = [...platformMap.entries()];
-    Promise.all(
-      entries.map(([key]) => {
-        const [cid, tid] = key.split("-");
-        return openApi.getNetworkAgent(Number(cid), Number(tid)).catch(() => null);
-      })
-    ).then((results) => {
-      setPlatformAgents(results.filter((r): r is NetworkAgent => r !== null));
-    });
-  }, [platformOnly, platformMap]);
-
-  const displayAgents: NetworkAgent[] = platformOnly ? platformAgents : (data?.agents ?? []);
-  const totalRows = platformOnly ? platformAgents.length : (data?.total ?? 0);
-  const totalPages = platformOnly ? 1 : Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
-
-  const total = stats?.total ?? 0;
-  const chainCounts = stats?.by_chain ?? {};
-  const registeredCount = platformMap.size;
-
-  const handleAgentClick = (agent: NetworkAgent) => {
-    const chainKey =
-      CHAIN_ID_TO_KEY[agent.chain_id] || String(agent.chain_id);
-    router.push(`/discovery/${chainKey}/${agent.token_id}`);
   };
 
   return (
-    <div>
-      {/* Header */}
-      <div className="mb-6">
-        <h2 className="text-xl font-bold">Network Explorer</h2>
-        <p className="text-sm text-gray-500 mt-1">
-          All ERC-8004 agents across supported networks
-        </p>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard
-          label="On-chain Agents"
-          value={total}
-          sub={`${registeredCount} on GT8004`}
-        />
-        <StatCard
-          label="Total Requests"
-          value={overview?.total_requests.toLocaleString() ?? "0"}
-          sub={`${overview?.today_requests.toLocaleString() ?? "0"} today`}
-        />
-        <StatCard
-          label="Total Revenue"
-          value={`$${overview?.total_revenue_usdc.toFixed(2) ?? "0.00"}`}
-          sub="USDC"
-        />
-        <StatCard
-          label="Avg Response"
-          value={`${overview?.avg_response_ms.toFixed(0) ?? "0"}ms`}
-          sub="across all agents"
-        />
-      </div>
-
-      {/* Chain Tabs + Search */}
-      <div className="flex items-center justify-between gap-4 mb-4">
-        <div className="flex items-center gap-1">
-          {TABS.map((tab) => {
-            const count =
-              tab.chainId === 0 ? total : (chainCounts[tab.chainId] ?? 0);
-            const active = !platformOnly && chainFilter === tab.chainId;
-            return (
-              <button
-                key={tab.chainId}
-                onClick={() => handleChainFilter(tab.chainId)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  active
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200"
-                }`}
-              >
-                {tab.label}
-                <span
-                  className={`ml-1.5 text-xs ${
-                    active ? "text-blue-200" : "text-gray-500"
-                  }`}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-          {registeredCount > 0 && (
-            <button
-              onClick={handlePlatformToggle}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                platformOnly
-                  ? "bg-green-600 text-white"
-                  : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200"
-              }`}
-            >
-              GT8004
-              <span
-                className={`ml-1.5 text-xs ${
-                  platformOnly ? "text-green-200" : "text-gray-500"
-                }`}
-              >
-                {registeredCount}
-              </span>
-            </button>
-          )}
+    <div className="-mx-6 -mt-6">
+      {/* ── Hero ── */}
+      <section className="relative overflow-hidden dot-grid">
+        {/* Animated orbs */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-[10%] left-[15%] w-[500px] h-[500px] rounded-full bg-indigo-500/10 blur-[120px] animate-float" />
+          <div className="absolute top-[20%] right-[10%] w-[400px] h-[400px] rounded-full bg-purple-500/10 blur-[100px] animate-float" style={{ animationDelay: "-2s" }} />
+          <div className="absolute bottom-[10%] left-[40%] w-[350px] h-[350px] rounded-full bg-blue-500/8 blur-[100px] animate-float" style={{ animationDelay: "-4s" }} />
         </div>
-        <span className="text-xs text-gray-500 shrink-0">
-          {totalRows} agents
-        </span>
-      </div>
 
-      <div className="mb-4">
-        <input
-          type="text"
-          placeholder="Search by name, owner, or token ID..."
-          value={search}
-          onChange={(e) => handleSearch(e.target.value)}
-          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        />
-      </div>
+        {/* Gradient line at top */}
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent" />
 
-      {/* Table */}
-      {loading ? (
-        <p className="text-gray-500">Loading...</p>
-      ) : (
-        <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-800 text-gray-500">
-                <th className="text-left p-3">Agent</th>
-                <th className="text-left p-3">Network</th>
-                <th className="text-left p-3">Services</th>
-                <th className="text-center p-3">x402</th>
-                <th className="text-left p-3">GT8004</th>
-                <th className="text-right p-3">Requests</th>
-                <th className="text-right p-3">Revenue</th>
-                <th className="text-left p-3">Owner</th>
-              </tr>
-            </thead>
-            <tbody>
-              {displayAgents.map((agent) => {
-                const key = `${agent.chain_id}-${agent.token_id}`;
-                const platform = platformMap.get(key);
-                return (
-                  <tr
-                    key={key}
-                    onClick={() => handleAgentClick(agent)}
-                    className="border-b border-gray-800/50 hover:bg-gray-800/30 cursor-pointer"
-                  >
-                    {/* Agent */}
-                    <td className="p-3">
-                      <div className="flex items-center gap-2.5">
-                        {resolveImageUrl(agent.image_url) ? (
-                          <img
-                            src={resolveImageUrl(agent.image_url)!}
-                            alt=""
-                            className="w-8 h-8 rounded-md object-cover bg-gray-800 shrink-0"
-                          />
-                        ) : (
-                          <div className="w-8 h-8 rounded-md bg-gray-800 flex items-center justify-center text-xs text-gray-600 shrink-0">
-                            #
-                          </div>
-                        )}
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-medium text-gray-100">
-                              {agent.name || `Token #${agent.token_id}`}
-                            </span>
-                            {agent.name && (
-                              <span className="text-gray-600 text-xs">
-                                #{agent.token_id}
-                              </span>
-                            )}
-                          </div>
-                          {agent.description && (
-                            <p className="text-xs text-gray-600 truncate max-w-[280px] mt-0.5">
-                              {agent.description}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </td>
+        <div className="relative max-w-4xl mx-auto px-6 pt-24 pb-32 text-center">
+          {/* Badge */}
+          <div className="animate-fade-in inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-gray-800 bg-gray-900/50 backdrop-blur-sm mb-8">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse-slow" />
+            <span className="text-xs text-gray-400">
+              {totalAgents.toLocaleString()} agents on-chain
+            </span>
+          </div>
 
-                    {/* Network */}
-                    <td className="p-3">
-                      <ChainBadge chainId={agent.chain_id} />
-                    </td>
+          {/* Title */}
+          <h1 className="animate-fade-in text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.1]">
+            The Dashboard for
+            <br />
+            <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-blue-400 bg-clip-text text-transparent">
+              AI Agents
+            </span>
+          </h1>
 
-                    {/* Services */}
-                    <td className="p-3">
-                      <ServiceBadges agent={agent} platform={platform} />
-                    </td>
+          {/* Subtitle */}
+          <p className="animate-fade-in-delay mt-6 text-lg md:text-xl text-gray-400 max-w-xl mx-auto leading-relaxed">
+            Explore, validate, and interact with AI agents
+            registered on ERC-8004
+          </p>
 
-                    {/* x402 */}
-                    <td className="p-3 text-center">
-                      {agent.metadata?.x402Support || agent.metadata?.x402support ? (
-                        <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-900/30 text-amber-400">
-                          x402
-                        </span>
-                      ) : (
-                        <span className="text-gray-700 text-xs">—</span>
-                      )}
-                    </td>
-
-                    {/* Platform */}
-                    <td className="p-3">
-                      {platform ? (
-                        <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-900/30 text-green-400">
-                          {platform.status === "active" ? "Active" : platform.status}
-                        </span>
-                      ) : (
-                        <span className="text-gray-700 text-xs">—</span>
-                      )}
-                    </td>
-
-                    {/* Requests */}
-                    <td className="p-3 text-right">
-                      {platform ? (
-                        <span className="text-gray-300">
-                          {platform.total_requests.toLocaleString()}
-                        </span>
-                      ) : (
-                        <span className="text-gray-700">—</span>
-                      )}
-                    </td>
-
-                    {/* Revenue */}
-                    <td className="p-3 text-right">
-                      {platform && platform.total_revenue_usdc > 0 ? (
-                        <span className="text-gray-300">
-                          ${platform.total_revenue_usdc.toFixed(2)}
-                        </span>
-                      ) : (
-                        <span className="text-gray-700">—</span>
-                      )}
-                    </td>
-
-                    {/* Owner */}
-                    <td className="p-3">
-                      {agent.owner_address ? (
-                        <AddressCell address={agent.owner_address} />
-                      ) : (
-                        <span className="text-gray-700 text-xs">—</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-              {displayAgents.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="p-6 text-center text-gray-600">
-                    No agents found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-800">
-              <span className="text-xs text-gray-500">
-                {(page - 1) * PAGE_SIZE + 1}–
-                {Math.min(page * PAGE_SIZE, totalRows)} of {totalRows}
-              </span>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="px-2 py-1 rounded text-xs text-gray-400 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  Prev
-                </button>
-                {pageNumbers(page, totalPages).map((p, i) =>
-                  p === -1 ? (
-                    <span
-                      key={`dots-${i}`}
-                      className="px-1 text-xs text-gray-600"
-                    >
-                      ...
-                    </span>
-                  ) : (
-                    <button
-                      key={p}
-                      onClick={() => setPage(p)}
-                      className={`min-w-[28px] px-1.5 py-1 rounded text-xs font-medium ${
-                        p === page
-                          ? "bg-blue-600 text-white"
-                          : "text-gray-400 hover:bg-gray-800"
-                      }`}
-                    >
-                      {p}
-                    </button>
-                  )
-                )}
-                <button
-                  onClick={() =>
-                    setPage((p) => Math.min(totalPages, p + 1))
-                  }
-                  disabled={page === totalPages}
-                  className="px-2 py-1 rounded text-xs text-gray-400 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  Next
-                </button>
+          {/* Search */}
+          <form onSubmit={handleSearch} className="animate-fade-in-delay-2 mt-10 max-w-lg mx-auto">
+            <div className="relative group">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-blue-500/20 rounded-xl blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="relative flex items-center bg-gray-900 border border-gray-800 rounded-xl overflow-hidden focus-within:border-gray-700 transition-colors">
+                <svg className="w-4 h-4 text-gray-500 ml-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search agents..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="flex-1 bg-transparent px-4 py-3.5 text-sm text-gray-100 placeholder-gray-500 focus:outline-none"
+                />
               </div>
             </div>
-          )}
+          </form>
+
+          {/* CTA */}
+          <div className="animate-fade-in-delay-3 mt-8 flex items-center justify-center gap-4">
+            <Link
+              href="/explorer"
+              className="group inline-flex items-center gap-2 px-7 py-3 bg-white text-gray-950 font-medium rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              Browse Agents
+              <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+              </svg>
+            </Link>
+            <Link
+              href="/create"
+              className="inline-flex items-center gap-2 px-7 py-3 text-gray-300 font-medium rounded-lg border border-gray-800 hover:bg-gray-900 hover:border-gray-700 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              Create Agent
+            </Link>
+          </div>
         </div>
-      )}
+
+        {/* Bottom fade */}
+        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-gray-950 to-transparent" />
+      </section>
+
+      {/* ── Live Stats ── */}
+      <section className="relative max-w-5xl mx-auto px-6 -mt-16 z-10">
+        <div className="grid grid-cols-3 gap-4">
+          {[
+            { label: "On-chain Agents", value: totalAgents.toLocaleString(), color: "indigo" },
+            { label: "Total Requests", value: totalRequests.toLocaleString(), color: "purple" },
+            { label: "Total Revenue", value: `$${totalRevenue.toFixed(2)}`, sub: "USDC", color: "blue" },
+          ].map((stat) => (
+            <div key={stat.label} className="gradient-border p-6 text-center backdrop-blur-sm transition-all duration-300 hover:scale-[1.02]">
+              <p className="text-[11px] text-gray-500 uppercase tracking-widest font-medium">
+                {stat.label}
+              </p>
+              <p className="text-3xl md:text-4xl font-bold mt-3 tracking-tight bg-gradient-to-b from-white to-gray-400 bg-clip-text text-transparent">
+                {stat.value}
+              </p>
+              {stat.sub && (
+                <p className="text-xs text-gray-600 mt-1">{stat.sub}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Features ── */}
+      <section className="max-w-5xl mx-auto px-6 pt-28 pb-20">
+        <div className="text-center mb-14">
+          <p className="text-xs text-indigo-400 uppercase tracking-widest font-medium mb-3">
+            Platform
+          </p>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
+            Everything your agent needs
+          </h2>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-5">
+          <FeatureCard
+            icon={<ChartIcon />}
+            title="Free Analytics"
+            description="Request logging, customer analysis, and revenue tracking. Zero latency overhead, zero cost."
+            gradient="from-indigo-500/20 to-indigo-500/0"
+          />
+          <FeatureCard
+            icon={<ShieldIcon />}
+            title="Escrow System"
+            description="On-chain payment protection for contracts over $100. Secure, transparent, and automatic."
+            gradient="from-purple-500/20 to-purple-500/0"
+          />
+          <FeatureCard
+            icon={<GridIcon />}
+            title="Agent Marketplace"
+            description="Discover, compare, and benchmark agents by reputation, category, and performance."
+            gradient="from-blue-500/20 to-blue-500/0"
+          />
+        </div>
+      </section>
+
+      {/* ── SDK ── */}
+      <section className="max-w-5xl mx-auto px-6 pb-28">
+        <div className="gradient-border p-8 md:p-12">
+          <div className="grid md:grid-cols-2 gap-10 items-center">
+            <div>
+              <p className="text-xs text-indigo-400 uppercase tracking-widest font-medium mb-3">
+                Integration
+              </p>
+              <h2 className="text-3xl font-bold tracking-tight">
+                Start in 5 lines
+              </h2>
+              <p className="mt-4 text-gray-400 leading-relaxed">
+                Drop in the SDK — zero config, zero latency impact.
+                Your agent gets analytics, customer tracking, and
+                revenue monitoring instantly.
+              </p>
+              <div className="mt-6 flex flex-col gap-3">
+                {[
+                  "Async logging — no added latency",
+                  "Works with any framework",
+                  "Free forever — no usage limits",
+                ].map((text) => (
+                  <div key={text} className="flex items-center gap-3 text-sm text-gray-400">
+                    <svg className="w-4 h-4 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                    {text}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-xl border border-gray-800/50 bg-gray-950 overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-800/50">
+                <div className="flex gap-1.5">
+                  <span className="w-3 h-3 rounded-full bg-gray-800" />
+                  <span className="w-3 h-3 rounded-full bg-gray-800" />
+                  <span className="w-3 h-3 rounded-full bg-gray-800" />
+                </div>
+                <span className="text-xs text-gray-600 ml-2">sdk-example.ts</span>
+              </div>
+              <pre className="p-5 text-sm leading-relaxed overflow-x-auto">
+                <code>
+                  <span className="text-purple-400">import</span>{" "}
+                  <span className="text-gray-300">{"{ GT8004 }"}</span>{" "}
+                  <span className="text-purple-400">from</span>{" "}
+                  <span className="text-green-400">{`'@gt8004/sdk'`}</span>
+                  {"\n\n"}
+                  <span className="text-purple-400">const</span>{" "}
+                  <span className="text-blue-300">gt</span>{" "}
+                  <span className="text-gray-500">=</span>{" "}
+                  <span className="text-purple-400">new</span>{" "}
+                  <span className="text-yellow-300">GT8004</span>
+                  <span className="text-gray-500">{"({"}</span>
+                  {"\n"}
+                  {"  "}
+                  <span className="text-gray-300">agentId</span>
+                  <span className="text-gray-500">:</span>{" "}
+                  <span className="text-green-400">{`'your-agent-id'`}</span>
+                  {"\n"}
+                  <span className="text-gray-500">{"})"}</span>
+                  {"\n\n"}
+                  <span className="text-blue-300">gt</span>
+                  <span className="text-gray-500">.</span>
+                  <span className="text-yellow-300">middleware</span>
+                  <span className="text-gray-500">(</span>
+                  <span className="text-gray-300">app</span>
+                  <span className="text-gray-500">)</span>{" "}
+                  <span className="text-gray-600">{"// That's it!"}</span>
+                </code>
+              </pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Bottom CTA ── */}
+      <section className="relative overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-indigo-500/8 rounded-full blur-[120px]" />
+        </div>
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-800 to-transparent" />
+
+        <div className="relative max-w-3xl mx-auto px-6 py-24 text-center">
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
+            Ready to get started?
+          </h2>
+          <p className="mt-4 text-gray-400 text-lg">
+            Join the growing network of ERC-8004 agents.
+          </p>
+          <div className="mt-8 flex items-center justify-center gap-4">
+            <Link
+              href="/explorer"
+              className="group inline-flex items-center gap-2 px-7 py-3 bg-white text-gray-950 font-medium rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              Explore Agents
+              <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+              </svg>
+            </Link>
+            <Link
+              href="/create"
+              className="px-7 py-3 text-gray-300 font-medium rounded-lg border border-gray-800 hover:bg-gray-900 hover:border-gray-700 transition-colors"
+            >
+              Create Agent
+            </Link>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
 
-// --- Helper Components ---
+/* ── Feature Card ── */
 
-function AddressCell({ address }: { address: string }) {
-  const [showTooltip, setShowTooltip] = useState(false);
-  const truncated = `${address.slice(0, 6)}...${address.slice(-4)}`;
-
-  return (
-    <span
-      className="relative text-xs font-mono text-gray-400 cursor-pointer hover:text-gray-200 transition-colors"
-      onClick={(e) => {
-        e.stopPropagation();
-        setShowTooltip((prev) => !prev);
-      }}
-      onMouseLeave={() => setShowTooltip(false)}
-    >
-      {truncated}
-      {showTooltip && (
-        <span className="absolute z-50 left-0 top-full mt-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg shadow-lg text-xs font-mono text-gray-200 whitespace-nowrap">
-          {address}
-        </span>
-      )}
-    </span>
-  );
-}
-
-function ChainBadge({ chainId }: { chainId: number }) {
-  const isBase = chainId === 84532;
-  const name = CHAIN_NAMES[chainId] || `Chain ${chainId}`;
-  return (
-    <span
-      className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
-        isBase
-          ? "bg-blue-900/30 text-blue-400"
-          : "bg-purple-900/30 text-purple-400"
-      }`}
-    >
-      {name}
-    </span>
-  );
-}
-
-const SVC_STYLE: Record<string, string> = {
-  MCP: "bg-cyan-900/30 text-cyan-400",
-  A2A: "bg-emerald-900/30 text-emerald-400",
-  WEB: "bg-blue-900/30 text-blue-400",
-  HTTP: "bg-blue-900/30 text-blue-400",
-  OASF: "bg-purple-900/30 text-purple-400",
-};
-
-function ServiceBadges({
-  agent,
-  platform,
+function FeatureCard({
+  icon,
+  title,
+  description,
+  gradient,
 }: {
-  agent: NetworkAgent;
-  platform?: PlatformData;
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  gradient: string;
 }) {
-  // Merge on-chain services + platform protocols (x402 shown in separate column)
-  const names = new Set<string>();
-  const svcs =
-    agent.metadata?.services ?? agent.metadata?.endpoints ?? [];
-  for (const s of svcs) {
-    const n = (s as { name?: string }).name?.toUpperCase();
-    if (n && n !== "X402") names.add(n);
-  }
-  if (platform) {
-    for (const p of platform.protocols) {
-      names.add(p.toUpperCase());
-    }
-  }
-
-  if (names.size === 0) return <span className="text-gray-700 text-xs">—</span>;
-
   return (
-    <div className="flex flex-wrap gap-1">
-      {[...names].map((n) => (
-        <span
-          key={n}
-          className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${
-            SVC_STYLE[n] || "bg-gray-800 text-gray-400"
-          }`}
-        >
-          {n}
-        </span>
-      ))}
+    <div className="group gradient-border p-6 transition-all duration-300 hover:scale-[1.02]">
+      <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl ${gradient} rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+      <div className="relative">
+        <div className="w-10 h-10 rounded-lg bg-gray-800/80 border border-gray-700/50 flex items-center justify-center text-indigo-400 mb-5">
+          {icon}
+        </div>
+        <h3 className="text-lg font-semibold mb-2">{title}</h3>
+        <p className="text-sm text-gray-400 leading-relaxed">{description}</p>
+      </div>
     </div>
   );
 }
 
-/** Generate page numbers with ellipsis */
-function pageNumbers(current: number, total: number): number[] {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-  const pages: number[] = [1];
-  if (current > 3) pages.push(-1);
-  const start = Math.max(2, current - 1);
-  const end = Math.min(total - 1, current + 1);
-  for (let i = start; i <= end; i++) pages.push(i);
-  if (current < total - 2) pages.push(-1);
-  pages.push(total);
-  return pages;
+/* ── Icons ── */
+
+function ChartIcon() {
+  return (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+    </svg>
+  );
+}
+
+function ShieldIcon() {
+  return (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+    </svg>
+  );
+}
+
+function GridIcon() {
+  return (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+    </svg>
+  );
 }
