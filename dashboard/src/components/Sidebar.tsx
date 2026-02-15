@@ -13,11 +13,11 @@ export function Navbar() {
   const isConnected = !!(agent || walletAddress);
 
   return (
-    <header className="sticky top-0 z-50 bg-gray-950/80 backdrop-blur-md border-b border-gray-800/50">
+    <header className="sticky top-0 z-50 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-[#1a1a1a]">
       <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
         {/* Left: Logo + Nav */}
         <div className="flex items-center gap-8">
-          <Link href="/" className="text-lg font-bold tracking-tight">
+          <Link href="/" className="text-lg font-bold tracking-tight text-[#00FFE0]">
             GT8004
           </Link>
           <nav className="flex items-center gap-1">
@@ -25,7 +25,7 @@ export function Navbar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="px-3 py-1.5 rounded-md text-sm text-gray-400 hover:text-white hover:bg-gray-800/50 transition-colors"
+                className="px-3 py-1.5 rounded-md text-sm text-zinc-400 hover:text-[#00FFE0] transition-colors"
               >
                 {item.label}
               </Link>
@@ -33,7 +33,7 @@ export function Navbar() {
             {isConnected && (
               <Link
                 href="/my-agents"
-                className="px-3 py-1.5 rounded-md text-sm text-gray-400 hover:text-white hover:bg-gray-800/50 transition-colors"
+                className="px-3 py-1.5 rounded-md text-sm text-zinc-400 hover:text-[#00FFE0] transition-colors"
               >
                 Dashboard
               </Link>
@@ -45,7 +45,7 @@ export function Navbar() {
         <div className="flex items-center gap-3">
           {isConnected ? (
             <>
-              <span className="text-xs text-gray-400 font-mono">
+              <span className="text-xs text-zinc-400 font-mono">
                 {agent
                   ? agent.name || agent.agent_id
                   : walletAddress
@@ -54,7 +54,7 @@ export function Navbar() {
               </span>
               <button
                 onClick={logout}
-                className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
               >
                 Logout
               </button>
@@ -63,13 +63,13 @@ export function Navbar() {
             <>
               <Link
                 href="/register"
-                className="text-sm text-gray-400 hover:text-white transition-colors"
+                className="text-sm text-zinc-400 hover:text-white transition-colors"
               >
                 Register
               </Link>
               <Link
                 href="/login"
-                className="px-4 py-1.5 rounded-md text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+                className="px-4 py-1.5 rounded-md text-sm font-medium bg-[#00FFE0] text-black hover:shadow-[0_0_20px_rgba(0,255,224,0.4)] transition-all"
               >
                 Login
               </Link>

@@ -7,8 +7,8 @@ export function ProtocolBreakdownCards({
 }) {
   if (!protocols || protocols.length === 0) {
     return (
-      <div className="bg-gray-900 border border-gray-800 rounded-lg p-8 text-center">
-        <p className="text-gray-500 text-sm">No protocol data available yet.</p>
+      <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-8 text-center">
+        <p className="text-zinc-500 text-sm">No protocol data available yet.</p>
       </div>
     );
   }
@@ -35,8 +35,8 @@ export function ProtocolBreakdownCards({
   const protocolArray = Array.from(protocolMap.values());
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
-      <h3 className="text-sm font-medium text-gray-400 mb-4">
+    <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-5">
+      <h3 className="text-sm font-medium text-zinc-400 mb-4">
         Performance by Protocol
       </h3>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -51,37 +51,37 @@ export function ProtocolBreakdownCards({
           return (
             <div
               key={proto.protocol}
-              className="bg-gray-800/50 border border-gray-700 rounded-lg p-4"
+              className="bg-[#141414] border border-[#1f1f1f] rounded-lg p-4"
             >
               <div className="flex items-center justify-between mb-3">
                 <h4 className="text-sm font-medium text-white uppercase tracking-wide">
                   {proto.protocol}
                 </h4>
-                <span className="text-xs text-gray-500 font-mono">
+                <span className="text-xs text-zinc-500 font-mono">
                   {(proto.percentage || 0).toFixed(0)}% load
                 </span>
               </div>
               <div className="space-y-2 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-400">P95 Latency</span>
-                  <span className="font-mono text-blue-400">
+                  <span className="text-zinc-400">P95 Latency</span>
+                  <span className="font-mono text-[#00FFE0]">
                     {(proto.p95_response_ms || 0).toFixed(0)}ms
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Avg Latency</span>
+                  <span className="text-zinc-400">Avg Latency</span>
                   <span className="font-mono text-gray-300">
                     {(proto.avg_response_ms || 0).toFixed(0)}ms
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Error Rate</span>
+                  <span className="text-zinc-400">Error Rate</span>
                   <span className={`font-mono ${errorColor}`}>
                     {((proto.error_rate || 0) * 100).toFixed(1)}%
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Requests</span>
+                  <span className="text-zinc-400">Requests</span>
                   <span className="font-mono text-gray-300">
                     {(proto.request_count || 0).toLocaleString()}
                   </span>

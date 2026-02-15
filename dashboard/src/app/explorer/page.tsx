@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useNetworkAgents, useNetworkStats, useOverview } from "@/lib/hooks";
 import { StatCard } from "@/components/StatCard";
-import { NETWORKS, NETWORK_LIST, resolveImageUrl } from "@/lib/networks";
+import { NETWORKS, NETWORK_LIST } from "@/lib/networks";
+import { AgentAvatar } from "@/components/RobotIcon";
 import { openApi } from "@/lib/api";
 import type { NetworkAgent } from "@/lib/api";
 
@@ -132,7 +133,7 @@ export default function ExplorerPage() {
       {/* Header */}
       <div className="mb-6">
         <h2 className="text-xl font-bold">Agent Explorer</h2>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-zinc-500 mt-1">
           All ERC-8004 agents across supported networks
         </p>
       </div>
@@ -169,14 +170,14 @@ export default function ExplorerPage() {
                 onClick={() => handleChainFilter(tab.chainId)}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                   active
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200"
+                    ? "bg-[#00FFE0]/10 text-[#00FFE0] border border-[#00FFE0]/30"
+                    : "bg-[#141414] text-zinc-400 hover:bg-[#1a1a1a] hover:text-zinc-200"
                 }`}
               >
                 {tab.label}
                 <span
                   className={`ml-1.5 text-xs ${
-                    active ? "text-blue-200" : "text-gray-500"
+                    active ? "text-[#00FFE0]/70" : "text-zinc-500"
                   }`}
                 >
                   {count}
@@ -189,14 +190,14 @@ export default function ExplorerPage() {
               onClick={handlePlatformToggle}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 platformOnly
-                  ? "bg-green-600 text-white"
-                  : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200"
+                  ? "bg-[#00FFE0] text-black"
+                  : "bg-[#141414] text-zinc-400 hover:bg-[#1a1a1a] hover:text-zinc-200"
               }`}
             >
               GT8004
               <span
                 className={`ml-1.5 text-xs ${
-                  platformOnly ? "text-green-200" : "text-gray-500"
+                  platformOnly ? "text-black/70" : "text-zinc-500"
                 }`}
               >
                 {registeredCount}
@@ -204,7 +205,7 @@ export default function ExplorerPage() {
             </button>
           )}
         </div>
-        <span className="text-xs text-gray-500 shrink-0">
+        <span className="text-xs text-zinc-500 shrink-0">
           {totalRows} agents
         </span>
       </div>
@@ -215,18 +216,18 @@ export default function ExplorerPage() {
           placeholder="Search by name, owner, or token ID..."
           value={search}
           onChange={(e) => handleSearch(e.target.value)}
-          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full px-3 py-2 bg-[#141414] border border-[#1f1f1f] rounded-md text-sm text-[#ededed] placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-[#00FFE0]/20 focus:border-[#00FFE0]/50"
         />
       </div>
 
       {/* Table */}
       {loading ? (
-        <p className="text-gray-500">Loading...</p>
+        <p className="text-zinc-500">Loading...</p>
       ) : (
-        <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
+        <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-800 text-gray-500">
+              <tr className="border-b border-[#1a1a1a] text-zinc-400">
                 <th className="text-left p-3">Agent</th>
                 <th className="text-left p-3">Network</th>
                 <th className="text-left p-3">Services</th>
@@ -245,35 +246,25 @@ export default function ExplorerPage() {
                   <tr
                     key={key}
                     onClick={() => handleAgentClick(agent)}
-                    className="border-b border-gray-800/50 hover:bg-gray-800/30 cursor-pointer"
+                    className="border-b border-[#1a1a1a]/50 hover:bg-[#00FFE0]/5 cursor-pointer"
                   >
                     {/* Agent */}
                     <td className="p-3">
                       <div className="flex items-center gap-2.5">
-                        {resolveImageUrl(agent.image_url) ? (
-                          <img
-                            src={resolveImageUrl(agent.image_url)!}
-                            alt=""
-                            className="w-8 h-8 rounded-md object-cover bg-gray-800 shrink-0"
-                          />
-                        ) : (
-                          <div className="w-8 h-8 rounded-md bg-gray-800 flex items-center justify-center text-xs text-gray-600 shrink-0">
-                            #
-                          </div>
-                        )}
+                        <AgentAvatar imageUrl={agent.image_url} />
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <span className="font-medium text-gray-100">
+                            <span className="font-medium text-[#ededed]">
                               {agent.name || `Token #${agent.token_id}`}
                             </span>
                             {agent.name && (
-                              <span className="text-gray-600 text-xs">
+                              <span className="text-zinc-600 text-xs">
                                 #{agent.token_id}
                               </span>
                             )}
                           </div>
                           {agent.description && (
-                            <p className="text-xs text-gray-600 truncate max-w-[280px] mt-0.5">
+                            <p className="text-xs text-zinc-600 truncate max-w-[280px] mt-0.5">
                               {agent.description}
                             </p>
                           )}
@@ -298,18 +289,18 @@ export default function ExplorerPage() {
                           x402
                         </span>
                       ) : (
-                        <span className="text-gray-700 text-xs">—</span>
+                        <span className="text-zinc-700 text-xs">—</span>
                       )}
                     </td>
 
                     {/* Platform */}
                     <td className="p-3">
                       {platform ? (
-                        <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-900/30 text-green-400">
+                        <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-[#00FFE0]/10 text-[#00FFE0]">
                           {platform.status === "active" ? "Active" : platform.status}
                         </span>
                       ) : (
-                        <span className="text-gray-700 text-xs">—</span>
+                        <span className="text-zinc-700 text-xs">—</span>
                       )}
                     </td>
 
@@ -320,7 +311,7 @@ export default function ExplorerPage() {
                           {platform.total_requests.toLocaleString()}
                         </span>
                       ) : (
-                        <span className="text-gray-700">—</span>
+                        <span className="text-zinc-700">—</span>
                       )}
                     </td>
 
@@ -331,7 +322,7 @@ export default function ExplorerPage() {
                           ${platform.total_revenue_usdc.toFixed(2)}
                         </span>
                       ) : (
-                        <span className="text-gray-700">—</span>
+                        <span className="text-zinc-700">—</span>
                       )}
                     </td>
 
@@ -340,7 +331,7 @@ export default function ExplorerPage() {
                       {agent.owner_address ? (
                         <AddressCell address={agent.owner_address} />
                       ) : (
-                        <span className="text-gray-700 text-xs">—</span>
+                        <span className="text-zinc-700 text-xs">—</span>
                       )}
                     </td>
                   </tr>
@@ -348,7 +339,7 @@ export default function ExplorerPage() {
               })}
               {displayAgents.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="p-6 text-center text-gray-600">
+                  <td colSpan={8} className="p-6 text-center text-zinc-600">
                     No agents found.
                   </td>
                 </tr>
@@ -358,8 +349,8 @@ export default function ExplorerPage() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-800">
-              <span className="text-xs text-gray-500">
+            <div className="flex items-center justify-between px-4 py-3 border-t border-[#1a1a1a]">
+              <span className="text-xs text-zinc-500">
                 {(page - 1) * PAGE_SIZE + 1}–
                 {Math.min(page * PAGE_SIZE, totalRows)} of {totalRows}
               </span>
@@ -367,7 +358,7 @@ export default function ExplorerPage() {
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="px-2 py-1 rounded text-xs text-gray-400 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="px-2 py-1 rounded text-xs text-zinc-400 hover:bg-[#141414] disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   Prev
                 </button>
@@ -375,7 +366,7 @@ export default function ExplorerPage() {
                   p === -1 ? (
                     <span
                       key={`dots-${i}`}
-                      className="px-1 text-xs text-gray-600"
+                      className="px-1 text-xs text-zinc-600"
                     >
                       ...
                     </span>
@@ -385,8 +376,8 @@ export default function ExplorerPage() {
                       onClick={() => setPage(p)}
                       className={`min-w-[28px] px-1.5 py-1 rounded text-xs font-medium ${
                         p === page
-                          ? "bg-blue-600 text-white"
-                          : "text-gray-400 hover:bg-gray-800"
+                          ? "bg-[#00FFE0] text-black"
+                          : "text-zinc-400 hover:bg-[#141414]"
                       }`}
                     >
                       {p}
@@ -398,7 +389,7 @@ export default function ExplorerPage() {
                     setPage((p) => Math.min(totalPages, p + 1))
                   }
                   disabled={page === totalPages}
-                  className="px-2 py-1 rounded text-xs text-gray-400 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="px-2 py-1 rounded text-xs text-zinc-400 hover:bg-[#141414] disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   Next
                 </button>
@@ -419,7 +410,7 @@ function AddressCell({ address }: { address: string }) {
 
   return (
     <span
-      className="relative text-xs font-mono text-gray-400 cursor-pointer hover:text-gray-200 transition-colors"
+      className="relative text-xs font-mono text-zinc-400 cursor-pointer hover:text-zinc-200 transition-colors"
       onClick={(e) => {
         e.stopPropagation();
         setShowTooltip((prev) => !prev);
@@ -428,7 +419,7 @@ function AddressCell({ address }: { address: string }) {
     >
       {truncated}
       {showTooltip && (
-        <span className="absolute z-50 left-0 top-full mt-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg shadow-lg text-xs font-mono text-gray-200 whitespace-nowrap">
+        <span className="absolute z-50 left-0 top-full mt-1 px-3 py-2 bg-[#141414] border border-[#1f1f1f] rounded-lg shadow-lg text-xs font-mono text-gray-200 whitespace-nowrap">
           {address}
         </span>
       )}
@@ -443,7 +434,7 @@ function ChainBadge({ chainId }: { chainId: number }) {
     <span
       className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
         isPrimary
-          ? "bg-blue-900/30 text-blue-400"
+          ? "bg-[#00FFE0]/10 text-[#00FFE0]"
           : "bg-purple-900/30 text-purple-400"
       }`}
     >
@@ -481,7 +472,7 @@ function ServiceBadges({
     }
   }
 
-  if (names.size === 0) return <span className="text-gray-700 text-xs">—</span>;
+  if (names.size === 0) return <span className="text-zinc-700 text-xs">—</span>;
 
   return (
     <div className="flex flex-wrap gap-1">
@@ -489,7 +480,7 @@ function ServiceBadges({
         <span
           key={n}
           className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${
-            SVC_STYLE[n] || "bg-gray-800 text-gray-400"
+            SVC_STYLE[n] || "bg-[#141414] text-zinc-400"
           }`}
         >
           {n}

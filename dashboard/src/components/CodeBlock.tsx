@@ -4,10 +4,10 @@ import { CopyButton } from "./CopyButton";
 
 export function CodeBlock({ code, label }: { code: string; label?: string }) {
   return (
-    <div className="rounded-lg border border-gray-800 bg-gray-900 overflow-hidden">
+    <div className="rounded-lg border border-[#1a1a1a] bg-[#0f0f0f] overflow-hidden">
       {label && (
-        <div className="flex items-center justify-between px-4 py-2 border-b border-gray-800">
-          <span className="text-xs text-gray-500">{label}</span>
+        <div className="flex items-center justify-between px-4 py-2 border-b border-[#1a1a1a]">
+          <span className="text-xs text-zinc-500">{label}</span>
           <CopyButton text={code} />
         </div>
       )}

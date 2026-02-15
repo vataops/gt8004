@@ -70,8 +70,8 @@ export function RevenueTab({ agents }: RevenueTabProps) {
 
       {/* Top Agents by Revenue */}
       {revenueChartData.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
-          <h3 className="text-sm font-semibold text-gray-400 mb-4">
+        <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-6">
+          <h3 className="text-sm font-semibold text-zinc-400 mb-4">
             Top Agents by Revenue
           </h3>
           <ResponsiveContainer width="100%" height={Math.max(300, revenueChartData.length * 40)}>
@@ -82,28 +82,28 @@ export function RevenueTab({ agents }: RevenueTabProps) {
             >
               <XAxis
                 type="number"
-                stroke="#6b7280"
+                stroke="#71717a"
                 style={{ fontSize: 12 }}
                 tickFormatter={(value) => `$${value.toFixed(2)}`}
               />
               <YAxis
                 type="category"
                 dataKey="name"
-                stroke="#6b7280"
+                stroke="#71717a"
                 style={{ fontSize: 12 }}
                 width={150}
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "#111827",
-                  border: "1px solid #1f2937",
+                  backgroundColor: "#0f0f0f",
+                  border: "1px solid #1a1a1a",
                   borderRadius: "0.5rem",
                 }}
                 content={({ payload }) => {
                   if (!payload || !payload.length) return null;
                   const data = payload[0].payload;
                   return (
-                    <div className="bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-xs">
+                    <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-2.5 text-xs">
                       <div className="font-medium text-gray-200 mb-1">{data.name}</div>
                       <div className="text-emerald-400">
                         ${data.value.toFixed(2)} USDC ({data.percentage.toFixed(1)}%)
@@ -124,13 +124,13 @@ export function RevenueTab({ agents }: RevenueTabProps) {
 
       {/* Revenue Distribution Table */}
       {rankedByRevenue.filter((a) => a.total_revenue > 0).length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
-          <div className="p-4 border-b border-gray-800">
-            <h3 className="text-sm font-semibold text-gray-400">Revenue Distribution</h3>
+        <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg overflow-hidden">
+          <div className="p-4 border-b border-[#1a1a1a]">
+            <h3 className="text-sm font-semibold text-zinc-400">Revenue Distribution</h3>
           </div>
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-800 text-gray-500">
+              <tr className="border-b border-[#1a1a1a] text-zinc-400">
                 <th className="text-left p-3 w-12">Rank</th>
                 <th className="text-left p-3">Agent</th>
                 <th className="text-right p-3">Revenue</th>
@@ -149,15 +149,15 @@ export function RevenueTab({ agents }: RevenueTabProps) {
                   return (
                     <tr
                       key={agent.agent_id}
-                      className="border-b border-gray-800/50 hover:bg-gray-800/30"
+                      className="border-b border-[#1a1a1a]/50 hover:bg-[#00FFE0]/5"
                     >
-                      <td className="p-3 text-gray-400">#{index + 1}</td>
+                      <td className="p-3 text-zinc-400">#{index + 1}</td>
                       <td className="p-3">
                         <span className="font-medium text-gray-100">
                           {agent.name}
                         </span>
                         {agent.token_id !== null && !agent.name.startsWith("Token #") && (
-                          <span className="text-gray-500 ml-1.5">
+                          <span className="text-zinc-500 ml-1.5">
                             #{agent.token_id}
                           </span>
                         )}
@@ -171,7 +171,7 @@ export function RevenueTab({ agents }: RevenueTabProps) {
                       <td className="p-3 text-right text-gray-300">
                         ${arpu.toFixed(4)}
                       </td>
-                      <td className="p-3 text-right text-gray-400">
+                      <td className="p-3 text-right text-zinc-400">
                         {calculatePercentage(agent.total_revenue, totalRevenue).toFixed(1)}%
                       </td>
                     </tr>
@@ -183,7 +183,7 @@ export function RevenueTab({ agents }: RevenueTabProps) {
       )}
 
       {totalRevenue === 0 && (
-        <div className="text-center py-12 text-gray-500">
+        <div className="text-center py-12 text-zinc-500">
           No revenue data available
         </div>
       )}

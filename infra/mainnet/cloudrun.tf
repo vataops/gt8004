@@ -4,8 +4,9 @@ locals {
 
 # ── Registry ──────────────────────────────────────────
 resource "google_cloud_run_v2_service" "registry" {
-  name     = "gt8004-registry"
-  location = var.region
+  name     = "mainnet-gt8004-registry"
+  location            = var.region
+  deletion_protection = false
 
   template {
     service_account = google_service_account.runner.email
@@ -53,10 +54,6 @@ resource "google_cloud_run_v2_service" "registry" {
       }
 
       env {
-        name  = "PORT"
-        value = "8080"
-      }
-      env {
         name  = "LOG_LEVEL"
         value = "info"
       }
@@ -91,8 +88,9 @@ resource "google_cloud_run_v2_service" "registry" {
 
 # ── Analytics ─────────────────────────────────────────
 resource "google_cloud_run_v2_service" "analytics" {
-  name     = "gt8004-analytics"
-  location = var.region
+  name     = "mainnet-gt8004-analytics"
+  location            = var.region
+  deletion_protection = false
 
   template {
     service_account = google_service_account.runner.email
@@ -140,10 +138,6 @@ resource "google_cloud_run_v2_service" "analytics" {
       }
 
       env {
-        name  = "PORT"
-        value = "8080"
-      }
-      env {
         name  = "LOG_LEVEL"
         value = "info"
       }
@@ -158,8 +152,9 @@ resource "google_cloud_run_v2_service" "analytics" {
 
 # ── Discovery ─────────────────────────────────────────
 resource "google_cloud_run_v2_service" "discovery" {
-  name     = "gt8004-discovery"
-  location = var.region
+  name     = "mainnet-gt8004-discovery"
+  location            = var.region
+  deletion_protection = false
 
   template {
     service_account = google_service_account.runner.email
@@ -184,7 +179,7 @@ resource "google_cloud_run_v2_service" "discovery" {
       resources {
         limits = {
           cpu    = "1"
-          memory = "256Mi"
+          memory = "512Mi"
         }
       }
 
@@ -206,10 +201,6 @@ resource "google_cloud_run_v2_service" "discovery" {
         period_seconds = 30
       }
 
-      env {
-        name  = "PORT"
-        value = "8080"
-      }
       env {
         name  = "LOG_LEVEL"
         value = "info"
@@ -233,8 +224,9 @@ resource "google_cloud_run_v2_service" "discovery" {
 
 # ── Ingest (독립 서비스) ──────────────────────────────
 resource "google_cloud_run_v2_service" "ingest" {
-  name     = "gt8004-ingest"
-  location = var.region
+  name     = "mainnet-gt8004-ingest"
+  location            = var.region
+  deletion_protection = false
 
   template {
     service_account = google_service_account.runner.email
@@ -259,7 +251,7 @@ resource "google_cloud_run_v2_service" "ingest" {
       resources {
         limits = {
           cpu    = "1"
-          memory = "256Mi"
+          memory = "512Mi"
         }
       }
 
@@ -281,10 +273,6 @@ resource "google_cloud_run_v2_service" "ingest" {
         period_seconds = 30
       }
 
-      env {
-        name  = "PORT"
-        value = "9094"
-      }
       env {
         name  = "LOG_LEVEL"
         value = "info"
@@ -320,8 +308,9 @@ resource "google_cloud_run_v2_service" "ingest" {
 
 # ── API Gateway ───────────────────────────────────────
 resource "google_cloud_run_v2_service" "apigateway" {
-  name     = "gt8004-apigateway"
-  location = var.region
+  name     = "mainnet-gt8004-apigateway"
+  location            = var.region
+  deletion_protection = false
 
   template {
     service_account = google_service_account.runner.email
@@ -346,7 +335,7 @@ resource "google_cloud_run_v2_service" "apigateway" {
       resources {
         limits = {
           cpu    = "1"
-          memory = "256Mi"
+          memory = "512Mi"
         }
       }
 
@@ -369,10 +358,6 @@ resource "google_cloud_run_v2_service" "apigateway" {
       }
 
       env {
-        name  = "PORT"
-        value = "8080"
-      }
-      env {
         name  = "LOG_LEVEL"
         value = "info"
       }
@@ -387,6 +372,60 @@ resource "google_cloud_run_v2_service" "apigateway" {
       env {
         name  = "REGISTRY_URL"
         value = google_cloud_run_v2_service.registry.uri
+      }
+    }
+  }
+}
+
+# ── Dashboard (Next.js) ───────────────────────────────
+resource "google_cloud_run_v2_service" "dashboard" {
+  name                = "mainnet-gt8004-dashboard"
+  location            = var.region
+  deletion_protection = false
+
+  template {
+    service_account = google_service_account.runner.email
+
+    scaling {
+      min_instance_count = 0
+      max_instance_count = 2
+    }
+
+    containers {
+      image = "${local.registry_path}/dashboard:latest"
+
+      ports {
+        container_port = 3000
+      }
+
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "512Mi"
+        }
+      }
+
+      startup_probe {
+        http_get {
+          path = "/"
+          port = 3000
+        }
+        initial_delay_seconds = 5
+        period_seconds        = 5
+        failure_threshold     = 10
+      }
+
+      liveness_probe {
+        http_get {
+          path = "/"
+          port = 3000
+        }
+        period_seconds = 30
+      }
+
+      env {
+        name  = "HOSTNAME"
+        value = "0.0.0.0"
       }
     }
   }
@@ -423,6 +462,13 @@ resource "google_cloud_run_v2_service_iam_member" "analytics_public" {
 
 resource "google_cloud_run_v2_service_iam_member" "discovery_public" {
   name     = google_cloud_run_v2_service.discovery.name
+  location = var.region
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "dashboard_public" {
+  name     = google_cloud_run_v2_service.dashboard.name
   location = var.region
   role     = "roles/run.invoker"
   member   = "allUsers"

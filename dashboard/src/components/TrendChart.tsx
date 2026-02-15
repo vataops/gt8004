@@ -14,8 +14,8 @@ import {
 import type { DailyStats } from "@/lib/api";
 
 const tooltipStyle = {
-  backgroundColor: "#111827",
-  border: "1px solid #1F2937",
+  backgroundColor: "#0f0f0f",
+  border: "1px solid #1a1a1a",
   borderRadius: "8px",
   fontSize: 12,
   boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
@@ -26,8 +26,8 @@ export function TrendChart({ data }: { data: DailyStats[] }) {
 
   if (!data || data.length === 0) {
     return (
-      <div className="bg-gray-900 border border-gray-800 rounded-lg p-8 text-center">
-        <p className="text-gray-500 text-sm">
+      <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-8 text-center">
+        <p className="text-zinc-500 text-sm">
           No historical trend data available yet.
         </p>
       </div>
@@ -52,9 +52,9 @@ export function TrendChart({ data }: { data: DailyStats[] }) {
     .reverse(); // Reverse to show oldest to newest
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+    <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-medium text-gray-400">
+        <h3 className="text-sm font-medium text-zinc-400">
           Performance Trend
         </h3>
         <div className="flex gap-2">
@@ -62,8 +62,8 @@ export function TrendChart({ data }: { data: DailyStats[] }) {
             onClick={() => setTimeWindow("24h")}
             className={`px-3 py-1 text-xs rounded ${
               timeWindow === "24h"
-                ? "bg-blue-500 text-white"
-                : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                ? "bg-[#00FFE0] text-black"
+                : "bg-[#141414] text-zinc-400 hover:bg-[#1a1a1a]"
             }`}
           >
             24h
@@ -72,8 +72,8 @@ export function TrendChart({ data }: { data: DailyStats[] }) {
             onClick={() => setTimeWindow("7d")}
             className={`px-3 py-1 text-xs rounded ${
               timeWindow === "7d"
-                ? "bg-blue-500 text-white"
-                : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                ? "bg-[#00FFE0] text-black"
+                : "bg-[#141414] text-zinc-400 hover:bg-[#1a1a1a]"
             }`}
           >
             7d
@@ -83,16 +83,16 @@ export function TrendChart({ data }: { data: DailyStats[] }) {
 
       <ResponsiveContainer width="100%" height={300}>
         <LineChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
           <XAxis
             dataKey="date"
-            tick={{ fontSize: 11, fill: "#6B7280" }}
+            tick={{ fontSize: 11, fill: "#71717a" }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
             yAxisId="left"
-            tick={{ fontSize: 11, fill: "#6B7280" }}
+            tick={{ fontSize: 11, fill: "#71717a" }}
             axisLine={false}
             tickLine={false}
             tickFormatter={(v) => `${v}ms`}
@@ -100,7 +100,7 @@ export function TrendChart({ data }: { data: DailyStats[] }) {
           <YAxis
             yAxisId="right"
             orientation="right"
-            tick={{ fontSize: 11, fill: "#6B7280" }}
+            tick={{ fontSize: 11, fill: "#71717a" }}
             axisLine={false}
             tickLine={false}
             tickFormatter={(v) => `${v.toFixed(1)}%`}
@@ -123,7 +123,7 @@ export function TrendChart({ data }: { data: DailyStats[] }) {
             yAxisId="left"
             type="monotone"
             dataKey="p95"
-            stroke="#3B82F6"
+            stroke="#00FFE0"
             strokeWidth={2}
             dot={{ r: 3 }}
             name="P95 Latency"

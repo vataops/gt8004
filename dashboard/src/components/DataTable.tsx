@@ -17,12 +17,12 @@ export function DataTable<T extends Record<string, any>>({
   emptyMessage = "No data",
 }: DataTableProps<T>) {
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
+    <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg overflow-hidden">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-gray-800 text-gray-500">
+          <tr className="border-b border-[#1a1a1a] text-zinc-400">
             {columns.map((col) => (
-              <th key={col.key} className="text-left p-3">
+              <th key={col.key} className="text-left p-3 text-xs">
                 {col.header}
               </th>
             ))}
@@ -32,7 +32,7 @@ export function DataTable<T extends Record<string, any>>({
           {data.map((row, i) => (
             <tr
               key={i}
-              className="border-b border-gray-800/50 hover:bg-gray-800/30"
+              className="border-b border-[#1a1a1a]/50 hover:bg-[#00FFE0]/5"
             >
               {columns.map((col) => (
                 <td key={col.key} className="p-3">
@@ -47,7 +47,7 @@ export function DataTable<T extends Record<string, any>>({
             <tr>
               <td
                 colSpan={columns.length}
-                className="p-6 text-center text-gray-600"
+                className="p-6 text-center text-zinc-600"
               >
                 {emptyMessage}
               </td>

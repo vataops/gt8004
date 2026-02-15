@@ -1,0 +1,116 @@
+name: Deploy GT8004
+
+on:
+  push:
+    branches: [main, stg]
+
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  REGION: us-central1
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+
+jobs:
+  # ── Build & Push Docker Images ──────────────────────
+  build:
+    name: Build ${{ matrix.service.name }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - { name: apigateway, dockerfile: services/apigateway/Dockerfile, context: "." }
+          - { name: registry, dockerfile: services/registry/backend/Dockerfile, context: "." }
+          - { name: analytics, dockerfile: services/analytics/Dockerfile, context: "." }
+          - { name: discovery, dockerfile: services/discovery/Dockerfile, context: "." }
+          - { name: ingest, dockerfile: services/ingest/Dockerfile, context: "." }
+          - { name: dashboard, dockerfile: dashboard/Dockerfile, context: "./dashboard" }
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker ${REGION}-docker.pkg.dev --quiet
+
+      - name: Set environment
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "ENV=mainnet" >> $GITHUB_ENV
+            echo "REPO=gt8004-mainnet" >> $GITHUB_ENV
+            echo "API_URL=https://api.gt8004.xyz" >> $GITHUB_ENV
+            echo "NETWORK_MODE=mainnet" >> $GITHUB_ENV
+          else
+            echo "ENV=testnet" >> $GITHUB_ENV
+            echo "REPO=gt8004-testnet" >> $GITHUB_ENV
+            echo "API_URL=https://testnet.api.gt8004.xyz" >> $GITHUB_ENV
+            echo "NETWORK_MODE=testnet" >> $GITHUB_ENV
+          fi
+
+      - name: Build and push
+        run: |
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${{ matrix.service.name }}"
+          TAG="${GITHUB_SHA::7}"
+
+          BUILD_ARGS=""
+          if [ "${{ matrix.service.name }}" = "dashboard" ]; then
+            BUILD_ARGS="--build-arg NEXT_PUBLIC_OPEN_API_URL=${API_URL} --build-arg NEXT_PUBLIC_NETWORK_MODE=${NETWORK_MODE}"
+          fi
+
+          docker build \
+            -f ${{ matrix.service.dockerfile }} \
+            ${BUILD_ARGS} \
+            -t "${IMAGE}:${TAG}" \
+            -t "${IMAGE}:latest" \
+            ${{ matrix.service.context }}
+
+          docker push "${IMAGE}:${TAG}"
+          docker push "${IMAGE}:latest"
+
+  # ── Deploy to Cloud Run ─────────────────────────────
+  deploy:
+    name: Deploy ${{ matrix.service }}
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [apigateway, registry, analytics, discovery, ingest, dashboard]
+    steps:
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Set environment
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "ENV=mainnet" >> $GITHUB_ENV
+            echo "REPO=gt8004-mainnet" >> $GITHUB_ENV
+          else
+            echo "ENV=testnet" >> $GITHUB_ENV
+            echo "REPO=gt8004-testnet" >> $GITHUB_ENV
+          fi
+
+      - name: Deploy to Cloud Run
+        run: |
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${{ matrix.service }}:${GITHUB_SHA::7}"
+          SERVICE="${ENV}-gt8004-${{ matrix.service }}"
+
+          gcloud run services update "${SERVICE}" \
+            --image="${IMAGE}" \
+            --region="${REGION}" \
+            --project="${PROJECT_ID}"

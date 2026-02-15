@@ -179,8 +179,8 @@ func (c *Client) DiscoverAllTokens(ctx context.Context) ([]DiscoveredToken, erro
 
 		const chunkSize uint64 = 49999
 		var startBlock uint64
-		if currentBlock > 2000000 {
-			startBlock = currentBlock - 2000000
+		if currentBlock > 10000000 {
+			startBlock = currentBlock - 10000000
 		}
 
 		candidates = nil

@@ -5,8 +5,9 @@ locals {
 
 # ── Registry ──────────────────────────────────────────
 resource "google_cloud_run_v2_service" "registry" {
-  name     = "gt8004-registry"
-  location = var.region
+  name     = "testnet-gt8004-registry"
+  location            = var.region
+  deletion_protection = false
 
   template {
     service_account = google_service_account.runner.email
@@ -92,8 +93,9 @@ resource "google_cloud_run_v2_service" "registry" {
 
 # ── Analytics ─────────────────────────────────────────
 resource "google_cloud_run_v2_service" "analytics" {
-  name     = "gt8004-analytics"
-  location = var.region
+  name     = "testnet-gt8004-analytics"
+  location            = var.region
+  deletion_protection = false
 
   template {
     service_account = google_service_account.runner.email
@@ -159,8 +161,9 @@ resource "google_cloud_run_v2_service" "analytics" {
 
 # ── Discovery ─────────────────────────────────────────
 resource "google_cloud_run_v2_service" "discovery" {
-  name     = "gt8004-discovery"
-  location = var.region
+  name     = "testnet-gt8004-discovery"
+  location            = var.region
+  deletion_protection = false
 
   template {
     service_account = google_service_account.runner.email
@@ -234,8 +237,9 @@ resource "google_cloud_run_v2_service" "discovery" {
 
 # ── Ingest (독립 서비스 — ingest.gt8004.xyz) ──────────
 resource "google_cloud_run_v2_service" "ingest" {
-  name     = "gt8004-ingest"
-  location = var.region
+  name     = "testnet-gt8004-ingest"
+  location            = var.region
+  deletion_protection = false
 
   template {
     service_account = google_service_account.runner.email
@@ -322,8 +326,9 @@ resource "google_cloud_run_v2_service" "ingest" {
 # ── API Gateway ───────────────────────────────────────
 # NOTE: apigateway에 INGEST_URL 없음 — ingest는 독립 서비스
 resource "google_cloud_run_v2_service" "apigateway" {
-  name     = "gt8004-apigateway"
-  location = var.region
+  name     = "testnet-gt8004-apigateway"
+  location            = var.region
+  deletion_protection = false
 
   template {
     service_account = google_service_account.runner.email
@@ -392,8 +397,9 @@ resource "google_cloud_run_v2_service" "apigateway" {
 
 # ── Dashboard (Next.js SSR → Firebase Hosting 경유) ───
 resource "google_cloud_run_v2_service" "dashboard" {
-  name     = "gt8004-dashboard"
-  location = var.region
+  name     = "testnet-gt8004-dashboard"
+  location            = var.region
+  deletion_protection = false
 
   template {
     service_account = google_service_account.runner.email

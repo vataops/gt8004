@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useNetworkAgent } from "@/lib/hooks";
-import { NETWORKS, resolveImageUrl } from "@/lib/networks";
+import { NETWORKS } from "@/lib/networks";
+import { AgentAvatar } from "@/components/RobotIcon";
 import { openApi } from "@/lib/api";
 import type { Agent, AgentService, ReputationSummary, ReputationFeedbackEntry } from "@/lib/api";
 import { ActivityTab } from "./ActivityTab";
@@ -77,7 +78,7 @@ export default function AgentDetailPage() {
 
   if (!chainId) {
     return (
-      <div className="p-8 text-center text-gray-500">
+      <div className="p-8 text-center text-zinc-500">
         Unknown chain: {params.chain}
       </div>
     );
@@ -102,23 +103,23 @@ export default function AgentDetailPage() {
       {/* Back button */}
       <button
         onClick={() => router.push("/")}
-        className="text-sm text-gray-400 hover:text-gray-200 mb-6 flex items-center gap-1"
+        className="text-sm text-zinc-400 hover:text-gray-200 mb-6 flex items-center gap-1"
       >
         <span>←</span> Back to Explorer
       </button>
 
       {loading ? (
         <div className="space-y-4">
-          <div className="h-20 bg-gray-800/50 rounded-lg animate-pulse" />
-          <div className="h-10 bg-gray-800/50 rounded-lg animate-pulse w-1/2" />
+          <div className="h-20 bg-[#141414] rounded-lg animate-pulse" />
+          <div className="h-10 bg-[#141414] rounded-lg animate-pulse w-1/2" />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 h-64 bg-gray-800/50 rounded-lg animate-pulse" />
-            <div className="h-64 bg-gray-800/50 rounded-lg animate-pulse" />
+            <div className="lg:col-span-2 h-64 bg-[#141414] rounded-lg animate-pulse" />
+            <div className="h-64 bg-[#141414] rounded-lg animate-pulse" />
           </div>
         </div>
       ) : error || !agent ? (
         <div className="text-center py-12">
-          <p className="text-gray-500">Agent not found</p>
+          <p className="text-zinc-500">Agent not found</p>
           <p className="text-sm text-gray-600 mt-2">
             Token #{tokenId} on {params.chain}
           </p>
@@ -127,17 +128,7 @@ export default function AgentDetailPage() {
         <div className="space-y-6">
           {/* ───── Header ───── */}
           <div className="flex items-start gap-5">
-            {resolveImageUrl(agent.image_url) ? (
-              <img
-                src={resolveImageUrl(agent.image_url)!}
-                alt={agent.name || `Token #${agent.token_id}`}
-                className="w-16 h-16 rounded-lg object-cover bg-gray-800 shrink-0"
-              />
-            ) : (
-              <div className="w-16 h-16 rounded-lg bg-gray-800 flex items-center justify-center text-2xl text-gray-600 shrink-0">
-                #
-              </div>
-            )}
+            <AgentAvatar imageUrl={agent.image_url} alt={agent.name || `Token #${agent.token_id}`} size="lg" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3">
                 <ChainBadge chainId={agent.chain_id} />
@@ -145,18 +136,18 @@ export default function AgentDetailPage() {
                   {agent.name || `Token #${agent.token_id}`}
                 </h1>
                 {agent.name && (
-                  <span className="text-sm text-gray-500 shrink-0">
+                  <span className="text-sm text-zinc-500 shrink-0">
                     #{agent.token_id}
                   </span>
                 )}
               </div>
               {agent.description && (
-                <p className="text-sm text-gray-400 mt-1 line-clamp-2">
+                <p className="text-sm text-zinc-400 mt-1 line-clamp-2">
                   {agent.description}
                 </p>
               )}
               {/* Meta info row */}
-              <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+              <div className="flex items-center gap-3 mt-2 text-xs text-zinc-500">
                 {feedbackCount > 0 && (
                   <span>{feedbackCount} feedback{feedbackCount !== 1 ? "s" : ""}</span>
                 )}
@@ -176,12 +167,12 @@ export default function AgentDetailPage() {
                   </span>
                 )}
                 {feedbackCount > 0 && (
-                  <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-gray-800 text-gray-300 border border-gray-700">
+                  <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-[#141414] text-gray-300 border border-[#1f1f1f]">
                     Reputation
                   </span>
                 )}
                 {platformAgent && (
-                  <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-green-900/30 text-green-400 border border-green-800/50">
+                  <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-[#00FFE0]/10 text-[#00FFE0] border border-[#00FFE0]/30">
                     GT8004
                   </span>
                 )}
@@ -200,7 +191,7 @@ export default function AgentDetailPage() {
           </div>
 
           {/* ───── Tab Navigation ───── */}
-          <div className="border-b border-gray-800">
+          <div className="border-b border-[#1a1a1a]">
             <div className="flex gap-0">
               {TABS.map((tab) => (
                 <button
@@ -209,7 +200,7 @@ export default function AgentDetailPage() {
                   className={`px-5 py-3 text-sm font-medium transition-colors relative ${
                     activeTab === tab.key
                       ? "text-gray-100"
-                      : "text-gray-500 hover:text-gray-300"
+                      : "text-zinc-500 hover:text-gray-300"
                   }`}
                 >
                   {tab.label}
@@ -217,7 +208,7 @@ export default function AgentDetailPage() {
                     <span className="ml-1.5 text-gray-600">({tab.count})</span>
                   )}
                   {activeTab === tab.key && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500" />
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#00FFE0]" />
                   )}
                 </button>
               ))}
@@ -272,7 +263,7 @@ export default function AgentDetailPage() {
                       />
                     </div>
                     <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-3 text-gray-500">
+                      <div className="flex items-center gap-3 text-zinc-500">
                         <span>Avg response: {platformAgent.avg_response_ms.toFixed(0)}ms</span>
                         {platformAgent.protocols.length > 0 && (
                           <span>Protocols: {platformAgent.protocols.join(", ")}</span>
@@ -296,7 +287,7 @@ export default function AgentDetailPage() {
                   {feedbacks.length === 0 ? (
                     <div className="py-8 text-center">
                       <div className="text-3xl text-gray-700 mb-2">💬</div>
-                      <p className="text-sm text-gray-500">No feedback yet</p>
+                      <p className="text-sm text-zinc-500">No feedback yet</p>
                       <p className="text-xs text-gray-600 mt-1">
                         This agent hasn&apos;t received any feedback from users.
                       </p>
@@ -321,8 +312,8 @@ export default function AgentDetailPage() {
 
               {/* Right Column - Basic Information */}
               <div className="space-y-6">
-                <div className="bg-gray-900 border border-gray-800 rounded-lg">
-                  <div className="px-4 py-3 border-b border-gray-800">
+                <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg">
+                  <div className="px-4 py-3 border-b border-[#1a1a1a]">
                     <h3 className="text-sm font-semibold text-gray-300">Basic Information</h3>
                   </div>
                   <div className="p-4 space-y-4">
@@ -412,9 +403,9 @@ export default function AgentDetailPage() {
           {activeTab === "feedback" && (
             <div className="max-w-2xl">
               {feedbacks.length === 0 ? (
-                <div className="bg-gray-900 border border-gray-800 rounded-lg py-16 text-center">
+                <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg py-16 text-center">
                   <div className="text-4xl text-gray-700 mb-3">💬</div>
-                  <p className="text-gray-400 font-medium">No feedback yet</p>
+                  <p className="text-zinc-400 font-medium">No feedback yet</p>
                   <p className="text-sm text-gray-600 mt-1">
                     This agent hasn&apos;t received any feedback from users.
                   </p>
@@ -464,12 +455,12 @@ export default function AgentDetailPage() {
                     {agent.metadata.registrations.map((reg, i) => (
                       <div
                         key={i}
-                        className="bg-gray-800/50 border border-gray-700/50 rounded-lg p-3"
+                        className="bg-[#141414] border border-[#1f1f1f] rounded-lg p-3"
                       >
                         <p className="text-sm text-gray-300">
                           Agent ID: <span className="font-mono">{reg.agentId}</span>
                         </p>
-                        <p className="text-sm text-gray-400 font-mono break-all mt-1">
+                        <p className="text-sm text-zinc-400 font-mono break-all mt-1">
                           {reg.agentRegistry}
                         </p>
                       </div>
@@ -481,8 +472,8 @@ export default function AgentDetailPage() {
               {/* Raw Agent URI */}
               {agent.agent_uri && (
                 <Section title="Raw Agent URI">
-                  <div className="bg-gray-800/50 rounded-lg p-3">
-                    <pre className="text-xs text-gray-400 font-mono whitespace-pre-wrap break-all max-h-64 overflow-y-auto">
+                  <div className="bg-[#141414] rounded-lg p-3">
+                    <pre className="text-xs text-zinc-400 font-mono whitespace-pre-wrap break-all max-h-64 overflow-y-auto">
                       {agent.agent_uri.startsWith("data:") ? decodeURIComponent(agent.agent_uri) : agent.agent_uri}
                     </pre>
                   </div>
@@ -491,8 +482,8 @@ export default function AgentDetailPage() {
 
               {/* No metadata notice */}
               {!agent.name && !agent.description && !services.length && (
-                <div className="bg-gray-900 border border-gray-800 rounded-lg p-6 text-center">
-                  <p className="text-gray-500">
+                <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-6 text-center">
+                  <p className="text-zinc-500">
                     No metadata available for this agent.
                   </p>
                   <p className="text-xs text-gray-600 mt-1">
@@ -514,8 +505,8 @@ export default function AgentDetailPage() {
 
 function Section({ title, children, icon }: { title: string; children: React.ReactNode; icon?: string }) {
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-lg">
-      <div className="px-4 py-3 border-b border-gray-800">
+    <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg">
+      <div className="px-4 py-3 border-b border-[#1a1a1a]">
         <h3 className="text-sm font-semibold text-gray-300">{title}</h3>
       </div>
       <div className="p-4">{children}</div>
@@ -530,7 +521,7 @@ function InfoGrid({ children }: { children: React.ReactNode }) {
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start justify-between gap-4">
-      <span className="text-sm text-gray-500 shrink-0 w-32">{label}</span>
+      <span className="text-sm text-zinc-500 shrink-0 w-32">{label}</span>
       <span className="text-sm text-gray-200 text-right break-all">{value}</span>
     </div>
   );
@@ -541,7 +532,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 function SidebarSection({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold mb-2">{label}</p>
+      <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold mb-2">{label}</p>
       <div className="space-y-2">{children}</div>
     </div>
   );
@@ -571,7 +562,7 @@ function SidebarRow({
 
   return (
     <div className="flex items-center justify-between gap-2">
-      <span className="text-xs text-gray-500 shrink-0">{label}</span>
+      <span className="text-xs text-zinc-500 shrink-0">{label}</span>
       <div className="flex items-center gap-1.5 min-w-0">
         <span className={`text-xs text-gray-200 truncate ${truncate ? "font-mono" : ""}`}>
           {displayValue}
@@ -579,7 +570,7 @@ function SidebarRow({
         {copyable && value && value !== "—" && (
           <button
             onClick={handleCopy}
-            className="text-gray-600 hover:text-gray-400 shrink-0 transition-colors"
+            className="text-gray-600 hover:text-zinc-400 shrink-0 transition-colors"
             title={copied ? "Copied!" : "Copy"}
           >
             {copied ? (
@@ -590,7 +581,7 @@ function SidebarRow({
           </button>
         )}
         {explorerUrl && (
-          <a href={explorerUrl} target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-gray-400 shrink-0 transition-colors">
+          <a href={explorerUrl} target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-zinc-400 shrink-0 transition-colors">
             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
           </a>
         )}
@@ -612,8 +603,8 @@ function StatCard({ label, value, sub, color }: { label: string; value: string; 
   return (
     <div className={`bg-gradient-to-b ${colors[color]} border rounded-lg p-4 text-center`}>
       <p className={`text-lg font-bold ${textColors[color]}`}>{value}</p>
-      {sub && <p className="text-[10px] text-gray-500">{sub}</p>}
-      <p className="text-[11px] text-gray-500 mt-1">{label}</p>
+      {sub && <p className="text-[10px] text-zinc-500">{sub}</p>}
+      <p className="text-[11px] text-zinc-500 mt-1">{label}</p>
     </div>
   );
 }
@@ -622,9 +613,9 @@ function StatCard({ label, value, sub, color }: { label: string; value: string; 
 
 function FeedbackCard({ fb }: { fb: ReputationFeedbackEntry }) {
   return (
-    <div className="bg-gray-800/50 border border-gray-700/50 rounded-lg p-3">
+    <div className="bg-[#141414] border border-[#1f1f1f] rounded-lg p-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-mono text-gray-400">
+        <span className="text-xs font-mono text-zinc-400">
           {fb.client_address.slice(0, 6)}...{fb.client_address.slice(-4)}
         </span>
         <div className="flex items-center gap-2">
@@ -638,8 +629,8 @@ function FeedbackCard({ fb }: { fb: ReputationFeedbackEntry }) {
       </div>
       {(fb.tag1 || fb.tag2) && (
         <div className="flex gap-2 mt-1.5">
-          {fb.tag1 && <span className="text-[10px] bg-gray-700/50 text-gray-400 px-1.5 py-0.5 rounded">{fb.tag1}</span>}
-          {fb.tag2 && <span className="text-[10px] bg-gray-700/50 text-gray-400 px-1.5 py-0.5 rounded">{fb.tag2}</span>}
+          {fb.tag1 && <span className="text-[10px] bg-[#1f1f1f] text-zinc-400 px-1.5 py-0.5 rounded">{fb.tag1}</span>}
+          {fb.tag2 && <span className="text-[10px] bg-[#1f1f1f] text-zinc-400 px-1.5 py-0.5 rounded">{fb.tag2}</span>}
         </div>
       )}
     </div>
@@ -669,7 +660,7 @@ function ServiceBadge({ name }: { name: string }) {
     OASF: "bg-purple-900/30 text-purple-400",
   };
   return (
-    <span className={`text-xs px-2 py-0.5 rounded font-medium ${colors[name] || "bg-gray-700/50 text-gray-300"}`}>
+    <span className={`text-xs px-2 py-0.5 rounded font-medium ${colors[name] || "bg-[#1f1f1f] text-gray-300"}`}>
       {name}
     </span>
   );
@@ -716,7 +707,7 @@ function ServicesWithHealth({ services }: { services: AgentService[] }) {
   return (
     <Section title="Services">
       <div className="flex items-center justify-between mb-3">
-        <p className="text-xs text-gray-500">Agent communication services</p>
+        <p className="text-xs text-zinc-500">Agent communication services</p>
         <div className="flex items-center gap-3">
           {lastChecked && (
             <span className="text-[10px] text-gray-600">
@@ -725,7 +716,7 @@ function ServicesWithHealth({ services }: { services: AgentService[] }) {
           )}
           <button
             onClick={runHealthChecks}
-            className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
+            className="text-[10px] text-zinc-500 hover:text-gray-300 transition-colors"
           >
             Refresh
           </button>
@@ -735,7 +726,7 @@ function ServicesWithHealth({ services }: { services: AgentService[] }) {
         {services.map((svc, i) => {
           const status = svc.endpoint ? healthStatus[svc.endpoint] : undefined;
           return (
-            <div key={i} className="bg-gray-800/50 border border-gray-700/50 rounded-lg p-3">
+            <div key={i} className="bg-[#141414] border border-[#1f1f1f] rounded-lg p-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ServiceBadge name={svc.name} />
@@ -744,7 +735,7 @@ function ServicesWithHealth({ services }: { services: AgentService[] }) {
                       href={svc.endpoint}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-gray-400 hover:text-gray-200 font-mono truncate max-w-xs"
+                      className="text-xs text-zinc-400 hover:text-gray-200 font-mono truncate max-w-xs"
                     >
                       {svc.endpoint}
                     </a>
@@ -752,7 +743,7 @@ function ServicesWithHealth({ services }: { services: AgentService[] }) {
                 </div>
                 {status && (
                   <span className={`flex items-center gap-1 text-xs ${
-                    status === "healthy" ? "text-green-400" : status === "unhealthy" ? "text-red-400" : "text-gray-500"
+                    status === "healthy" ? "text-green-400" : status === "unhealthy" ? "text-red-400" : "text-zinc-500"
                   }`}>
                     <span className={`w-2 h-2 rounded-full ${
                       status === "healthy" ? "bg-green-400" : status === "unhealthy" ? "bg-red-400" : "bg-gray-500 animate-pulse"
@@ -763,31 +754,31 @@ function ServicesWithHealth({ services }: { services: AgentService[] }) {
               </div>
               {svc.mcpTools && svc.mcpTools.length > 0 && (
                 <div className="mt-2">
-                  <span className="text-xs text-gray-500">Tools: </span>
+                  <span className="text-xs text-zinc-500">Tools: </span>
                   <span className="text-xs text-gray-300">{svc.mcpTools.join(", ")}</span>
                 </div>
               )}
               {svc.mcpPrompts && svc.mcpPrompts.length > 0 && (
                 <div className="mt-1">
-                  <span className="text-xs text-gray-500">Prompts: </span>
+                  <span className="text-xs text-zinc-500">Prompts: </span>
                   <span className="text-xs text-gray-300">{svc.mcpPrompts.join(", ")}</span>
                 </div>
               )}
               {svc.mcpResources && svc.mcpResources.length > 0 && (
                 <div className="mt-1">
-                  <span className="text-xs text-gray-500">Resources: </span>
+                  <span className="text-xs text-zinc-500">Resources: </span>
                   <span className="text-xs text-gray-300">{svc.mcpResources.join(", ")}</span>
                 </div>
               )}
               {svc.skills && svc.skills.length > 0 && (
                 <div className="mt-2">
-                  <span className="text-xs text-gray-500">Skills: </span>
+                  <span className="text-xs text-zinc-500">Skills: </span>
                   <span className="text-xs text-gray-300">{svc.skills.join(", ")}</span>
                 </div>
               )}
               {svc.domains && svc.domains.length > 0 && (
                 <div className="mt-1">
-                  <span className="text-xs text-gray-500">Domains: </span>
+                  <span className="text-xs text-zinc-500">Domains: </span>
                   <span className="text-xs text-gray-300">{svc.domains.join(", ")}</span>
                 </div>
               )}

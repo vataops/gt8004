@@ -34,7 +34,7 @@ interface RequestsTabProps {
   walletDaily?: { stats: WalletDailyStats[] } | null;
 }
 
-const COLORS = ["#3b82f6", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#ec4899"];
+const COLORS = ["#00FFE0", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#ec4899"];
 
 export function RequestsTab({ agents, walletDaily }: RequestsTabProps) {
   // Filter to only show registered agents
@@ -82,8 +82,8 @@ export function RequestsTab({ agents, walletDaily }: RequestsTabProps) {
 
       {/* Top Agents by Requests */}
       {requestChartData.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
-          <h3 className="text-sm font-semibold text-gray-400 mb-4">
+        <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-6">
+          <h3 className="text-sm font-semibold text-zinc-400 mb-4">
             Top Agents by Requests
           </h3>
           <ResponsiveContainer width="100%" height={Math.max(300, requestChartData.length * 40)}>
@@ -92,27 +92,27 @@ export function RequestsTab({ agents, walletDaily }: RequestsTabProps) {
               layout="vertical"
               margin={{ top: 5, right: 30, left: 5, bottom: 5 }}
             >
-              <XAxis type="number" stroke="#6b7280" style={{ fontSize: 12 }} />
+              <XAxis type="number" stroke="#71717a" style={{ fontSize: 12 }} />
               <YAxis
                 type="category"
                 dataKey="name"
-                stroke="#6b7280"
+                stroke="#71717a"
                 style={{ fontSize: 12 }}
                 width={150}
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "#111827",
-                  border: "1px solid #1f2937",
+                  backgroundColor: "#0f0f0f",
+                  border: "1px solid #1a1a1a",
                   borderRadius: "0.5rem",
                 }}
                 content={({ payload }) => {
                   if (!payload || !payload.length) return null;
                   const data = payload[0].payload;
                   return (
-                    <div className="bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-xs">
+                    <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-2.5 text-xs">
                       <div className="font-medium text-gray-200 mb-1">{data.name}</div>
-                      <div className="text-gray-400">
+                      <div className="text-zinc-400">
                         {data.value.toLocaleString()} requests ({data.percentage.toFixed(1)}%)
                       </div>
                     </div>
@@ -131,8 +131,8 @@ export function RequestsTab({ agents, walletDaily }: RequestsTabProps) {
 
       {/* Top Agents by Customers */}
       {customerChartData.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
-          <h3 className="text-sm font-semibold text-gray-400 mb-4">
+        <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-6">
+          <h3 className="text-sm font-semibold text-zinc-400 mb-4">
             Top Agents by Customers
           </h3>
           <ResponsiveContainer width="100%" height={Math.max(300, customerChartData.length * 40)}>
@@ -141,27 +141,27 @@ export function RequestsTab({ agents, walletDaily }: RequestsTabProps) {
               layout="vertical"
               margin={{ top: 5, right: 30, left: 5, bottom: 5 }}
             >
-              <XAxis type="number" stroke="#6b7280" style={{ fontSize: 12 }} />
+              <XAxis type="number" stroke="#71717a" style={{ fontSize: 12 }} />
               <YAxis
                 type="category"
                 dataKey="name"
-                stroke="#6b7280"
+                stroke="#71717a"
                 style={{ fontSize: 12 }}
                 width={150}
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "#111827",
-                  border: "1px solid #1f2937",
+                  backgroundColor: "#0f0f0f",
+                  border: "1px solid #1a1a1a",
                   borderRadius: "0.5rem",
                 }}
                 content={({ payload }) => {
                   if (!payload || !payload.length) return null;
                   const data = payload[0].payload;
                   return (
-                    <div className="bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-xs">
+                    <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-2.5 text-xs">
                       <div className="font-medium text-gray-200 mb-1">{data.name}</div>
-                      <div className="text-gray-400">
+                      <div className="text-zinc-400">
                         {data.value.toLocaleString()} customers
                       </div>
                     </div>
@@ -180,35 +180,35 @@ export function RequestsTab({ agents, walletDaily }: RequestsTabProps) {
 
       {/* Requests Over Time (Time-Series Chart) */}
       {walletDaily && walletDaily.stats && walletDaily.stats.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
-          <h3 className="text-sm font-semibold text-gray-400 mb-4">
+        <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-6">
+          <h3 className="text-sm font-semibold text-zinc-400 mb-4">
             Requests Over Time (Last 30 Days)
           </h3>
           <ResponsiveContainer width="100%" height={260}>
             <LineChart data={[...walletDaily.stats].reverse()}>
               <XAxis
                 dataKey="date"
-                stroke="#6b7280"
+                stroke="#71717a"
                 style={{ fontSize: 12 }}
                 tickFormatter={(value) => {
                   const date = new Date(value);
                   return `${date.getMonth() + 1}/${date.getDate()}`;
                 }}
               />
-              <YAxis stroke="#6b7280" style={{ fontSize: 12 }} />
+              <YAxis stroke="#71717a" style={{ fontSize: 12 }} />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "#111827",
-                  border: "1px solid #1f2937",
+                  backgroundColor: "#0f0f0f",
+                  border: "1px solid #1a1a1a",
                   borderRadius: "0.5rem",
                 }}
                 content={({ payload }) => {
                   if (!payload || !payload.length) return null;
                   const data = payload[0].payload;
                   return (
-                    <div className="bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-xs">
+                    <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-2.5 text-xs">
                       <div className="font-medium text-gray-200 mb-1">{data.date}</div>
-                      <div className="text-blue-400">
+                      <div className="text-[#00FFE0]">
                         {data.requests.toLocaleString()} requests
                       </div>
                     </div>
@@ -218,7 +218,7 @@ export function RequestsTab({ agents, walletDaily }: RequestsTabProps) {
               <Line
                 type="monotone"
                 dataKey="requests"
-                stroke="#3b82f6"
+                stroke="#00FFE0"
                 strokeWidth={2}
                 dot={false}
               />
@@ -229,13 +229,13 @@ export function RequestsTab({ agents, walletDaily }: RequestsTabProps) {
 
       {/* Agent Ranking Table */}
       {rankedByRequests.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
-          <div className="p-4 border-b border-gray-800">
-            <h3 className="text-sm font-semibold text-gray-400">Agent Ranking</h3>
+        <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg overflow-hidden">
+          <div className="p-4 border-b border-[#1a1a1a]">
+            <h3 className="text-sm font-semibold text-zinc-400">Agent Ranking</h3>
           </div>
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-800 text-gray-500">
+              <tr className="border-b border-[#1a1a1a] text-zinc-400">
                 <th className="text-left p-3 w-12">Rank</th>
                 <th className="text-left p-3">Agent</th>
                 <th className="text-right p-3">Requests</th>
@@ -248,15 +248,15 @@ export function RequestsTab({ agents, walletDaily }: RequestsTabProps) {
               {rankedByRequests.map((agent, index) => (
                 <tr
                   key={agent.agent_id}
-                  className="border-b border-gray-800/50 hover:bg-gray-800/30"
+                  className="border-b border-[#1a1a1a]/50 hover:bg-[#00FFE0]/5"
                 >
-                  <td className="p-3 text-gray-400">#{index + 1}</td>
+                  <td className="p-3 text-zinc-400">#{index + 1}</td>
                   <td className="p-3">
                     <span className="font-medium text-gray-100">
                       {agent.name}
                     </span>
                     {agent.token_id !== null && !agent.name.startsWith("Token #") && (
-                      <span className="text-gray-500 ml-1.5">
+                      <span className="text-zinc-500 ml-1.5">
                         #{agent.token_id}
                       </span>
                     )}
@@ -268,9 +268,9 @@ export function RequestsTab({ agents, walletDaily }: RequestsTabProps) {
                     {agent.total_customers.toLocaleString()}
                   </td>
                   <td className="p-3 text-right text-gray-300">
-                    {agent.avg_response_ms > 0 ? `${agent.avg_response_ms.toFixed(0)}ms` : "—"}
+                    {agent.avg_response_ms > 0 ? `${agent.avg_response_ms.toFixed(0)}ms` : "\u2014"}
                   </td>
-                  <td className="p-3 text-right text-gray-400">
+                  <td className="p-3 text-right text-zinc-400">
                     {calculatePercentage(agent.total_requests, totalRequests).toFixed(1)}%
                   </td>
                 </tr>
@@ -281,7 +281,7 @@ export function RequestsTab({ agents, walletDaily }: RequestsTabProps) {
       )}
 
       {agents.length === 0 && (
-        <div className="text-center py-12 text-gray-500">
+        <div className="text-center py-12 text-zinc-500">
           No agents found
         </div>
       )}
