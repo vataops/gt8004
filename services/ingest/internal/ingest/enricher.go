@@ -27,6 +27,20 @@ func NewEnricher(s *store.Store, logger *zap.Logger, maxBodySize int) *Enricher 
 	}
 }
 
+// normalizeProtocol ensures only valid protocol values are stored.
+func normalizeProtocol(p *string) *string {
+	if p == nil {
+		return nil
+	}
+	switch *p {
+	case "mcp", "a2a", "http":
+		return p
+	default:
+		def := "http"
+		return &def
+	}
+}
+
 // customerStats holds aggregated per-customer stats from a batch.
 type customerStats struct {
 	requestCount int64
@@ -110,7 +124,7 @@ func (e *Enricher) Process(ctx context.Context, agentDBID uuid.UUID, batch *LogB
 			Headers:          entry.Headers,
 			BatchID:          batch.BatchID,
 			SDKVersion:       batch.SDKVersion,
-			Protocol:         entry.Protocol,
+			Protocol:         normalizeProtocol(entry.Protocol),
 			Source:           entrySource,
 			IPAddress:        entry.IPAddress,
 			UserAgent:        entry.UserAgent,
