@@ -6,12 +6,21 @@ terraform {
       source  = "hashicorp/google"
       version = "~> 6.0"
     }
+    google-beta = {
+      source  = "hashicorp/google-beta"
+      version = "~> 6.0"
+    }
   }
 
   # Local backend for testnet — no need for GCS remote state
 }
 
 provider "google" {
+  project = var.project_id
+  region  = var.region
+}
+
+provider "google-beta" {
   project = var.project_id
   region  = var.region
 }
@@ -26,6 +35,8 @@ resource "google_project_service" "apis" {
     "cloudbuild.googleapis.com",
     "servicenetworking.googleapis.com",
     "vpcaccess.googleapis.com",
+    "firebase.googleapis.com",
+    "firebasehosting.googleapis.com",
   ])
 
   project            = var.project_id

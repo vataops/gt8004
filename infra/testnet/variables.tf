@@ -60,5 +60,5 @@ variable "gt8004_token_id" {
 variable "gt8004_agent_uri" {
   description = "GT8004 agent URI (set to apigateway URL after first deploy)"
   type        = string
-  default     = "https://api.gt8004.xyz"
+  default     = "https://testnet.api.gt8004.xyz"
 }
