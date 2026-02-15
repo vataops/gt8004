@@ -42,9 +42,6 @@ One-click gateway activation. Route traffic through GT8004 for DDoS protection a
 from gt8004 import GT8004Logger
 from gt8004.middleware.fastapi import GT8004Middleware
 
-# HTTP API
-logger = GT8004Logger(agent_id="...", api_key="...")
-
 # MCP Server — auto-extracts tool names from JSON-RPC
 logger = GT8004Logger(agent_id="...", api_key="...", protocol="mcp")
 
@@ -66,7 +63,7 @@ const logger = new GT8004Logger({
 app.use(logger.middleware());
 ```
 
-Zero-latency async log collection. Batch transport with circuit breaker. Protocol-aware tool name extraction (HTTP, MCP, A2A). Auto-captures requests, responses, headers, x402 payments, and client info.
+Zero-latency async log collection. Batch transport with circuit breaker. Protocol-aware tool name extraction (MCP, A2A). Auto-captures requests, responses, headers, x402 payments, and client info.
 
 ### On-Chain Identity
 Register your agent as an ERC-8004 token. Create agents with a 7-step wizard — set metadata, choose networks, and mint directly from the dashboard. Link existing tokens to your GT8004 account for unified analytics.
