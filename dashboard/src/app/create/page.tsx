@@ -168,7 +168,7 @@ export default function CreateAgentPage() {
       <div className="max-w-2xl mx-auto">
         <div className="text-center mb-8">
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-900/30 border border-green-800 flex items-center justify-center">
-            <svg className="w-8 h-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-8 h-8 text-green-400" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
@@ -237,7 +237,7 @@ export default function CreateAgentPage() {
       {/* Header */}
       <div className="text-center mb-6">
         <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-[#141414] border border-[#1f1f1f] flex items-center justify-center">
-          <svg className="w-6 h-6 text-[#00FFE0]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-6 h-6 text-[#00FFE0]" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
           </svg>
         </div>
@@ -272,7 +272,7 @@ export default function CreateAgentPage() {
                     }`}
                   >
                     {isCompleted ? (
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <svg className="w-3.5 h-3.5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                       </svg>
                     ) : (
@@ -375,7 +375,7 @@ export default function CreateAgentPage() {
         {step < 7 ? (
           <button
             onClick={handleNext}
-            className="px-6 py-2.5 rounded-md bg-[#00FFE0] text-black hover:shadow-[0_0_20px_rgba(0,255,224,0.4)] text-sm font-medium transition-all"
+            className="px-6 py-2.5 rounded-md bg-[#00FFE0] text-black hover:shadow-[0_0_20px_rgba(0,255,224,0.4)] text-sm font-medium transition-shadow"
           >
             Next: {STEPS[step]?.label} &rarr;
           </button>
@@ -384,22 +384,22 @@ export default function CreateAgentPage() {
             {!walletAddress ? (
               <button
                 onClick={handleConnectWallet}
-                className="px-6 py-2.5 rounded-md bg-[#00FFE0] text-black hover:shadow-[0_0_20px_rgba(0,255,224,0.4)] text-sm font-medium transition-all"
+                className="px-6 py-2.5 rounded-md bg-[#00FFE0] text-black hover:shadow-[0_0_20px_rgba(0,255,224,0.4)] text-sm font-medium transition-shadow"
               >
                 Connect Wallet
               </button>
             ) : (
               <>
                 <span className="text-xs text-zinc-500">
-                  {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+                  {walletAddress.slice(0, 6)}&hellip;{walletAddress.slice(-4)}
                 </span>
                 <button
                   onClick={handleSubmit}
                   disabled={submitting}
-                  className="px-6 py-2.5 rounded-md bg-[#00FFE0] text-black hover:shadow-[0_0_20px_rgba(0,255,224,0.4)] text-sm font-medium transition-all disabled:opacity-50"
+                  className="px-6 py-2.5 rounded-md bg-[#00FFE0] text-black hover:shadow-[0_0_20px_rgba(0,255,224,0.4)] text-sm font-medium transition-shadow disabled:opacity-50"
                 >
                   {submitting
-                    ? `Minting on ${NETWORKS[mintingNetwork || ""]?.name || "..."}...`
+                    ? `Minting on ${NETWORKS[mintingNetwork || ""]?.name || "\u2026"}\u2026`
                     : "Register Agent"}
                 </button>
               </>
@@ -413,7 +413,7 @@ export default function CreateAgentPage() {
         <div className="mt-4 space-y-2">
           {mintResults.map((r) => (
             <div key={r.networkKey} className="flex items-center gap-2 text-xs text-green-400">
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+              <svg className="w-3.5 h-3.5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
               {NETWORKS[r.networkKey]?.name} - Token #{r.tokenId}
@@ -422,7 +422,7 @@ export default function CreateAgentPage() {
           {mintingNetwork && (
             <div className="flex items-center gap-2 text-xs text-zinc-400">
               <div className="w-3.5 h-3.5 border-2 border-[#00FFE0] border-t-transparent rounded-full animate-spin" />
-              Minting on {NETWORKS[mintingNetwork]?.name}...
+              Minting on {NETWORKS[mintingNetwork]?.name}\u2026
             </div>
           )}
         </div>

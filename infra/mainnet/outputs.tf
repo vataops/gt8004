@@ -37,3 +37,14 @@ output "artifact_registry" {
   description = "Artifact Registry repository path"
   value       = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.main.repository_id}"
 }
+
+# ── DNS Records (Route 53에 추가할 레코드) ─────────────
+output "dns_records_apigateway" {
+  description = "api.gt8004.xyz DNS records for Route 53"
+  value       = google_cloud_run_domain_mapping.apigateway.status[0].resource_records
+}
+
+output "dns_records_ingest" {
+  description = "ingest.gt8004.xyz DNS records for Route 53"
+  value       = google_cloud_run_domain_mapping.ingest.status[0].resource_records
+}

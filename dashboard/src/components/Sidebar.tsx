@@ -13,7 +13,7 @@ export function Navbar() {
   const isConnected = !!(agent || walletAddress);
 
   return (
-    <header className="sticky top-0 z-50 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-[#1a1a1a]">
+    <header className="sticky top-0 z-50 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-[#1a1a1a]" style={{ paddingTop: "env(safe-area-inset-top)" }}>
       <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
         {/* Left: Logo + Nav */}
         <div className="flex items-center gap-8">
@@ -49,7 +49,7 @@ export function Navbar() {
                 {agent
                   ? agent.name || agent.agent_id
                   : walletAddress
-                    ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
+                    ? `${walletAddress.slice(0, 6)}\u2026${walletAddress.slice(-4)}`
                     : ""}
               </span>
               <button

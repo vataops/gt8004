@@ -63,6 +63,9 @@ export function AgentAvatar({
     <img
       src={resolved}
       alt={alt}
+      width={isSmall ? 32 : 64}
+      height={isSmall ? 32 : 64}
+      loading="lazy"
       onError={() => setBroken(true)}
       className={`${containerClass} object-cover bg-[#141414] shrink-0`}
     />

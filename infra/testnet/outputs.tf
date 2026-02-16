@@ -48,6 +48,17 @@ output "artifact_registry" {
   value       = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.main.repository_id}"
 }
 
+# ── DNS Records (Route 53에 추가할 레코드) ─────────────
+output "dns_records_apigateway" {
+  description = "testnet.api.gt8004.xyz DNS records for Route 53"
+  value       = google_cloud_run_domain_mapping.apigateway.status[0].resource_records
+}
+
+output "dns_records_ingest" {
+  description = "testnet.ingest.gt8004.xyz DNS records for Route 53"
+  value       = google_cloud_run_domain_mapping.ingest.status[0].resource_records
+}
+
 # ── Shared resources (used by mainnet) ─────────────────
 output "database_url" {
   description = "Cloud SQL connection string (shared with mainnet)"

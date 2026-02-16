@@ -166,19 +166,19 @@ export default function LoginPage() {
         <button
           onClick={connectSignAndScan}
           disabled={loading}
-          className="w-full px-4 py-3 bg-[#00FFE0] text-black hover:shadow-[0_0_20px_rgba(0,255,224,0.4)] disabled:bg-[#141414] disabled:text-zinc-500 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2"
+          className="w-full px-4 py-3 bg-[#00FFE0] text-black hover:shadow-[0_0_20px_rgba(0,255,224,0.4)] disabled:bg-[#141414] disabled:text-zinc-500 rounded-md text-sm font-medium transition-shadow flex items-center justify-center gap-2"
         >
           {loading ? (
-            "Verifying..."
+            "Verifying\u2026"
           ) : (
             <>
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg className="w-5 h-5" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="2" y="6" width="20" height="14" rx="2" />
                 <path d="M16 14h2" />
                 <path d="M2 10h20" />
               </svg>
               {walletAddress && verified
-                ? `Verified: ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
+                ? `Verified: ${walletAddress.slice(0, 6)}\u2026${walletAddress.slice(-4)}`
                 : "Connect & Sign"}
             </>
           )}
@@ -208,7 +208,7 @@ export default function LoginPage() {
                 {nt.loading ? (
                   <div className="flex items-center gap-2 text-xs text-zinc-500">
                     <span className="inline-block w-3 h-3 border-2 border-[#1a1a1a] border-t-[#00FFE0] rounded-full animate-spin" />
-                    Scanning...
+                    Scanning\u2026
                   </div>
                 ) : nt.error ? (
                   <p className="text-xs text-red-400">{nt.error}</p>
@@ -272,10 +272,12 @@ export default function LoginPage() {
               <input
                 id="apiKey"
                 type="password"
-                placeholder="gt8004_sk_..."
+                placeholder="gt8004_sk_\u2026"
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
-                className="w-full px-3 py-2 bg-[#141414] border border-[#1f1f1f] rounded-md text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-[#00FFE0]/50"
+                spellCheck={false}
+                autoComplete="off"
+                className="w-full px-3 py-2 bg-[#141414] border border-[#1f1f1f] rounded-md text-sm text-white placeholder-zinc-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00FFE0]/30 focus-visible:border-[#00FFE0]/50"
                 required
               />
             </div>
@@ -289,7 +291,7 @@ export default function LoginPage() {
               disabled={keyLoading || !key.trim()}
               className="w-full px-3 py-2 bg-[#00FFE0]/10 text-[#00FFE0] border border-[#00FFE0]/30 hover:bg-[#00FFE0]/20 disabled:bg-[#141414] disabled:text-zinc-500 disabled:border-[#1f1f1f] rounded-md text-sm font-medium transition-colors"
             >
-              {keyLoading ? "Verifying..." : "Login with API Key"}
+              {keyLoading ? "Verifying\u2026" : "Login with API Key"}
             </button>
           </form>
         )}

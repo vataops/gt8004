@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState, useEffect, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useNetworkAgents, useNetworkStats, useOverview } from "@/lib/hooks";
 import { StatCard } from "@/components/StatCard";
 import { NETWORKS, NETWORK_LIST } from "@/lib/networks";
@@ -39,24 +39,48 @@ type PlatformData = {
 };
 
 export default function ExplorerPage() {
+  return (
+    <Suspense fallback={<p className="text-zinc-500">Loading&hellip;</p>}>
+      <ExplorerContent />
+    </Suspense>
+  );
+}
+
+function ExplorerContent() {
   const router = useRouter();
-  const [chainFilter, setChainFilter] = useState(0);
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
-  const [platformOnly, setPlatformOnly] = useState(false);
+  const searchParams = useSearchParams();
+
+  const [chainFilter, setChainFilter] = useState(() => Number(searchParams.get("chain") || 0));
+  const [search, setSearch] = useState(() => searchParams.get("q") || "");
+  const [page, setPage] = useState(() => Number(searchParams.get("page") || 1));
+  const [platformOnly, setPlatformOnly] = useState(() => searchParams.get("platform") === "1");
+
+  const syncUrl = useCallback((params: Record<string, string | number>) => {
+    const sp = new URLSearchParams(searchParams.toString());
+    for (const [k, v] of Object.entries(params)) {
+      const str = String(v);
+      if (!str || str === "0" || (str === "1" && k === "page")) sp.delete(k);
+      else sp.set(k, str);
+    }
+    router.replace(`?${sp.toString()}`, { scroll: false });
+  }, [searchParams, router]);
 
   const handleChainFilter = (chainId: number) => {
     setChainFilter(chainId);
     setPlatformOnly(false);
     setPage(1);
+    syncUrl({ chain: chainId, platform: 0, page: 1 });
   };
   const handleSearch = (val: string) => {
     setSearch(val);
     setPage(1);
+    syncUrl({ q: val, page: 1 });
   };
   const handlePlatformToggle = () => {
-    setPlatformOnly((prev) => !prev);
+    const next = !platformOnly;
+    setPlatformOnly(next);
     setPage(1);
+    syncUrl({ platform: next ? 1 : 0, page: 1 });
   };
 
   // On-chain agents (primary data source)
@@ -213,16 +237,18 @@ export default function ExplorerPage() {
       <div className="mb-4">
         <input
           type="text"
-          placeholder="Search by name, owner, or token ID..."
+          name="search"
+          placeholder="Search by name, owner, or token ID\u2026"
+          aria-label="Search agents"
           value={search}
           onChange={(e) => handleSearch(e.target.value)}
-          className="w-full px-3 py-2 bg-[#141414] border border-[#1f1f1f] rounded-md text-sm text-[#ededed] placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-[#00FFE0]/20 focus:border-[#00FFE0]/50"
+          className="w-full px-3 py-2 bg-[#141414] border border-[#1f1f1f] rounded-md text-sm text-[#ededed] placeholder-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00FFE0]/30 focus-visible:border-[#00FFE0]/50"
         />
       </div>
 
       {/* Table */}
       {loading ? (
-        <p className="text-zinc-500">Loading...</p>
+        <p className="text-zinc-500">Loading\u2026</p>
       ) : (
         <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg overflow-hidden">
           <table className="w-full text-sm">
@@ -245,8 +271,11 @@ export default function ExplorerPage() {
                 return (
                   <tr
                     key={key}
+                    role="link"
+                    tabIndex={0}
                     onClick={() => handleAgentClick(agent)}
-                    className="border-b border-[#1a1a1a]/50 hover:bg-[#00FFE0]/5 cursor-pointer"
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleAgentClick(agent); } }}
+                    className="border-b border-[#1a1a1a]/50 hover:bg-[#00FFE0]/5 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00FFE0]/30"
                   >
                     {/* Agent */}
                     <td className="p-3">
@@ -305,7 +334,7 @@ export default function ExplorerPage() {
                     </td>
 
                     {/* Requests */}
-                    <td className="p-3 text-right">
+                    <td className="p-3 text-right" style={{ fontVariantNumeric: "tabular-nums" }}>
                       {platform ? (
                         <span className="text-gray-300">
                           {platform.total_requests.toLocaleString()}
@@ -316,7 +345,7 @@ export default function ExplorerPage() {
                     </td>
 
                     {/* Revenue */}
-                    <td className="p-3 text-right">
+                    <td className="p-3 text-right" style={{ fontVariantNumeric: "tabular-nums" }}>
                       {platform && platform.total_revenue_usdc > 0 ? (
                         <span className="text-gray-300">
                           ${platform.total_revenue_usdc.toFixed(2)}
@@ -356,7 +385,7 @@ export default function ExplorerPage() {
               </span>
               <div className="flex items-center gap-1">
                 <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  onClick={() => { const p = Math.max(1, page - 1); setPage(p); syncUrl({ page: p }); }}
                   disabled={page === 1}
                   className="px-2 py-1 rounded text-xs text-zinc-400 hover:bg-[#141414] disabled:opacity-30 disabled:cursor-not-allowed"
                 >
@@ -368,12 +397,12 @@ export default function ExplorerPage() {
                       key={`dots-${i}`}
                       className="px-1 text-xs text-zinc-600"
                     >
-                      ...
+                      &hellip;
                     </span>
                   ) : (
                     <button
                       key={p}
-                      onClick={() => setPage(p)}
+                      onClick={() => { setPage(p); syncUrl({ page: p }); }}
                       className={`min-w-[28px] px-1.5 py-1 rounded text-xs font-medium ${
                         p === page
                           ? "bg-[#00FFE0] text-black"
@@ -385,9 +414,7 @@ export default function ExplorerPage() {
                   )
                 )}
                 <button
-                  onClick={() =>
-                    setPage((p) => Math.min(totalPages, p + 1))
-                  }
+                  onClick={() => { const p = Math.min(totalPages, page + 1); setPage(p); syncUrl({ page: p }); }}
                   disabled={page === totalPages}
                   className="px-2 py-1 rounded text-xs text-zinc-400 hover:bg-[#141414] disabled:opacity-30 disabled:cursor-not-allowed"
                 >
@@ -406,16 +433,19 @@ export default function ExplorerPage() {
 
 function AddressCell({ address }: { address: string }) {
   const [showTooltip, setShowTooltip] = useState(false);
-  const truncated = `${address.slice(0, 6)}...${address.slice(-4)}`;
+  const truncated = `${address.slice(0, 6)}\u2026${address.slice(-4)}`;
 
   return (
-    <span
-      className="relative text-xs font-mono text-zinc-400 cursor-pointer hover:text-zinc-200 transition-colors"
+    <button
+      type="button"
+      className="relative text-xs font-mono text-zinc-400 cursor-pointer hover:text-zinc-200 transition-colors bg-transparent border-none p-0"
       onClick={(e) => {
         e.stopPropagation();
         setShowTooltip((prev) => !prev);
       }}
+      onBlur={() => setShowTooltip(false)}
       onMouseLeave={() => setShowTooltip(false)}
+      aria-label={`Show full address: ${address}`}
     >
       {truncated}
       {showTooltip && (
@@ -423,7 +453,7 @@ function AddressCell({ address }: { address: string }) {
           {address}
         </span>
       )}
-    </span>
+    </button>
   );
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState, useEffect, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { StatCard } from "@/components/StatCard";
@@ -112,13 +112,33 @@ interface AgentRow {
 }
 
 export default function MyAgentsPage() {
+  return (
+    <Suspense fallback={<p className="text-zinc-500">Loading agents&hellip;</p>}>
+      <MyAgentsContent />
+    </Suspense>
+  );
+}
+
+function MyAgentsContent() {
   const { walletAddress, loading: authLoading, logout } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [agents, setAgents] = useState<AgentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [healthStatus, setHealthStatus] = useState<Record<string, "checking" | "healthy" | "unhealthy">>({});
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
-  const [activeTab, setActiveTab] = useState<TabKey>("overview");
+  const [activeTab, setActiveTab] = useState<TabKey>(() => {
+    const tab = searchParams.get("tab") as TabKey | null;
+    return tab && TABS.some((t) => t.key === tab) ? tab : "overview";
+  });
+
+  const handleTabChange = (tab: TabKey) => {
+    setActiveTab(tab);
+    const sp = new URLSearchParams(searchParams.toString());
+    if (tab === "overview") sp.delete("tab");
+    else sp.set("tab", tab);
+    router.replace(`?${sp.toString()}`, { scroll: false });
+  };
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 20;
 
@@ -310,7 +330,7 @@ export default function MyAgentsPage() {
   ];
 
   if (authLoading || loading) {
-    return <p className="text-zinc-500">Loading agents...</p>;
+    return <p className="text-zinc-500">Loading agents&hellip;</p>;
   }
 
   if (!walletAddress) {
@@ -328,7 +348,7 @@ export default function MyAgentsPage() {
           </p>
         </div>
         <button
-          onClick={logout}
+          onClick={() => { if (window.confirm("Are you sure you want to disconnect your wallet?")) logout(); }}
           className="px-4 py-2 rounded-md text-sm font-medium text-zinc-400 hover:text-white border border-[#1f1f1f] hover:border-zinc-500 transition-colors"
         >
           Disconnect
@@ -341,7 +361,7 @@ export default function MyAgentsPage() {
           {TABS.map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => handleTabChange(tab.key)}
               className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
                 activeTab === tab.key
                   ? "text-[#00FFE0]"
@@ -405,9 +425,9 @@ export default function MyAgentsPage() {
                     <div className="flex items-center gap-1.5">
                       <span>Health</span>
                       {lastChecked && (
-                        <span className="text-[10px] text-gray-600 flex items-center gap-1" title={lastChecked.toLocaleString()}>
+                        <span className="text-[10px] text-gray-600 flex items-center gap-1" title={lastChecked.toLocaleString()} suppressHydrationWarning>
                           <span className="w-3 h-3 rounded-full border border-gray-600 flex items-center justify-center text-[9px] leading-none">!</span>
-                          {lastChecked.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          <span suppressHydrationWarning>{lastChecked.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                         </span>
                       )}
                     </div>
@@ -469,10 +489,10 @@ export default function MyAgentsPage() {
                     </td>
 
                     {/* Requests */}
-                    <td className="p-3 text-gray-300">{agent.total_requests.toLocaleString()}</td>
+                    <td className="p-3 text-gray-300" style={{ fontVariantNumeric: "tabular-nums" }}>{agent.total_requests.toLocaleString()}</td>
 
                     {/* Customers */}
-                    <td className="p-3 text-gray-300">{agent.total_customers.toLocaleString()}</td>
+                    <td className="p-3 text-gray-300" style={{ fontVariantNumeric: "tabular-nums" }}>{agent.total_customers.toLocaleString()}</td>
 
                     {/* Status */}
                     <td className="p-3">
