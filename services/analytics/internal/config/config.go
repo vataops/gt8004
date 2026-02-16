@@ -14,6 +14,7 @@ type Config struct {
 	MaxBodySizeBytes  int    `mapstructure:"MAX_BODY_SIZE_BYTES"`
 	BodyRetentionDays int    `mapstructure:"BODY_RETENTION_DAYS"`
 	GeoIPDBPath       string `mapstructure:"GEOIP_DB_PATH"`
+	RegistryURL       string `mapstructure:"REGISTRY_URL"`
 }
 
 func Load() (*Config, error) {
@@ -40,6 +41,7 @@ func Load() (*Config, error) {
 	cfg.MaxBodySizeBytes = viper.GetInt("MAX_BODY_SIZE_BYTES")
 	cfg.BodyRetentionDays = viper.GetInt("BODY_RETENTION_DAYS")
 	cfg.GeoIPDBPath = viper.GetString("GEOIP_DB_PATH")
+	cfg.RegistryURL = viper.GetString("REGISTRY_URL")
 
 	return cfg, nil
 }

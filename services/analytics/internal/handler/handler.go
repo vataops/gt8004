@@ -19,6 +19,7 @@ type Handler struct {
 	customerAnalytics *analytics.CustomerAnalytics
 	revenueAnalytics  *analytics.RevenueAnalytics
 	perfAnalytics     *analytics.PerformanceAnalytics
+	registryURL       string
 }
 
 func New(
@@ -28,6 +29,7 @@ func New(
 	perfAnalytics *analytics.PerformanceAnalytics,
 	redisCache *cache.Cache,
 	logger *zap.Logger,
+	registryURL string,
 ) *Handler {
 	return &Handler{
 		store:             s,
@@ -36,6 +38,7 @@ func New(
 		revenueAnalytics:  revAnalytics,
 		perfAnalytics:     perfAnalytics,
 		logger:            logger,
+		registryURL:       registryURL,
 	}
 }
 

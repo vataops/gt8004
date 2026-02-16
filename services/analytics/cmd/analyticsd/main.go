@@ -72,6 +72,7 @@ func main() {
 		custAnalytics, revAnalytics, perfAnalytics,
 		redisCache,
 		logger,
+		cfg.RegistryURL,
 	)
 
 	// Router + HTTP server

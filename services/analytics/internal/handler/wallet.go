@@ -109,7 +109,7 @@ func (h *Handler) getWalletAgentIDs(ctx context.Context, address string) ([]uuid
 	}
 
 	// Call registry service GET /v1/agents/wallet/:address
-	registryURL := "http://registry:8080/v1/agents/wallet/" + address
+	registryURL := h.registryURL + "/v1/agents/wallet/" + address
 	req, err := http.NewRequestWithContext(ctx, "GET", registryURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
