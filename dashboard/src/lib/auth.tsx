@@ -82,16 +82,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const storedWallet = localStorage.getItem("gt8004_wallet_address");
+    const stored = localStorage.getItem("gt8004_api_key");
+
     if (storedWallet) {
       setWalletAddress(storedWallet);
-      setLoading(false);
-      return;
     }
-    const stored = localStorage.getItem("gt8004_api_key");
+
     if (!stored) {
       setLoading(false);
       return;
     }
+
     fetchMe(stored)
       .then((me) => {
         setApiKey(stored);

@@ -865,7 +865,14 @@ function OverviewTab({ agent, networkAgent, id }: OverviewTabProps) {
     }
   }, [services]);
 
-  useEffect(() => { runHealthChecks(); }, [runHealthChecks]);
+  // Run health checks once when services are first available
+  const [healthChecked, setHealthChecked] = useState(false);
+  useEffect(() => {
+    if (!healthChecked && services.length > 0) {
+      setHealthChecked(true);
+      runHealthChecks();
+    }
+  }, [services.length, healthChecked, runHealthChecks]);
 
   return (
     <div className="space-y-6">

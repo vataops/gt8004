@@ -3,9 +3,10 @@
 ## Core Principles
 
 ### 1. Service Independence
-**No service should call or depend on another service's API.**
-Even if it requires extra effort, each service must fetch the data it needs directly from on-chain sources (ERC-8004 registry, smart contracts).
-The design principle of this project is to eliminate inter-service coupling and keep the blockchain as the single source of truth.
+**No service should call external third-party APIs.**
+Internal MSA inter-service communication (e.g. analytics → registry) is allowed and expected.
+However, services must NOT depend on external services outside our infrastructure.
+On-chain data (ERC-8004 registry, smart contracts) is the single source of truth for agent identity.
 
 ### 2. Metadata Source of Truth
 **All agent metadata MUST come from on-chain contract metadata.**
