@@ -147,7 +147,7 @@ companion-agent 의존성 전부 + :
 
 | 패키지 | 소스 |
 |--------|------|
-| gt8004-sdk | GitHub: HydroX-labs/gt8004-sdk |
+| gt8004-sdk | GitHub: vataops/gt8004-sdk |
 
 ---
 

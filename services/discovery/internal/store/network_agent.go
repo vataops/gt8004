@@ -9,6 +9,26 @@ import (
 	"github.com/google/uuid"
 )
 
+// buildChainFilter returns a WHERE clause and args to filter by chain IDs.
+func buildChainFilter(chainIDs []int) (string, []interface{}) {
+	if len(chainIDs) == 0 {
+		return "", nil
+	}
+	if len(chainIDs) == 1 {
+		return " WHERE chain_id = $1", []interface{}{chainIDs[0]}
+	}
+	placeholders := ""
+	args := make([]interface{}, len(chainIDs))
+	for i, id := range chainIDs {
+		if i > 0 {
+			placeholders += ", "
+		}
+		placeholders += fmt.Sprintf("$%d", i+1)
+		args[i] = id
+	}
+	return fmt.Sprintf(" WHERE chain_id IN (%s)", placeholders), args
+}
+
 // NetworkAgent represents an ERC-8004 token discovered on-chain.
 type NetworkAgent struct {
 	ID             uuid.UUID       `json:"id"`
@@ -59,8 +79,8 @@ func (s *Store) UpsertNetworkAgent(ctx context.Context, agent *NetworkAgent) err
 	return nil
 }
 
-// ListNetworkAgents returns network agents with optional chain filter and search.
-func (s *Store) ListNetworkAgents(ctx context.Context, chainID int, search string, limit, offset int) ([]NetworkAgent, int, error) {
+// ListNetworkAgents returns network agents filtered by chain IDs with optional search.
+func (s *Store) ListNetworkAgents(ctx context.Context, chainIDs []int, search string, limit, offset int) ([]NetworkAgent, int, error) {
 	if limit <= 0 || limit > 200 {
 		limit = 100
 	}
@@ -69,10 +89,21 @@ func (s *Store) ListNetworkAgents(ctx context.Context, chainID int, search strin
 	args := []interface{}{}
 	argIdx := 1
 
-	if chainID > 0 {
+	if len(chainIDs) == 1 {
 		where += fmt.Sprintf(" AND chain_id = $%d", argIdx)
-		args = append(args, chainID)
+		args = append(args, chainIDs[0])
 		argIdx++
+	} else if len(chainIDs) > 1 {
+		placeholders := ""
+		for i, id := range chainIDs {
+			if i > 0 {
+				placeholders += ", "
+			}
+			placeholders += fmt.Sprintf("$%d", argIdx)
+			args = append(args, id)
+			argIdx++
+		}
+		where += fmt.Sprintf(" AND chain_id IN (%s)", placeholders)
 	}
 	if search != "" {
 		where += fmt.Sprintf(" AND (owner_address ILIKE $%d OR agent_uri ILIKE $%d OR name ILIKE $%d OR token_id::text = $%d)", argIdx, argIdx, argIdx, argIdx+1)
@@ -144,17 +175,19 @@ type NetworkAgentStats struct {
 	ByChain map[int]int `json:"by_chain"`
 }
 
-// GetNetworkAgentStats returns aggregate counts.
-func (s *Store) GetNetworkAgentStats(ctx context.Context) (*NetworkAgentStats, error) {
+// GetNetworkAgentStats returns aggregate counts filtered by chain IDs.
+func (s *Store) GetNetworkAgentStats(ctx context.Context, chainIDs []int) (*NetworkAgentStats, error) {
 	stats := &NetworkAgentStats{ByChain: make(map[int]int)}
 
+	where, args := buildChainFilter(chainIDs)
+
 	// Total count
-	if err := s.pool.QueryRow(ctx, "SELECT COUNT(*) FROM network_agents").Scan(&stats.Total); err != nil {
+	if err := s.pool.QueryRow(ctx, "SELECT COUNT(*) FROM network_agents"+where, args...).Scan(&stats.Total); err != nil {
 		return nil, fmt.Errorf("count network agents: %w", err)
 	}
 
 	// Per-chain counts
-	rows, err := s.pool.Query(ctx, "SELECT chain_id, COUNT(*) FROM network_agents GROUP BY chain_id")
+	rows, err := s.pool.Query(ctx, "SELECT chain_id, COUNT(*) FROM network_agents"+where+" GROUP BY chain_id", args...)
 	if err != nil {
 		return nil, fmt.Errorf("count network agents by chain: %w", err)
 	}

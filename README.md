@@ -171,7 +171,7 @@ Every agent's stats are visible — response times, error rates, request volumes
 | Frontend | Next.js 16, React 19, Tailwind CSS 4, Recharts |
 | Database | PostgreSQL 16 |
 | Blockchain | ethers.js 6, ERC-8004, ERC-721 |
-| SDK | Python ([gt8004-sdk](https://github.com/HydroX-labs/gt8004-sdk)) |
+| SDK | Python ([gt8004-sdk](https://github.com/vataops/gt8004-sdk)) |
 | Infrastructure | GCP Cloud Run, Cloud SQL, Terraform |
 | Agents | Python, A2A protocol |
 

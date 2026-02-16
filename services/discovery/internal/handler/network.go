@@ -5,15 +5,22 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/GT8004/gt8004-discovery/internal/config"
 	"go.uber.org/zap"
 )
 
 // ListNetworkAgents handles GET /v1/network/agents
 func (h *Handler) ListNetworkAgents(c *gin.Context) {
-	chainID := 0
+	var chainIDs []int
 	if raw := c.Query("chain_id"); raw != "" {
-		if id, err := strconv.Atoi(raw); err == nil {
-			chainID = id
+		if id, err := strconv.Atoi(raw); err == nil && id > 0 {
+			chainIDs = []int{id}
+		}
+	}
+	// Default to configured SupportedNetworks when no chain_id specified.
+	if len(chainIDs) == 0 {
+		for id := range config.SupportedNetworks {
+			chainIDs = append(chainIDs, id)
 		}
 	}
 
@@ -33,7 +40,7 @@ func (h *Handler) ListNetworkAgents(c *gin.Context) {
 		}
 	}
 
-	agents, total, err := h.store.ListNetworkAgents(c.Request.Context(), chainID, search, limit, offset)
+	agents, total, err := h.store.ListNetworkAgents(c.Request.Context(), chainIDs, search, limit, offset)
 	if err != nil {
 		h.logger.Error("failed to list network agents", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list network agents"})
@@ -72,7 +79,11 @@ func (h *Handler) GetNetworkAgent(c *gin.Context) {
 
 // GetNetworkStats handles GET /v1/network/stats
 func (h *Handler) GetNetworkStats(c *gin.Context) {
-	stats, err := h.store.GetNetworkAgentStats(c.Request.Context())
+	var chainIDs []int
+	for id := range config.SupportedNetworks {
+		chainIDs = append(chainIDs, id)
+	}
+	stats, err := h.store.GetNetworkAgentStats(c.Request.Context(), chainIDs)
 	if err != nil {
 		h.logger.Error("failed to get network stats", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get network stats"})

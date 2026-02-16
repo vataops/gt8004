@@ -46,10 +46,10 @@ export function Navbar() {
           {isConnected ? (
             <>
               <span className="text-xs text-zinc-400 font-mono">
-                {agent
-                  ? agent.name || agent.agent_id
-                  : walletAddress
-                    ? `${walletAddress.slice(0, 6)}\u2026${walletAddress.slice(-4)}`
+                {walletAddress
+                  ? `${walletAddress.slice(0, 6)}\u2026${walletAddress.slice(-4)}`
+                  : agent
+                    ? agent.name || agent.agent_id
                     : ""}
               </span>
               <button

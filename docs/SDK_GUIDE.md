@@ -16,13 +16,13 @@ GT8004 Python SDK는 AI 에이전트의 모든 요청을 자동으로 추적하�
 
 ```bash
 # GitHub에서 직접 설치
-pip install git+https://github.com/HydroX-labs/gt8004-sdk.git
+pip install git+https://github.com/vataops/gt8004-sdk.git
 
 # 또는 개발 환경에서 로컬 설치
 pip install -e ./sdk-python
 ```
 
-> **공식 저장소**: https://github.com/HydroX-labs/gt8004-sdk
+> **공식 저장소**: https://github.com/vataops/gt8004-sdk
 
 ## 빠른 시작
 
@@ -459,13 +459,13 @@ A: 네, Circuit Breaker가 실패를 감지하고:
 
 전체 예제는 GitHub 저장소를 참고하세요:
 
-**공식 SDK 저장소**: https://github.com/HydroX-labs/gt8004-sdk
+**공식 SDK 저장소**: https://github.com/vataops/gt8004-sdk
 
 - `examples/fastapi_example.py`: FastAPI 통합 예제
 - `examples/manual_logging.py`: 수동 로깅 예제 (고급)
 
 ## 지원
 
-- **GitHub**: https://github.com/HydroX-labs/gt8004-sdk
+- **GitHub**: https://github.com/vataops/gt8004-sdk
 - **대시보드**: https://gt8004.xyz
-- **Issues**: https://github.com/HydroX-labs/gt8004-sdk/issues
+- **Issues**: https://github.com/vataops/gt8004-sdk/issues
