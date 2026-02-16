@@ -120,6 +120,30 @@ func (s *Store) GetRevenueByTool(ctx context.Context, agentDBID uuid.UUID) ([]Re
 	return tools, nil
 }
 
+// VerificationStats holds verification summary for an agent's revenue.
+type VerificationStats struct {
+	VerifiedCount   int64   `json:"verified_count"`
+	UnverifiedCount int64   `json:"unverified_count"`
+	VerifiedAmount  float64 `json:"verified_amount"`
+}
+
+// GetVerificationStats returns counts and amount of verified vs unverified revenue entries.
+func (s *Store) GetVerificationStats(ctx context.Context, agentDBID uuid.UUID) (*VerificationStats, error) {
+	stats := &VerificationStats{}
+	err := s.pool.QueryRow(ctx, `
+		SELECT
+			COALESCE(SUM(CASE WHEN verified = TRUE THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN verified = FALSE OR verified IS NULL THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN verified = TRUE THEN amount ELSE 0 END), 0)
+		FROM revenue_entries
+		WHERE agent_id = $1
+	`, agentDBID).Scan(&stats.VerifiedCount, &stats.UnverifiedCount, &stats.VerifiedAmount)
+	if err != nil {
+		return nil, fmt.Errorf("get verification stats: %w", err)
+	}
+	return stats, nil
+}
+
 // GetARPU returns the average revenue per unique paying customer.
 func (s *Store) GetARPU(ctx context.Context, agentDBID uuid.UUID) (float64, error) {
 	var arpu float64

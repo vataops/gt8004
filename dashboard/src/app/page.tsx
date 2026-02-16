@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useNetworkStats, useOverview } from "@/lib/hooks";
+import { NETWORK_LIST } from "@/lib/networks";
 
 export default function LandingPage() {
   const router = useRouter();
@@ -256,15 +257,9 @@ export default function LandingPage() {
             <div key={i} className="flex items-center gap-12 px-6">
               <MarqueeItem label="Protocol" value="ERC-8004" />
               <MarqueeDot />
-              <MarqueeItem label="Networks" value="Base \u00b7 Base Sepolia" />
-              <MarqueeDot />
-              <MarqueeItem label="Agent Standard" value="On-chain Registry" />
+              <MarqueeItem label="Networks" value={NETWORK_LIST.map((n) => n.shortName).join(" \u00b7 ")} />
               <MarqueeDot />
               <MarqueeItem label="Payments" value="USDC via x402" />
-              <MarqueeDot />
-              <MarqueeItem label="Interop" value="A2A \u00b7 MCP" />
-              <MarqueeDot />
-              <MarqueeItem label="Trust" value="EAS Attestations" />
               <MarqueeDot />
             </div>
           ))}
@@ -420,18 +415,6 @@ const sdkTabs = [
       { spans: [] },
       { spans: [{ text: "app ", c: "text-gray-300" }, { text: "= ", c: "text-zinc-500" }, { text: "FastAPI", c: "text-yellow-300" }, { text: "()", c: "text-zinc-500" }] },
       { spans: [{ text: "app", c: "text-gray-300" }, { text: ".", c: "text-zinc-500" }, { text: "add_middleware", c: "text-yellow-300" }, { text: "(", c: "text-zinc-500" }, { text: "GT8004Middleware", c: "text-yellow-300" }, { text: ".", c: "text-zinc-500" }, { text: "from_env", c: "text-yellow-300" }, { text: "())", c: "text-zinc-500" }] },
-    ],
-  },
-  {
-    id: "flask",
-    label: "Flask",
-    file: "app.py",
-    lines: [
-      { spans: [{ text: "from ", c: "text-[#00FFE0]" }, { text: "flask ", c: "text-gray-300" }, { text: "import ", c: "text-[#00FFE0]" }, { text: "Flask", c: "text-yellow-300" }] },
-      { spans: [{ text: "from ", c: "text-[#00FFE0]" }, { text: "gt8004.middleware.flask ", c: "text-gray-300" }, { text: "import ", c: "text-[#00FFE0]" }, { text: "GT8004FlaskMiddleware", c: "text-yellow-300" }] },
-      { spans: [] },
-      { spans: [{ text: "app ", c: "text-gray-300" }, { text: "= ", c: "text-zinc-500" }, { text: "Flask", c: "text-yellow-300" }, { text: "(", c: "text-zinc-500" }, { text: "__name__", c: "text-cyan-300" }, { text: ")", c: "text-zinc-500" }] },
-      { spans: [{ text: "app", c: "text-gray-300" }, { text: ".", c: "text-zinc-500" }, { text: "wsgi_app ", c: "text-gray-300" }, { text: "= ", c: "text-zinc-500" }, { text: "GT8004FlaskMiddleware", c: "text-yellow-300" }, { text: ".", c: "text-zinc-500" }, { text: "from_env", c: "text-yellow-300" }, { text: "(", c: "text-zinc-500" }, { text: "app", c: "text-gray-300" }, { text: ".", c: "text-zinc-500" }, { text: "wsgi_app", c: "text-gray-300" }, { text: ")", c: "text-zinc-500" }] },
     ],
   },
 ] as const;

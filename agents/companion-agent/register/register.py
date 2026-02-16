@@ -91,7 +91,7 @@ def main():
     register_body = {
         "name": agent_name,
         "origin_endpoint": agent_url,
-        "protocols": ["a2a"],
+        "protocols": ["a2a", "mcp"],
         "erc8004_token_id": token_id,
         "chain_id": chain_id,
         "wallet_address": wallet,

@@ -23,6 +23,8 @@ func (h *Handler) IngestLogs(c *gin.Context) {
 
 	agentID, _ := c.Get(middleware.ContextKeyAgentID)
 	agentIDStr, _ := agentID.(string)
+	chainIDVal, _ := c.Get(middleware.ContextKeyChainID)
+	chainID, _ := chainIDVal.(int)
 
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
@@ -39,6 +41,7 @@ func (h *Handler) IngestLogs(c *gin.Context) {
 	h.worker.Submit(&ingest.IngestJob{
 		AgentDBID: dbID,
 		AgentID:   agentIDStr,
+		ChainID:   chainID,
 		Batch:     batch,
 	})
 

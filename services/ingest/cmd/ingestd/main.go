@@ -40,8 +40,9 @@ func main() {
 	}
 	defer dbStore.Close()
 
-	// Enricher and worker pool
-	enricher := ingest.NewEnricher(dbStore, logger, cfg.MaxBodySizeBytes)
+	// Verifier and enricher
+	verifier := ingest.NewVerifier(dbStore, logger)
+	enricher := ingest.NewEnricher(dbStore, verifier, logger, cfg.MaxBodySizeBytes)
 	worker := ingest.NewWorker(enricher, cfg.IngestWorkers, cfg.IngestBufferSize, logger)
 	worker.Start()
 

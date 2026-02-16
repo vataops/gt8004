@@ -12,10 +12,11 @@ import (
 
 // RevenueReport aggregates all revenue analytics for an agent.
 type RevenueReport struct {
-	Periods      []store.RevenuePeriod `json:"periods"`
-	ByTool       []store.RevenueByTool `json:"by_tool"`
-	ARPU         float64               `json:"arpu"`
-	TotalRevenue float64               `json:"total_revenue"`
+	Periods         []store.RevenuePeriod      `json:"periods"`
+	ByTool          []store.RevenueByTool      `json:"by_tool"`
+	ARPU            float64                    `json:"arpu"`
+	TotalRevenue    float64                    `json:"total_revenue"`
+	Verification    *store.VerificationStats   `json:"verification,omitempty"`
 }
 
 // RevenueAnalytics provides revenue intelligence operations.
@@ -55,11 +56,17 @@ func (ra *RevenueAnalytics) GetRevenueReport(ctx context.Context, agentDBID uuid
 		totalRevenue += p.Amount
 	}
 
+	verStats, err := ra.store.GetVerificationStats(ctx, agentDBID)
+	if err != nil {
+		ra.logger.Warn("failed to get verification stats", zap.Error(err))
+	}
+
 	report := &RevenueReport{
 		Periods:      periods,
 		ByTool:       byTool,
 		ARPU:         arpu,
 		TotalRevenue: totalRevenue,
+		Verification: verStats,
 	}
 
 	ra.logger.Debug("revenue report generated",

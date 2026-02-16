@@ -11,7 +11,8 @@ from app.llm.base import LLMBackend
 from app.a2a.routes import router as a2a_router
 
 _llm: Optional[LLMBackend] = None
-_gt8004_logger = None
+_a2a_logger = None
+_mcp_logger = None
 
 
 def get_llm() -> LLMBackend:
@@ -19,28 +20,82 @@ def get_llm() -> LLMBackend:
     return _llm
 
 
+# FastMCP (MCP protocol) — mounted at /mcp
+from fastmcp import FastMCP
+
+mcp = FastMCP("friend-agent-mcp")
+
+if settings.gt8004_agent_id and settings.gt8004_api_key:
+    from gt8004 import GT8004Logger
+    from gt8004.middleware.mcp import GT8004MCPMiddleware
+    _mcp_logger = GT8004Logger(
+        agent_id=settings.gt8004_agent_id,
+        api_key=settings.gt8004_api_key,
+        ingest_url=settings.gt8004_ingest_url,
+        protocol="mcp",
+    )
+    mcp.add_middleware(GT8004MCPMiddleware(_mcp_logger))
+
+
+@mcp.tool()
+async def chat(message: str) -> str:
+    """General-purpose conversation and Q&A."""
+    llm = get_llm()
+    return await llm.generate("You are a helpful assistant.", message)
+
+
+@mcp.tool()
+async def summarize(text: str) -> str:
+    """Summarize text or documents."""
+    llm = get_llm()
+    return await llm.generate("You are a summarization assistant. Provide a concise summary.", text)
+
+
+@mcp.tool()
+async def translate(text: str, target_language: str = "English") -> str:
+    """Translate text to target language."""
+    llm = get_llm()
+    return await llm.generate(
+        f"You are a translation assistant. Translate the following text to {target_language}.",
+        text,
+    )
+
+
+@mcp.tool()
+async def code_assist(question: str) -> str:
+    """Code help, debugging, and implementation assistance."""
+    llm = get_llm()
+    return await llm.generate(
+        "You are a coding assistant. Help with code questions, debugging, and implementation.",
+        question,
+    )
+
+
+mcp_app = mcp.http_app(path="/")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _llm, _gt8004_logger
+    global _llm, _a2a_logger, _mcp_logger
     _llm = create_backend(settings.google_api_key, settings.llm_model)
     logging.info(f"LLM backend: Google AI Studio ({settings.llm_model})")
 
-    # Start GT8004 SDK auto-flush and verify connection
-    if _gt8004_logger:
-        _gt8004_logger.transport.start_auto_flush()
-        logging.info("GT8004 SDK: auto-flush started")
-        ok = await _gt8004_logger.verify_connection()
-        if ok:
-            logging.info("GT8004 SDK: connection verified")
-        else:
-            logging.warning("GT8004 SDK: connection verification failed")
-
-    yield
-
-    # Graceful shutdown: flush pending logs
-    if _gt8004_logger:
-        await _gt8004_logger.close()
-        logging.info("GT8004 SDK: closed")
+    # Initialize MCP session manager via its lifespan
+    async with mcp_app.router.lifespan_context(app):
+        # Start GT8004 SDK
+        if _a2a_logger:
+            _a2a_logger.transport.start_auto_flush()
+            ok = await _a2a_logger.verify_connection()
+            logging.info(f"GT8004 A2A SDK: {'verified' if ok else 'failed'}")
+        if _mcp_logger:
+            _mcp_logger.transport.start_auto_flush()
+            ok = await _mcp_logger.verify_connection()
+            logging.info(f"GT8004 MCP SDK: {'verified' if ok else 'failed'}")
+        yield
+        if _a2a_logger:
+            await _a2a_logger.close()
+        if _mcp_logger:
+            await _mcp_logger.close()
     _llm = None
 
 
@@ -57,20 +112,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# GT8004 SDK middleware — capture all requests for analytics
+# GT8004 A2A middleware
 if settings.gt8004_agent_id and settings.gt8004_api_key:
-    from gt8004 import GT8004Logger
+    from gt8004 import GT8004Logger as GT8004LoggerA2A
     from gt8004.middleware.fastapi import GT8004Middleware
-
-    _gt8004_logger = GT8004Logger(
+    _a2a_logger = GT8004LoggerA2A(
         agent_id=settings.gt8004_agent_id,
         api_key=settings.gt8004_api_key,
         ingest_url=settings.gt8004_ingest_url,
+        protocol="a2a",
     )
-    app.add_middleware(GT8004Middleware, logger=_gt8004_logger)
-    logging.info(f"GT8004 SDK: enabled for agent {settings.gt8004_agent_id}")
+    app.add_middleware(GT8004Middleware, logger=_a2a_logger)
 
 app.include_router(a2a_router)
+app.mount("/mcp", mcp_app)
 
 
 @app.get("/health")
@@ -79,6 +134,7 @@ async def health():
         "status": "healthy",
         "agent": settings.agent_name,
         "llm_model": settings.llm_model,
+        "protocols": ["a2a", "mcp"],
     }
 
 

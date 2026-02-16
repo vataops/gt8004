@@ -14,6 +14,7 @@ import (
 const (
 	ContextKeyAgentDBID = "agent_db_id"
 	ContextKeyAgentID   = "agent_id"
+	ContextKeyChainID   = "chain_id"
 )
 
 // APIKeyAuth validates the Authorization: Bearer <key> header using SHA-256 hash lookup.
@@ -42,6 +43,7 @@ func APIKeyAuth(s *store.Store) gin.HandlerFunc {
 
 		c.Set(ContextKeyAgentDBID, agentAuth.AgentDBID)
 		c.Set(ContextKeyAgentID, agentAuth.AgentID)
+		c.Set(ContextKeyChainID, agentAuth.ChainID)
 		c.Next()
 	}
 }

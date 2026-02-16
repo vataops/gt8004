@@ -108,12 +108,13 @@ function ExplorerContent() {
     new Map()
   );
   useEffect(() => {
+    const supportedChainIds = new Set(NETWORK_LIST.map((n) => n.chainId));
     openApi
       .searchAgents()
       .then((res) => {
         const map = new Map<string, PlatformData>();
         for (const a of res.agents || []) {
-          if (a.erc8004_token_id != null && a.chain_id != null) {
+          if (a.erc8004_token_id != null && a.chain_id != null && supportedChainIds.has(a.chain_id)) {
             map.set(`${a.chain_id}-${a.erc8004_token_id}`, {
               agent_id: a.agent_id,
               status: a.status,

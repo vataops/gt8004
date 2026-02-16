@@ -11,17 +11,18 @@ import (
 type APIKeyAuth struct {
 	AgentDBID uuid.UUID
 	AgentID   string
+	ChainID   int
 }
 
 // ValidateAPIKey looks up an API key by its SHA-256 hash and returns agent info.
 func (s *Store) ValidateAPIKey(ctx context.Context, keyHash string) (*APIKeyAuth, error) {
 	auth := &APIKeyAuth{}
 	err := s.pool.QueryRow(ctx, `
-		SELECT ak.agent_id, a.agent_id
+		SELECT ak.agent_id, a.agent_id, COALESCE(a.chain_id, 0)
 		FROM api_keys ak
 		JOIN agents a ON a.id = ak.agent_id
 		WHERE ak.key_hash = $1 AND ak.revoked_at IS NULL
-	`, keyHash).Scan(&auth.AgentDBID, &auth.AgentID)
+	`, keyHash).Scan(&auth.AgentDBID, &auth.AgentID, &auth.ChainID)
 	if err != nil {
 		return nil, fmt.Errorf("validate api key: %w", err)
 	}
@@ -41,16 +42,17 @@ type Agent struct {
 	Name           string
 	OriginEndpoint string
 	GatewayEnabled bool
+	ChainID        int
 }
 
 // GetAgentBySlug resolves an agent slug to its full record for proxying.
 func (s *Store) GetAgentBySlug(ctx context.Context, slug string) (*Agent, error) {
 	a := &Agent{}
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, agent_id, name, origin_endpoint, gateway_enabled
+		SELECT id, agent_id, name, origin_endpoint, gateway_enabled, COALESCE(chain_id, 0)
 		FROM agents
 		WHERE agent_id = $1 AND status = 'active'
-	`, slug).Scan(&a.ID, &a.AgentID, &a.Name, &a.OriginEndpoint, &a.GatewayEnabled)
+	`, slug).Scan(&a.ID, &a.AgentID, &a.Name, &a.OriginEndpoint, &a.GatewayEnabled, &a.ChainID)
 	if err != nil {
 		return nil, fmt.Errorf("get agent by slug: %w", err)
 	}

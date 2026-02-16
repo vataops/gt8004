@@ -140,6 +140,7 @@ func (h *Handler) GatewayProxy(c *gin.Context) {
 	h.worker.Submit(&ingest.IngestJob{
 		AgentDBID: agent.ID,
 		AgentID:   agent.AgentID,
+		ChainID:   agent.ChainID,
 		Batch:     batch,
 	})
 }

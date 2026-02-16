@@ -176,11 +176,18 @@ export interface RevenueByTool {
   count: number;
 }
 
+export interface VerificationStats {
+  verified_count: number;
+  unverified_count: number;
+  verified_amount: number;
+}
+
 export interface RevenueReport {
   periods: RevenuePeriod[];
   by_tool: RevenueByTool[];
   arpu: number;
   total_revenue: number;
+  verification?: VerificationStats;
 }
 
 export interface PerformanceReport {

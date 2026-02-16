@@ -71,13 +71,19 @@ function RevenueContent() {
     <div>
       <h2 className="text-xl font-bold mb-4">Revenue</h2>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <StatCard
           label="Total Revenue"
           value={`$${data.total_revenue.toFixed(2)}`}
         />
         <StatCard label="ARPU" value={`$${data.arpu.toFixed(2)}`} />
         <StatCard label="Latest Period" value={latestAmount} />
+        {data.verification && (
+          <StatCard
+            label="Verified"
+            value={`${data.verification.verified_count} / ${data.verification.verified_count + data.verification.unverified_count}`}
+          />
+        )}
       </div>
 
       <h3 className="text-lg font-semibold mb-3">Revenue by Period</h3>

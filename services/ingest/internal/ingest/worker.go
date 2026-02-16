@@ -11,6 +11,7 @@ import (
 type IngestJob struct {
 	AgentDBID uuid.UUID
 	AgentID   string
+	ChainID   int
 	Batch     *LogBatch
 }
 
@@ -69,7 +70,7 @@ func (w *Worker) run(id int) {
 
 	for job := range w.ch {
 		ctx := context.Background()
-		if err := w.enricher.Process(ctx, job.AgentDBID, job.Batch); err != nil {
+		if err := w.enricher.Process(ctx, job.AgentDBID, job.ChainID, job.Batch); err != nil {
 			w.logger.Error("ingest job failed",
 				zap.Int("worker_id", id),
 				zap.String("batch_id", job.Batch.BatchID),

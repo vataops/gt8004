@@ -34,7 +34,7 @@ gcloud run deploy "${SERVICE_NAME}" \
   --min-instances 0 \
   --max-instances 3 \
   --timeout 60 \
-  --set-env-vars "^;;^AGENT_NAME=${AGENT_NAME:-Toolbox Agent};;AGENT_DESCRIPTION=${AGENT_DESCRIPTION:-Developer utility agent};;AGENT_VERSION=${AGENT_VERSION:-1.0.0};;GT8004_AGENT_ID=${GT8004_AGENT_ID:-};;GT8004_API_KEY=${GT8004_API_KEY:-};;GT8004_INGEST_URL=${GT8004_INGEST_URL:-https://ingest.gt8004.xyz/v1/ingest}"
+  --set-env-vars "^;;^AGENT_NAME=${AGENT_NAME:-Toolbox Agent};;AGENT_DESCRIPTION=${AGENT_DESCRIPTION:-Developer utility agent};;AGENT_VERSION=${AGENT_VERSION:-1.0.0};;GT8004_AGENT_ID=${GT8004_AGENT_ID:-};;GT8004_API_KEY=${GT8004_API_KEY:-};;GT8004_INGEST_URL=${GT8004_INGEST_URL:-https://testnet.ingest.gt8004.xyz/v1/ingest}"
 
 SERVICE_URL=$(gcloud run services describe "${SERVICE_NAME}" \
   --region "${REGION}" \

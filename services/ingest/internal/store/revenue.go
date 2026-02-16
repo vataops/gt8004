@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -26,6 +27,33 @@ func (s *Store) InsertRevenueEntry(ctx context.Context, entry RevenueEntry) erro
 	`, entry.AgentID, entry.CustomerID, entry.ToolName, entry.Amount, entry.Currency, entry.TxHash, entry.PayerAddress)
 	if err != nil {
 		return fmt.Errorf("insert revenue entry: %w", err)
+	}
+	return nil
+}
+
+// InsertRevenueEntryReturningID inserts a revenue entry and returns the generated ID.
+func (s *Store) InsertRevenueEntryReturningID(ctx context.Context, entry RevenueEntry) (int64, error) {
+	var id int64
+	err := s.pool.QueryRow(ctx, `
+		INSERT INTO revenue_entries (agent_id, customer_id, tool_name, amount, currency, tx_hash, payer_address)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id
+	`, entry.AgentID, entry.CustomerID, entry.ToolName, entry.Amount, entry.Currency, entry.TxHash, entry.PayerAddress).Scan(&id)
+	if err != nil {
+		return 0, fmt.Errorf("insert revenue entry returning id: %w", err)
+	}
+	return id, nil
+}
+
+// UpdateRevenueVerified updates the verification status of a revenue entry.
+func (s *Store) UpdateRevenueVerified(ctx context.Context, entryID int64, verified bool, chainID int, verifiedAt time.Time) error {
+	_, err := s.pool.Exec(ctx, `
+		UPDATE revenue_entries
+		SET verified = $2, chain_id = $3, verified_at = $4
+		WHERE id = $1
+	`, entryID, verified, chainID, verifiedAt)
+	if err != nil {
+		return fmt.Errorf("update revenue verified: %w", err)
 	}
 	return nil
 }

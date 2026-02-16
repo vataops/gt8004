@@ -12,16 +12,18 @@ import (
 
 type Enricher struct {
 	store       *store.Store
+	verifier    *Verifier
 	logger      *zap.Logger
 	maxBodySize int
 }
 
-func NewEnricher(s *store.Store, logger *zap.Logger, maxBodySize int) *Enricher {
+func NewEnricher(s *store.Store, v *Verifier, logger *zap.Logger, maxBodySize int) *Enricher {
 	if maxBodySize <= 0 {
 		maxBodySize = 51200 // 50KB default
 	}
 	return &Enricher{
 		store:       s,
+		verifier:    v,
 		logger:      logger,
 		maxBodySize: maxBodySize,
 	}
@@ -53,7 +55,7 @@ type customerStats struct {
 
 // Process inserts log entries into the database, updates agent stats,
 // upserts customer records, and inserts revenue entries.
-func (e *Enricher) Process(ctx context.Context, agentDBID uuid.UUID, batch *LogBatch) error {
+func (e *Enricher) Process(ctx context.Context, agentDBID uuid.UUID, chainID int, batch *LogBatch) error {
 	// Filter out sdk_ping entries and update connection status
 	realEntries := make([]LogEntry, 0, len(batch.Entries))
 	for _, entry := range batch.Entries {
@@ -205,9 +207,21 @@ func (e *Enricher) Process(ctx context.Context, agentDBID uuid.UUID, batch *LogB
 				TxHash:       entry.X402TxHash,
 				PayerAddress: entry.X402Payer,
 			}
-			if err := e.store.InsertRevenueEntry(ctx, re); err != nil {
+			entryID, err := e.store.InsertRevenueEntryReturningID(ctx, re)
+			if err != nil {
 				e.logger.Error("failed to insert revenue entry",
 					zap.Error(err), zap.String("batch_id", batch.BatchID))
+				continue
+			}
+			// Async on-chain verification
+			if e.verifier != nil && entry.X402TxHash != nil && *entry.X402TxHash != "" && chainID > 0 {
+				txHash := *entry.X402TxHash
+				amount := *entry.X402Amount
+				var payer string
+				if entry.X402Payer != nil {
+					payer = *entry.X402Payer
+				}
+				go e.verifier.VerifyPayment(context.Background(), entryID, txHash, amount, payer, chainID)
 			}
 		}
 	}
