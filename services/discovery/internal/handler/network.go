@@ -40,7 +40,9 @@ func (h *Handler) ListNetworkAgents(c *gin.Context) {
 		}
 	}
 
-	agents, total, err := h.store.ListNetworkAgents(c.Request.Context(), chainIDs, search, limit, offset)
+	sort := c.Query("sort") // "newest" or "oldest"
+
+	agents, total, err := h.store.ListNetworkAgents(c.Request.Context(), chainIDs, search, limit, offset, sort)
 	if err != nil {
 		h.logger.Error("failed to list network agents", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list network agents"})

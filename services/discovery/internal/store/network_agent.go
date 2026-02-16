@@ -80,7 +80,7 @@ func (s *Store) UpsertNetworkAgent(ctx context.Context, agent *NetworkAgent) err
 }
 
 // ListNetworkAgents returns network agents filtered by chain IDs with optional search.
-func (s *Store) ListNetworkAgents(ctx context.Context, chainIDs []int, search string, limit, offset int) ([]NetworkAgent, int, error) {
+func (s *Store) ListNetworkAgents(ctx context.Context, chainIDs []int, search string, limit, offset int, sort string) ([]NetworkAgent, int, error) {
 	if limit <= 0 || limit > 200 {
 		limit = 100
 	}
@@ -119,11 +119,15 @@ func (s *Store) ListNetworkAgents(ctx context.Context, chainIDs []int, search st
 	}
 
 	// Fetch rows
+	orderDir := "DESC"
+	if sort == "oldest" {
+		orderDir = "ASC"
+	}
 	query := `SELECT id, chain_id, token_id, COALESCE(owner_address, ''), COALESCE(agent_uri, ''),
 		COALESCE(name, ''), COALESCE(description, ''), COALESCE(image_url, ''), COALESCE(metadata, '{}'),
 		COALESCE(creator_address, ''), COALESCE(created_tx, ''),
 		created_at, synced_at FROM network_agents ` +
-		where + fmt.Sprintf(" ORDER BY (CASE WHEN name <> '' THEN 0 ELSE 1 END), token_id ASC LIMIT $%d OFFSET $%d", argIdx, argIdx+1)
+		where + fmt.Sprintf(" ORDER BY token_id %s LIMIT $%d OFFSET $%d", orderDir, argIdx, argIdx+1)
 	args = append(args, limit, offset)
 
 	rows, err := s.pool.Query(ctx, query, args...)

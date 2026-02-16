@@ -91,7 +91,7 @@ func (j *Job) Stop() {
 // Sync discovers all tokens from all configured chains and upserts them.
 func (j *Job) Sync() {
 	for chainID, client := range j.registry.Clients() {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 		j.syncChain(ctx, chainID, client)
 		cancel()
 	}

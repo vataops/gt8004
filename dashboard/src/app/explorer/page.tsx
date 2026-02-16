@@ -54,6 +54,9 @@ function ExplorerContent() {
   const [search, setSearch] = useState(() => searchParams.get("q") || "");
   const [page, setPage] = useState(() => Number(searchParams.get("page") || 1));
   const [platformOnly, setPlatformOnly] = useState(() => searchParams.get("platform") === "1");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">(() =>
+    (searchParams.get("sort") as "newest" | "oldest") || "newest"
+  );
 
   const syncUrl = useCallback((params: Record<string, string | number>) => {
     const sp = new URLSearchParams(searchParams.toString());
@@ -82,6 +85,12 @@ function ExplorerContent() {
     setPage(1);
     syncUrl({ platform: next ? 1 : 0, page: 1 });
   };
+  const handleSortToggle = () => {
+    const next = sortOrder === "newest" ? "oldest" : "newest";
+    setSortOrder(next);
+    setPage(1);
+    syncUrl({ sort: next, page: 1 });
+  };
 
   // On-chain agents (primary data source)
   const { data, loading } = useNetworkAgents({
@@ -89,6 +98,7 @@ function ExplorerContent() {
     search: search || undefined,
     limit: PAGE_SIZE,
     offset: (page - 1) * PAGE_SIZE,
+    sort: sortOrder,
   });
   const { data: stats } = useNetworkStats();
   const { data: overview } = useOverview();
@@ -138,7 +148,18 @@ function ExplorerContent() {
     });
   }, [platformOnly, platformMap]);
 
-  const displayAgents: NetworkAgent[] = platformOnly ? platformAgents : (data?.agents ?? []);
+  const sortedAgents = (agents: NetworkAgent[]) => {
+    const sorted = [...agents];
+    sorted.sort((a, b) =>
+      sortOrder === "newest"
+        ? b.token_id - a.token_id
+        : a.token_id - b.token_id
+    );
+    return sorted;
+  };
+  const displayAgents: NetworkAgent[] = platformOnly
+    ? sortedAgents(platformAgents)
+    : (data?.agents ?? []);
   const totalRows = platformOnly ? platformAgents.length : (data?.total ?? 0);
   const totalPages = platformOnly ? 1 : Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
 
@@ -229,9 +250,26 @@ function ExplorerContent() {
             </button>
           )}
         </div>
-        <span className="text-xs text-zinc-500 shrink-0">
-          {totalRows} agents
-        </span>
+        <div className="flex items-center gap-3 shrink-0">
+          <button
+            onClick={handleSortToggle}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-zinc-400 bg-[#141414] hover:bg-[#1a1a1a] hover:text-zinc-200 transition-colors"
+          >
+            <svg
+              className={`w-3.5 h-3.5 transition-transform ${sortOrder === "oldest" ? "rotate-180" : ""}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+            {sortOrder === "newest" ? "Newest" : "Oldest"}
+          </button>
+          <span className="text-xs text-zinc-500">
+            {totalRows} agents
+          </span>
+        </div>
       </div>
 
       <div className="mb-4">

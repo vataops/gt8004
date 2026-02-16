@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -179,8 +180,8 @@ func (c *Client) DiscoverAllTokens(ctx context.Context) ([]DiscoveredToken, erro
 
 		const chunkSize uint64 = 49999
 		var startBlock uint64
-		if currentBlock > 10000000 {
-			startBlock = currentBlock - 10000000
+		if currentBlock > 20000000 {
+			startBlock = currentBlock - 20000000
 		}
 
 		candidates = nil
@@ -219,39 +220,63 @@ func (c *Client) DiscoverAllTokens(ctx context.Context) ([]DiscoveredToken, erro
 		mintTxHashes[ev.TokenID] = ev.TxHash
 	}
 
-	headerCtx, headerCancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	headerCtx, headerCancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer headerCancel()
 
 	blockTimestamps := make(map[uint64]time.Time)
+	var headerMu sync.Mutex
+	var headerWg sync.WaitGroup
+	headerSem := make(chan struct{}, 10)
 	for bn := range blockNums {
-		header, err := c.ethClient.HeaderByNumber(headerCtx, new(big.Int).SetUint64(bn))
-		if err != nil {
-			c.logger.Warn("failed to fetch block header", zap.Uint64("block", bn), zap.Error(err))
-			continue
-		}
-		blockTimestamps[bn] = time.Unix(int64(header.Time), 0)
+		headerWg.Add(1)
+		go func(blockNum uint64) {
+			defer headerWg.Done()
+			headerSem <- struct{}{}
+			defer func() { <-headerSem }()
+			header, err := c.ethClient.HeaderByNumber(headerCtx, new(big.Int).SetUint64(blockNum))
+			if err != nil {
+				c.logger.Warn("failed to fetch block header", zap.Uint64("block", blockNum), zap.Error(err))
+				return
+			}
+			headerMu.Lock()
+			blockTimestamps[blockNum] = time.Unix(int64(header.Time), 0)
+			headerMu.Unlock()
+		}(bn)
 	}
+	headerWg.Wait()
 
-	// Verify current owner and get agentURI
-	verifyCtx, verifyCancel := context.WithTimeout(context.Background(), 8*time.Minute)
+	// Verify current owner and get agentURI (20 concurrent workers)
+	verifyCtx, verifyCancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer verifyCancel()
 
 	tokens := make([]DiscoveredToken, 0, len(candidates))
+	var tokensMu sync.Mutex
+	var verifyWg sync.WaitGroup
+	verifySem := make(chan struct{}, 20)
 	for _, ev := range candidates {
-		owner, err := c.VerifyOwnership(verifyCtx, ev.TokenID)
-		if err != nil {
-			continue
-		}
-		agentURI, _ := c.GetAgentURI(verifyCtx, ev.TokenID)
-		tokens = append(tokens, DiscoveredToken{
-			TokenID:        ev.TokenID,
-			OwnerAddress:   owner,
-			AgentURI:       agentURI,
-			MintedAt:       blockTimestamps[mintBlocks[ev.TokenID]],
-			CreatorAddress: mintCreators[ev.TokenID],
-			CreatedTx:      mintTxHashes[ev.TokenID],
-		})
+		verifyWg.Add(1)
+		go func(mint MintEvent) {
+			defer verifyWg.Done()
+			verifySem <- struct{}{}
+			defer func() { <-verifySem }()
+			owner, err := c.VerifyOwnership(verifyCtx, mint.TokenID)
+			if err != nil {
+				return
+			}
+			agentURI, _ := c.GetAgentURI(verifyCtx, mint.TokenID)
+			tokensMu.Lock()
+			tokens = append(tokens, DiscoveredToken{
+				TokenID:        mint.TokenID,
+				OwnerAddress:   owner,
+				AgentURI:       agentURI,
+				MintedAt:       blockTimestamps[mintBlocks[mint.TokenID]],
+				CreatorAddress: mintCreators[mint.TokenID],
+				CreatedTx:      mintTxHashes[mint.TokenID],
+			})
+			tokensMu.Unlock()
+		}(ev)
 	}
+	verifyWg.Wait()
 
 	return tokens, nil
 }
