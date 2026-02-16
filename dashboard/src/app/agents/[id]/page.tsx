@@ -128,19 +128,38 @@ export default function AgentDashboardPage() {
     }
   };
 
-  // Fetch all data in parallel (public endpoints, no auth needed)
-  const { data: stats } = useAgentStats(id);
-  const { data: daily } = useDailyStats(id, 30);
-  const { data: customers } = useCustomers(id);
-  const { data: revenue } = useRevenue(id, "monthly");
-  const { data: performance } = usePerformance(id, "24h");
-  const { data: logs } = useLogs(id, 50);
-  const { data: analytics } = useAnalytics(id, 30);
+  // Resolve auth for analytics API calls
+  const auth: string | { walletAddress: string } | null = apiKey
+    ? apiKey
+    : walletAddress
+      ? { walletAddress }
+      : null;
 
-  const { data: funnel } = useFunnel(id, 30);
+  // Fetch all data in parallel (owner-authenticated)
+  const { data: stats } = useAgentStats(id, auth);
+  const { data: daily } = useDailyStats(id, auth, 30);
+  const { data: customers } = useCustomers(id, auth);
+  const { data: revenue } = useRevenue(id, auth, "monthly");
+  const { data: performance } = usePerformance(id, auth, "24h");
+  const { data: logs } = useLogs(id, auth, 50);
+  const { data: analytics } = useAnalytics(id, auth, 30);
+
+  const { data: funnel } = useFunnel(id, auth, 30);
 
   if (authLoading) {
     return <p className="text-zinc-500">Loading...</p>;
+  }
+
+  // Auth gate: redirect to login if not authenticated
+  if (!auth) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[40vh] gap-4">
+        <p className="text-zinc-400">Authentication required to view agent dashboard.</p>
+        <Link href="/login" className="px-4 py-2 rounded-md text-sm font-medium bg-[#00FFE0] text-black hover:shadow-[0_0_20px_rgba(0,255,224,0.4)] transition-all">
+          Login
+        </Link>
+      </div>
+    );
   }
 
   const dailyStats = daily?.stats || [];
@@ -268,6 +287,7 @@ export default function AgentDashboardPage() {
         {activeTab === "customers" && (
           <CustomersTab
             agentId={id}
+            auth={auth}
             customers={customers?.customers || []}
             totalCustomers={customerTotal}
             newThisWeek={analytics?.customers?.new_this_week ?? 0}
@@ -2227,13 +2247,14 @@ function RevenueTab({ stats, revenue, byTool, chartData }: RevenueTabProps) {
 
 interface CustomersTabProps {
   agentId: string;
+  auth: string | { walletAddress: string } | null;
   customers: Customer[];
   totalCustomers: number;
   newThisWeek: number;
   returningThisWeek: number;
 }
 
-function CustomersTab({ agentId, customers, totalCustomers, newThisWeek, returningThisWeek }: CustomersTabProps) {
+function CustomersTab({ agentId, auth, customers, totalCustomers, newThisWeek, returningThisWeek }: CustomersTabProps) {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"total_requests" | "total_revenue" | "last_seen_at" | "error_rate">("total_requests");
@@ -2263,6 +2284,7 @@ function CustomersTab({ agentId, customers, totalCustomers, newThisWeek, returni
       <CustomerDetailView
         agentId={agentId}
         customer={selectedCustomer}
+        auth={auth}
         onBack={() => setSelectedCustomer(null)}
       />
     );
@@ -2409,13 +2431,14 @@ function CustomersTab({ agentId, customers, totalCustomers, newThisWeek, returni
 interface CustomerDetailViewProps {
   agentId: string;
   customer: Customer;
+  auth: string | { walletAddress: string } | null;
   onBack: () => void;
 }
 
-function CustomerDetailView({ agentId, customer, onBack }: CustomerDetailViewProps) {
-  const { data: logsData } = useCustomerLogs(agentId, customer.customer_id);
-  const { data: toolsData } = useCustomerTools(agentId, customer.customer_id);
-  const { data: dailyData } = useCustomerDaily(agentId, customer.customer_id, 30);
+function CustomerDetailView({ agentId, customer, auth, onBack }: CustomerDetailViewProps) {
+  const { data: logsData } = useCustomerLogs(agentId, customer.customer_id, auth);
+  const { data: toolsData } = useCustomerTools(agentId, customer.customer_id, auth);
+  const { data: dailyData } = useCustomerDaily(agentId, customer.customer_id, auth, 30);
 
   const logs = logsData?.logs || [];
   const tools = toolsData?.tools || [];

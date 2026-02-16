@@ -13,7 +13,7 @@ import (
 
 // ListCustomers handles GET /v1/agents/:agent_id/customers.
 func (h *Handler) ListCustomers(c *gin.Context) {
-	dbID, ok := h.resolvePublicAgent(c)
+	dbID, ok := h.resolveOwnedAgent(c)
 	if !ok {
 		return
 	}
@@ -53,7 +53,7 @@ func (h *Handler) ListCustomers(c *gin.Context) {
 
 // GetCustomer handles GET /v1/agents/:agent_id/customers/:customer_id.
 func (h *Handler) GetCustomer(c *gin.Context) {
-	dbID, ok := h.resolvePublicAgent(c)
+	dbID, ok := h.resolveOwnedAgent(c)
 	if !ok {
 		return
 	}
@@ -76,7 +76,7 @@ func (h *Handler) GetCustomer(c *gin.Context) {
 
 // CustomerLogs handles GET /v1/agents/:agent_id/customers/:customer_id/logs.
 func (h *Handler) CustomerLogs(c *gin.Context) {
-	dbID, ok := h.resolvePublicAgent(c)
+	dbID, ok := h.resolveOwnedAgent(c)
 	if !ok {
 		return
 	}
@@ -115,7 +115,7 @@ func (h *Handler) CustomerLogs(c *gin.Context) {
 
 // CustomerTools handles GET /v1/agents/:agent_id/customers/:customer_id/tools.
 func (h *Handler) CustomerTools(c *gin.Context) {
-	dbID, ok := h.resolvePublicAgent(c)
+	dbID, ok := h.resolveOwnedAgent(c)
 	if !ok {
 		return
 	}
@@ -147,7 +147,7 @@ func (h *Handler) CustomerTools(c *gin.Context) {
 
 // CustomerDailyStats handles GET /v1/agents/:agent_id/customers/:customer_id/daily.
 func (h *Handler) CustomerDailyStats(c *gin.Context) {
-	dbID, ok := h.resolvePublicAgent(c)
+	dbID, ok := h.resolveOwnedAgent(c)
 	if !ok {
 		return
 	}

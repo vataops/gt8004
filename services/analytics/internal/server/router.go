@@ -13,7 +13,7 @@ func corsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*")
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization, X-Customer-ID")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization, X-Customer-ID, X-Wallet-Address")
 		c.Header("Access-Control-Max-Age", "86400")
 		if c.Request.Method == http.MethodOptions {
 			c.AbortWithStatus(http.StatusNoContent)
@@ -39,24 +39,32 @@ func NewRouter(cfg *config.Config, h *handler.Handler) *gin.Engine {
 	// Benchmark
 	v1.GET("/benchmark", h.GetBenchmark)
 
-	// Agent analytics (public, by slug)
-	v1.GET("/agents/:agent_id/analytics", h.AnalyticsReport)
-	v1.GET("/agents/:agent_id/stats", h.AgentStats)
-	v1.GET("/agents/:agent_id/stats/daily", h.AgentDailyStats)
-	v1.GET("/agents/:agent_id/customers", h.ListCustomers)
-	v1.GET("/agents/:agent_id/customers/:customer_id", h.GetCustomer)
-	v1.GET("/agents/:agent_id/customers/:customer_id/logs", h.CustomerLogs)
-	v1.GET("/agents/:agent_id/customers/:customer_id/tools", h.CustomerTools)
-	v1.GET("/agents/:agent_id/customers/:customer_id/daily", h.CustomerDailyStats)
-	v1.GET("/agents/:agent_id/revenue", h.RevenueReport)
-	v1.GET("/agents/:agent_id/performance", h.PerformanceReport)
-	v1.GET("/agents/:agent_id/logs", h.ListLogs)
-	v1.GET("/agents/:agent_id/funnel", h.ConversionFunnel)
+	// Agent analytics (owner-authenticated)
+	agentAuth := v1.Group("/agents/:agent_id")
+	agentAuth.Use(OwnerAuthMiddleware(h.Store()))
+	{
+		agentAuth.GET("/analytics", h.AnalyticsReport)
+		agentAuth.GET("/stats", h.AgentStats)
+		agentAuth.GET("/stats/daily", h.AgentDailyStats)
+		agentAuth.GET("/customers", h.ListCustomers)
+		agentAuth.GET("/customers/:customer_id", h.GetCustomer)
+		agentAuth.GET("/customers/:customer_id/logs", h.CustomerLogs)
+		agentAuth.GET("/customers/:customer_id/tools", h.CustomerTools)
+		agentAuth.GET("/customers/:customer_id/daily", h.CustomerDailyStats)
+		agentAuth.GET("/revenue", h.RevenueReport)
+		agentAuth.GET("/performance", h.PerformanceReport)
+		agentAuth.GET("/logs", h.ListLogs)
+		agentAuth.GET("/funnel", h.ConversionFunnel)
+	}
 
-	// Owner-level analytics (public, by wallet address)
-	v1.GET("/wallet/:address/stats", h.WalletStats)
-	v1.GET("/wallet/:address/daily", h.WalletDailyStats)
-	v1.GET("/wallet/:address/errors", h.WalletErrors)
+	// Owner-level analytics (wallet-authenticated)
+	walletAuth := v1.Group("/wallet/:address")
+	walletAuth.Use(OwnerAuthMiddleware(h.Store()))
+	{
+		walletAuth.GET("/stats", h.WalletStats)
+		walletAuth.GET("/daily", h.WalletDailyStats)
+		walletAuth.GET("/errors", h.WalletErrors)
+	}
 
 	return r
 }

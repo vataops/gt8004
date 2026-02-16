@@ -14,7 +14,7 @@ import (
 
 // PerformanceReport handles GET /v1/agents/:agent_id/performance?window=24h
 func (h *Handler) PerformanceReport(c *gin.Context) {
-	dbID, ok := h.resolvePublicAgent(c)
+	dbID, ok := h.resolveOwnedAgent(c)
 	if !ok {
 		return
 	}

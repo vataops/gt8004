@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { openApi } from "./api";
 import { fetchOnChainActivity } from "./etherscan";
 
+type Auth = string | { walletAddress: string };
+
 function usePolling<T>(fetchFn: () => Promise<T>, intervalMs: number) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<Error | null>(null);
@@ -93,122 +95,122 @@ export function useBenchmark(category: string) {
   return usePolling(fn, 60_000);
 }
 
-// ========== Agent Analytics Hooks (public, by agent_id) ==========
+// ========== Agent Analytics Hooks (owner-authenticated) ==========
 
-export function useAgentStats(agentId: string) {
+export function useAgentStats(agentId: string, auth: Auth | null) {
   const fn = useCallback(
-    () => openApi.getStats(agentId),
-    [agentId]
+    () => auth ? openApi.getStats(agentId, auth) : Promise.resolve(null),
+    [agentId, auth]
   );
   return usePolling(fn, 15_000);
 }
 
-export function useDailyStats(agentId: string, days = 30) {
+export function useDailyStats(agentId: string, auth: Auth | null, days = 30) {
   const fn = useCallback(
-    () => openApi.getDailyStats(agentId, days),
-    [agentId, days]
+    () => auth ? openApi.getDailyStats(agentId, auth, days) : Promise.resolve(null),
+    [agentId, auth, days]
   );
   return usePolling(fn, 60_000);
 }
 
-export function useCustomers(agentId: string) {
+export function useCustomers(agentId: string, auth: Auth | null) {
   const fn = useCallback(
-    () => openApi.getCustomers(agentId),
-    [agentId]
+    () => auth ? openApi.getCustomers(agentId, auth) : Promise.resolve(null),
+    [agentId, auth]
   );
   return usePolling(fn, 30_000);
 }
 
-export function useRevenue(agentId: string, period = "monthly") {
+export function useRevenue(agentId: string, auth: Auth | null, period = "monthly") {
   const fn = useCallback(
-    () => openApi.getRevenue(agentId, period),
-    [agentId, period]
+    () => auth ? openApi.getRevenue(agentId, auth, period) : Promise.resolve(null),
+    [agentId, auth, period]
   );
   return usePolling(fn, 30_000);
 }
 
-export function usePerformance(agentId: string, window = "24h") {
+export function usePerformance(agentId: string, auth: Auth | null, window = "24h") {
   const fn = useCallback(
-    () => openApi.getPerformance(agentId, window),
-    [agentId, window]
+    () => auth ? openApi.getPerformance(agentId, auth, window) : Promise.resolve(null),
+    [agentId, auth, window]
   );
   return usePolling(fn, 15_000);
 }
 
-export function useLogs(agentId: string, limit = 50) {
+export function useLogs(agentId: string, auth: Auth | null, limit = 50) {
   const fn = useCallback(
-    () => openApi.getLogs(agentId, limit),
-    [agentId, limit]
+    () => auth ? openApi.getLogs(agentId, auth, limit) : Promise.resolve(null),
+    [agentId, auth, limit]
   );
   return usePolling(fn, 10_000);
 }
 
-export function useAnalytics(agentId: string, days = 30) {
+export function useAnalytics(agentId: string, auth: Auth | null, days = 30) {
   const fn = useCallback(
-    () => openApi.getAnalytics(agentId, days),
-    [agentId, days]
+    () => auth ? openApi.getAnalytics(agentId, auth, days) : Promise.resolve(null),
+    [agentId, auth, days]
   );
   return usePolling(fn, 15_000);
 }
 
-export function useFunnel(agentId: string, days = 30) {
+export function useFunnel(agentId: string, auth: Auth | null, days = 30) {
   const fn = useCallback(
-    () => openApi.getFunnel(agentId, days),
-    [agentId, days]
+    () => auth ? openApi.getFunnel(agentId, auth, days) : Promise.resolve(null),
+    [agentId, auth, days]
   );
   return usePolling(fn, 30_000);
 }
 
 // ========== Customer Detail Hooks ==========
 
-export function useCustomerLogs(agentId: string, customerId: string) {
+export function useCustomerLogs(agentId: string, customerId: string, auth: Auth | null) {
   const fn = useCallback(
-    () => openApi.getCustomerLogs(agentId, customerId),
-    [agentId, customerId]
+    () => auth ? openApi.getCustomerLogs(agentId, customerId, auth) : Promise.resolve(null),
+    [agentId, customerId, auth]
   );
   return usePolling(fn, 10_000);
 }
 
-export function useCustomerTools(agentId: string, customerId: string) {
+export function useCustomerTools(agentId: string, customerId: string, auth: Auth | null) {
   const fn = useCallback(
-    () => openApi.getCustomerTools(agentId, customerId),
-    [agentId, customerId]
+    () => auth ? openApi.getCustomerTools(agentId, customerId, auth) : Promise.resolve(null),
+    [agentId, customerId, auth]
   );
   return usePolling(fn, 30_000);
 }
 
-export function useCustomerDaily(agentId: string, customerId: string, days = 30) {
+export function useCustomerDaily(agentId: string, customerId: string, auth: Auth | null, days = 30) {
   const fn = useCallback(
-    () => openApi.getCustomerDaily(agentId, customerId, days),
-    [agentId, customerId, days]
+    () => auth ? openApi.getCustomerDaily(agentId, customerId, auth, days) : Promise.resolve(null),
+    [agentId, customerId, auth, days]
   );
   return usePolling(fn, 60_000);
 }
 
 // ========== Wallet Analytics Hooks ==========
 
-export function useWalletStats(address: string | null) {
+export function useWalletStats(address: string | null, auth: Auth | null) {
   const fn = useCallback(
-    () => (address ? openApi.getWalletStats(address) : Promise.resolve(null)),
-    [address]
+    () => (address && auth ? openApi.getWalletStats(address, auth) : Promise.resolve(null)),
+    [address, auth]
   );
-  return usePolling(fn, 15_000); // Poll every 15 seconds
+  return usePolling(fn, 15_000);
 }
 
-export function useWalletDailyStats(address: string | null, days = 30) {
+export function useWalletDailyStats(address: string | null, auth: Auth | null, days = 30) {
   const fn = useCallback(
-    () => (address ? openApi.getWalletDailyStats(address, days) : Promise.resolve(null)),
-    [address, days]
+    () => (address && auth ? openApi.getWalletDailyStats(address, auth, days) : Promise.resolve(null)),
+    [address, auth, days]
   );
-  return usePolling(fn, 60_000); // Poll every 60 seconds
+  return usePolling(fn, 60_000);
 }
 
-export function useWalletErrors(address: string | null) {
+export function useWalletErrors(address: string | null, auth: Auth | null) {
   const fn = useCallback(
-    () => (address ? openApi.getWalletErrors(address) : Promise.resolve(null)),
-    [address]
+    () => (address && auth ? openApi.getWalletErrors(address, auth) : Promise.resolve(null)),
+    [address, auth]
   );
-  return usePolling(fn, 30_000); // Poll every 30 seconds
+  return usePolling(fn, 30_000);
 }
 
 // ========== On-Chain Activity Hooks ==========

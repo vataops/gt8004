@@ -12,7 +12,7 @@ import (
 
 // RevenueReport handles GET /v1/agents/:agent_id/revenue.
 func (h *Handler) RevenueReport(c *gin.Context) {
-	dbID, ok := h.resolvePublicAgent(c)
+	dbID, ok := h.resolveOwnedAgent(c)
 	if !ok {
 		return
 	}

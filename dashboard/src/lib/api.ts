@@ -9,10 +9,12 @@ async function parseError(res: Response): Promise<string> {
   }
 }
 
-async function openFetcher<T>(path: string, apiKey?: string): Promise<T> {
+async function openFetcher<T>(path: string, auth?: string | { walletAddress: string }): Promise<T> {
   const headers: Record<string, string> = {};
-  if (apiKey) {
-    headers["Authorization"] = `Bearer ${apiKey}`;
+  if (typeof auth === "string") {
+    headers["Authorization"] = `Bearer ${auth}`;
+  } else if (auth?.walletAddress) {
+    headers["X-Wallet-Address"] = auth.walletAddress;
   }
   const res = await fetch(`${OPEN_API_BASE}${path}`, { headers });
   if (!res.ok) throw new Error(await parseError(res));
@@ -563,54 +565,54 @@ export const openApi = {
       total: number;
     }>(`/v1/benchmark?category=${encodeURIComponent(category)}`),
 
-  // Agent analytics (public, resolved by agent_id)
-  getCustomers: (agentId: string, limit = 50, offset = 0) =>
+  // Agent analytics (owner-authenticated)
+  getCustomers: (agentId: string, auth: string | { walletAddress: string }, limit = 50, offset = 0) =>
     openFetcher<{ customers: Customer[]; total: number }>(
-      `/v1/agents/${agentId}/customers?limit=${limit}&offset=${offset}`
+      `/v1/agents/${agentId}/customers?limit=${limit}&offset=${offset}`, auth
     ),
-  getCustomer: (agentId: string, customerId: string) =>
+  getCustomer: (agentId: string, customerId: string, auth: string | { walletAddress: string }) =>
     openFetcher<Customer>(
-      `/v1/agents/${agentId}/customers/${encodeURIComponent(customerId)}`
+      `/v1/agents/${agentId}/customers/${encodeURIComponent(customerId)}`, auth
     ),
-  getCustomerLogs: (agentId: string, customerId: string, limit = 50) =>
+  getCustomerLogs: (agentId: string, customerId: string, auth: string | { walletAddress: string }, limit = 50) =>
     openFetcher<{ logs: RequestLog[]; total: number }>(
-      `/v1/agents/${agentId}/customers/${encodeURIComponent(customerId)}/logs?limit=${limit}`
+      `/v1/agents/${agentId}/customers/${encodeURIComponent(customerId)}/logs?limit=${limit}`, auth
     ),
-  getCustomerTools: (agentId: string, customerId: string) =>
+  getCustomerTools: (agentId: string, customerId: string, auth: string | { walletAddress: string }) =>
     openFetcher<{ tools: CustomerToolUsage[] }>(
-      `/v1/agents/${agentId}/customers/${encodeURIComponent(customerId)}/tools`
+      `/v1/agents/${agentId}/customers/${encodeURIComponent(customerId)}/tools`, auth
     ),
-  getCustomerDaily: (agentId: string, customerId: string, days = 30) =>
+  getCustomerDaily: (agentId: string, customerId: string, auth: string | { walletAddress: string }, days = 30) =>
     openFetcher<{ stats: DailyStats[] }>(
-      `/v1/agents/${agentId}/customers/${encodeURIComponent(customerId)}/daily?days=${days}`
+      `/v1/agents/${agentId}/customers/${encodeURIComponent(customerId)}/daily?days=${days}`, auth
     ),
-  getRevenue: (agentId: string, period = "monthly") =>
+  getRevenue: (agentId: string, auth: string | { walletAddress: string }, period = "monthly") =>
     openFetcher<RevenueReport>(
-      `/v1/agents/${agentId}/revenue?period=${period}`
+      `/v1/agents/${agentId}/revenue?period=${period}`, auth
     ),
-  getPerformance: (agentId: string, window = "24h") =>
+  getPerformance: (agentId: string, auth: string | { walletAddress: string }, window = "24h") =>
     openFetcher<PerformanceReport>(
-      `/v1/agents/${agentId}/performance?window=${window}`
+      `/v1/agents/${agentId}/performance?window=${window}`, auth
     ),
-  getLogs: (agentId: string, limit = 50) =>
+  getLogs: (agentId: string, auth: string | { walletAddress: string }, limit = 50) =>
     openFetcher<{ logs: RequestLog[]; total: number }>(
-      `/v1/agents/${agentId}/logs?limit=${limit}`
+      `/v1/agents/${agentId}/logs?limit=${limit}`, auth
     ),
-  getStats: (agentId: string) =>
+  getStats: (agentId: string, auth: string | { walletAddress: string }) =>
     openFetcher<AgentStats>(
-      `/v1/agents/${agentId}/stats`
+      `/v1/agents/${agentId}/stats`, auth
     ),
-  getDailyStats: (agentId: string, days = 30) =>
+  getDailyStats: (agentId: string, auth: string | { walletAddress: string }, days = 30) =>
     openFetcher<{ stats: DailyStats[] }>(
-      `/v1/agents/${agentId}/stats/daily?days=${days}`
+      `/v1/agents/${agentId}/stats/daily?days=${days}`, auth
     ),
-  getAnalytics: (agentId: string, days = 30) =>
+  getAnalytics: (agentId: string, auth: string | { walletAddress: string }, days = 30) =>
     openFetcher<AnalyticsReport>(
-      `/v1/agents/${agentId}/analytics?days=${days}`
+      `/v1/agents/${agentId}/analytics?days=${days}`, auth
     ),
-  getFunnel: (agentId: string, days = 30) =>
+  getFunnel: (agentId: string, auth: string | { walletAddress: string }, days = 30) =>
     openFetcher<FunnelReport>(
-      `/v1/agents/${agentId}/funnel?days=${days}`
+      `/v1/agents/${agentId}/funnel?days=${days}`, auth
     ),
   // Registration (no auth)
   registerAgent: (req: RegisterRequest) =>
@@ -658,15 +660,15 @@ export const openApi = {
       `/v1/agents/wallet/${address}`
     ),
 
-  // Wallet analytics (public)
-  getWalletStats: (address: string) =>
-    openFetcher<WalletStats>(`/v1/wallet/${address}/stats`),
-  getWalletDailyStats: (address: string, days = 30) =>
+  // Wallet analytics (owner-authenticated)
+  getWalletStats: (address: string, auth: string | { walletAddress: string }) =>
+    openFetcher<WalletStats>(`/v1/wallet/${address}/stats`, auth),
+  getWalletDailyStats: (address: string, auth: string | { walletAddress: string }, days = 30) =>
     openFetcher<{ stats: WalletDailyStats[] }>(
-      `/v1/wallet/${address}/daily?days=${days}`
+      `/v1/wallet/${address}/daily?days=${days}`, auth
     ),
-  getWalletErrors: (address: string) =>
-    openFetcher<WalletErrors>(`/v1/wallet/${address}/errors`),
+  getWalletErrors: (address: string, auth: string | { walletAddress: string }) =>
+    openFetcher<WalletErrors>(`/v1/wallet/${address}/errors`, auth),
 
   // Gateway (API key or wallet owner)
   enableGateway: (agentId: string, auth: string | { walletAddress: string }) =>

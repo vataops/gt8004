@@ -16,7 +16,7 @@ import (
 
 // AgentStats handles GET /v1/agents/:agent_id/stats.
 func (h *Handler) AgentStats(c *gin.Context) {
-	dbID, ok := h.resolvePublicAgent(c)
+	dbID, ok := h.resolveOwnedAgent(c)
 	if !ok {
 		return
 	}
@@ -42,7 +42,7 @@ func (h *Handler) AgentStats(c *gin.Context) {
 
 // AgentDailyStats handles GET /v1/agents/:agent_id/stats/daily.
 func (h *Handler) AgentDailyStats(c *gin.Context) {
-	dbID, ok := h.resolvePublicAgent(c)
+	dbID, ok := h.resolveOwnedAgent(c)
 	if !ok {
 		return
 	}
@@ -98,7 +98,7 @@ type AnalyticsReportResponse struct {
 
 // AnalyticsReport handles GET /v1/agents/:agent_id/analytics?days=30
 func (h *Handler) AnalyticsReport(c *gin.Context) {
-	dbID, ok := h.resolvePublicAgent(c)
+	dbID, ok := h.resolveOwnedAgent(c)
 	if !ok {
 		return
 	}
@@ -214,7 +214,7 @@ func (h *Handler) AnalyticsReport(c *gin.Context) {
 
 // ConversionFunnel handles GET /v1/agents/:agent_id/funnel?days=30
 func (h *Handler) ConversionFunnel(c *gin.Context) {
-	dbID, ok := h.resolvePublicAgent(c)
+	dbID, ok := h.resolveOwnedAgent(c)
 	if !ok {
 		return
 	}

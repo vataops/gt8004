@@ -68,8 +68,9 @@ export default function LogsPage() {
 }
 
 function LogsContent() {
-  const { agent, apiKey } = useAuth();
-  const { data, loading } = useLogs(agent!.agent_id);
+  const { agent, apiKey, walletAddress } = useAuth();
+  const auth: string | { walletAddress: string } | null = apiKey ?? (walletAddress ? { walletAddress } : null);
+  const { data, loading } = useLogs(agent!.agent_id, auth);
 
   if (loading) {
     return <p className="text-gray-500">Loading...</p>;

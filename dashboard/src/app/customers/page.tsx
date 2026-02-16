@@ -67,8 +67,9 @@ export default function CustomersPage() {
 }
 
 function CustomersContent() {
-  const { agent, apiKey } = useAuth();
-  const { data, loading } = useCustomers(agent!.agent_id);
+  const { agent, apiKey, walletAddress } = useAuth();
+  const auth: string | { walletAddress: string } | null = apiKey ?? (walletAddress ? { walletAddress } : null);
+  const { data, loading } = useCustomers(agent!.agent_id, auth);
 
   if (loading || !data) {
     return <p className="text-gray-500">Loading...</p>;

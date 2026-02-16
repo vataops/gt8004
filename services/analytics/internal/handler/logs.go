@@ -13,7 +13,7 @@ import (
 
 // ListLogs handles GET /v1/agents/:agent_id/logs?limit=50
 func (h *Handler) ListLogs(c *gin.Context) {
-	dbID, ok := h.resolvePublicAgent(c)
+	dbID, ok := h.resolveOwnedAgent(c)
 	if !ok {
 		return
 	}

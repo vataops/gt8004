@@ -129,6 +129,20 @@ func (s *Store) UpdateAgentTotalCustomers(ctx context.Context, agentDBID uuid.UU
 	return nil
 }
 
+// GetAgentEVMAddress resolves agent slug to its DB UUID and owner EVM address.
+func (s *Store) GetAgentEVMAddress(ctx context.Context, agentID string) (uuid.UUID, string, error) {
+	var dbID uuid.UUID
+	var evmAddr string
+	err := s.pool.QueryRow(ctx, `
+		SELECT id, COALESCE(evm_address, '')
+		FROM agents WHERE agent_id = $1 AND status = 'active'
+	`, agentID).Scan(&dbID, &evmAddr)
+	if err != nil {
+		return uuid.UUID{}, "", fmt.Errorf("get agent evm address: %w", err)
+	}
+	return dbID, evmAddr, nil
+}
+
 // ---------- Benchmark-related agent queries ----------
 
 // GetActiveAgentsByCategory returns all active agents for a given category.

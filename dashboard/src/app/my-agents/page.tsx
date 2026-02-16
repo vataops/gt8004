@@ -120,7 +120,7 @@ export default function MyAgentsPage() {
 }
 
 function MyAgentsContent() {
-  const { walletAddress, loading: authLoading, logout } = useAuth();
+  const { apiKey, walletAddress, loading: authLoading, logout } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [agents, setAgents] = useState<AgentRow[]>([]);
@@ -142,10 +142,17 @@ function MyAgentsContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 20;
 
+  // Resolve auth for analytics calls
+  const auth: string | { walletAddress: string } | null = apiKey
+    ? apiKey
+    : walletAddress
+      ? { walletAddress }
+      : null;
+
   // Wallet analytics hooks
-  const { data: walletStats } = useWalletStats(walletAddress);
-  const { data: walletDaily } = useWalletDailyStats(walletAddress, 30);
-  const { data: walletErrors } = useWalletErrors(walletAddress);
+  const { data: walletStats } = useWalletStats(walletAddress, auth);
+  const { data: walletDaily } = useWalletDailyStats(walletAddress, auth, 30);
+  const { data: walletErrors } = useWalletErrors(walletAddress, auth);
 
   useEffect(() => {
     if (!authLoading && !walletAddress) {
@@ -329,12 +336,63 @@ function MyAgentsContent() {
     { _: "rev", ...Object.fromEntries(chartAgents.map((a) => [a.key, a.revenue])) },
   ];
 
-  if (authLoading || loading) {
-    return <p className="text-zinc-500">Loading agents&hellip;</p>;
+  // Auth resolved but no wallet → redirect (useEffect handles it)
+  if (!walletAddress && !authLoading) {
+    return null;
   }
 
-  if (!walletAddress) {
-    return null;
+  // Skeleton while: data loading, or auth still determining wallet state
+  if (loading || (!walletAddress && authLoading)) {
+    return (
+      <div>
+        {/* Header skeleton */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <div className="h-7 w-40 bg-[#1a1a1a] rounded animate-pulse" />
+            <div className="h-4 w-72 bg-[#1a1a1a] rounded animate-pulse mt-2" />
+          </div>
+          <div className="h-9 w-28 bg-[#1a1a1a] rounded animate-pulse" />
+        </div>
+        {/* Tab skeleton */}
+        <div className="border-b border-[#1a1a1a] mb-6">
+          <div className="flex gap-0 -mb-px">
+            {TABS.map((tab) => (
+              <div key={tab.key} className="px-4 py-2.5">
+                <div className="h-4 w-16 bg-[#1a1a1a] rounded animate-pulse" />
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Stat cards skeleton */}
+        <div className="grid grid-cols-4 gap-4 mb-6">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-4">
+              <div className="h-3 w-20 bg-[#1a1a1a] rounded animate-pulse mb-3" />
+              <div className="h-6 w-12 bg-[#1a1a1a] rounded animate-pulse" />
+            </div>
+          ))}
+        </div>
+        {/* Table skeleton */}
+        <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg overflow-hidden">
+          <div className="border-b border-[#1a1a1a] p-3 flex gap-4">
+            {["Agent", "Chain", "Requests", "Customers", "Status", "Health"].map((h) => (
+              <div key={h} className="h-3 w-16 bg-[#1a1a1a] rounded animate-pulse" />
+            ))}
+          </div>
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="border-b border-[#1a1a1a]/50 p-3 flex items-center gap-4">
+              <div className="w-8 h-8 bg-[#1a1a1a] rounded-full animate-pulse" />
+              <div className="h-4 w-28 bg-[#1a1a1a] rounded animate-pulse" />
+              <div className="h-4 w-16 bg-[#1a1a1a] rounded animate-pulse" />
+              <div className="h-4 w-12 bg-[#1a1a1a] rounded animate-pulse" />
+              <div className="h-4 w-12 bg-[#1a1a1a] rounded animate-pulse" />
+              <div className="h-4 w-16 bg-[#1a1a1a] rounded animate-pulse" />
+              <div className="h-4 w-14 bg-[#1a1a1a] rounded animate-pulse" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
