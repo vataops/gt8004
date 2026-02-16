@@ -1,0 +1,13 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_OPEN_API_URL=https://testnet-gt8004-apigateway-176882932608.us-central1.run.app'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_NETWORK_MODE=testnet'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/vataops/gt8004-testnet/dashboard:latest'
+      - '.'
+images:
+  - 'us-central1-docker.pkg.dev/vataops/gt8004-testnet/dashboard:latest'

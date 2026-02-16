@@ -325,6 +325,8 @@ resource "google_cloud_run_v2_service" "ingest" {
 
 # ── API Gateway ───────────────────────────────────────
 # NOTE: apigateway에 INGEST_URL 없음 — ingest는 독립 서비스
+# NOTE: VPC connector 없음 — DB 직접 접근 없이 다른 Cloud Run 서비스만 호출
+#       VPC connector가 있으면 외부(브라우저/대시보드)에서 접근 불가
 resource "google_cloud_run_v2_service" "apigateway" {
   name     = "testnet-gt8004-apigateway"
   location            = var.region
@@ -336,11 +338,6 @@ resource "google_cloud_run_v2_service" "apigateway" {
     scaling {
       min_instance_count = 0
       max_instance_count = 2
-    }
-
-    vpc_access {
-      connector = google_vpc_access_connector.main.id
-      egress    = "PRIVATE_RANGES_ONLY"
     }
 
     containers {

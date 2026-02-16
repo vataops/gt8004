@@ -11,6 +11,8 @@
 !**/registryd/
 **/gt8004d
 !**/gt8004d/
+**/ingestd
+!**/ingestd/
 **/bin/
 *.exe
 *.dll
@@ -65,6 +67,7 @@ contracts/credit/artifacts/
 *.skey
 *.vkey
 *.signing_key
+**/key.json
 
 # Logs
 *.log
@@ -74,6 +77,7 @@ bot/logs/
 **/.terraform/
 *.tfstate
 *.tfstate.backup
+*.tfstate.*.backup
 *.tfvars
 !*.tfvars.example
 .terraform.lock.hcl
