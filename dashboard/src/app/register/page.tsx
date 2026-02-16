@@ -415,7 +415,7 @@ async def gt8004_middleware(request, call_next):
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-sm font-medium text-white">
-                              Token #{token.token_id}
+                              Agent #{token.token_id}
                             </span>
                           </div>
                           {token.agent_uri ? (

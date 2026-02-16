@@ -145,7 +145,7 @@ export function ObservabilityTab({
                     <div className="font-medium text-sm text-gray-100 mb-2">
                       {agent.name}
                       {agent.token_id !== null &&
-                        !agent.name.startsWith("Token #") && (
+                        !agent.name.startsWith("Agent #") && (
                           <span className="text-zinc-500 ml-1">
                             #{agent.token_id}
                           </span>
@@ -211,7 +211,7 @@ export function ObservabilityTab({
                   <span className="font-medium text-gray-100">
                     {agent.name}
                     {agent.token_id !== null &&
-                      !agent.name.startsWith("Token #") && (
+                      !agent.name.startsWith("Agent #") && (
                         <span className="text-zinc-500 ml-1">
                           #{agent.token_id}
                         </span>

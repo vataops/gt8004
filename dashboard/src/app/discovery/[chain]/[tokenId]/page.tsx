@@ -121,19 +121,19 @@ export default function AgentDetailPage() {
         <div className="text-center py-12">
           <p className="text-zinc-500">Agent not found</p>
           <p className="text-sm text-gray-600 mt-2">
-            Token #{tokenId} on {params.chain}
+            Agent #{tokenId} on {params.chain}
           </p>
         </div>
       ) : (
         <div className="space-y-6">
           {/* ───── Header ───── */}
           <div className="flex items-start gap-5">
-            <AgentAvatar imageUrl={agent.image_url} alt={agent.name || `Token #${agent.token_id}`} size="lg" />
+            <AgentAvatar imageUrl={agent.image_url} alt={agent.name || `Agent #${agent.token_id}`} size="lg" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3">
                 <ChainBadge chainId={agent.chain_id} />
                 <h1 className="text-xl font-bold text-gray-100 truncate">
-                  {agent.name || `Token #${agent.token_id}`}
+                  {agent.name || `Agent #${agent.token_id}`}
                 </h1>
                 {agent.name && (
                   <span className="text-sm text-zinc-500 shrink-0">

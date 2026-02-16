@@ -39,7 +39,7 @@ export function RevenueTab({ agents }: RevenueTabProps) {
   const revenueChartData = rankedByRevenue
     .filter((agent) => agent.total_revenue > 0)
     .map((agent, i) => ({
-      name: agent.token_id !== null && !agent.name.startsWith("Token #")
+      name: agent.token_id !== null && !agent.name.startsWith("Agent #")
         ? `${agent.name} #${agent.token_id}`
         : agent.name,
       value: agent.total_revenue,
@@ -156,7 +156,7 @@ export function RevenueTab({ agents }: RevenueTabProps) {
                         <span className="font-medium text-gray-100">
                           {agent.name}
                         </span>
-                        {agent.token_id !== null && !agent.name.startsWith("Token #") && (
+                        {agent.token_id !== null && !agent.name.startsWith("Agent #") && (
                           <span className="text-zinc-500 ml-1.5">
                             #{agent.token_id}
                           </span>

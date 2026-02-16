@@ -222,7 +222,7 @@ export default function LoginPage() {
                         className="flex items-center justify-between text-xs bg-[#141414] rounded px-2 py-1.5"
                       >
                         <span className="text-[#00FFE0] font-mono">
-                          Token #{t.token_id}
+                          Agent #{t.token_id}
                         </span>
                         {t.agent_uri && (
                           <span className="text-zinc-400 truncate ml-2 max-w-[200px]">

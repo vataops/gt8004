@@ -64,6 +64,9 @@ jobs:
           BUILD_ARGS=""
           if [ "${{ matrix.service.name }}" = "dashboard" ]; then
             BUILD_ARGS="--build-arg NEXT_PUBLIC_OPEN_API_URL=${API_URL} --build-arg NEXT_PUBLIC_NETWORK_MODE=${NETWORK_MODE}"
+            if [ "${NETWORK_MODE}" = "mainnet" ]; then
+              BUILD_ARGS="${BUILD_ARGS} --build-arg NEXT_PUBLIC_ETHERSCAN_API_KEY=${{ secrets.ETHERSCAN_API_KEY }}"
+            fi
           fi
 
           docker build \

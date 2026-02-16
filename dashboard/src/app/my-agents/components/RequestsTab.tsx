@@ -48,7 +48,7 @@ export function RequestsTab({ agents, walletDaily }: RequestsTabProps) {
 
   // Chart data for agent ranking
   const requestChartData = rankedByRequests.map((agent, i) => ({
-    name: agent.token_id !== null && !agent.name.startsWith("Token #")
+    name: agent.token_id !== null && !agent.name.startsWith("Agent #")
       ? `${agent.name} #${agent.token_id}`
       : agent.name,
     value: agent.total_requests,
@@ -57,7 +57,7 @@ export function RequestsTab({ agents, walletDaily }: RequestsTabProps) {
   }));
 
   const customerChartData = rankedByCustomers.map((agent, i) => ({
-    name: agent.token_id !== null && !agent.name.startsWith("Token #")
+    name: agent.token_id !== null && !agent.name.startsWith("Agent #")
       ? `${agent.name} #${agent.token_id}`
       : agent.name,
     value: agent.total_customers,
@@ -255,7 +255,7 @@ export function RequestsTab({ agents, walletDaily }: RequestsTabProps) {
                     <span className="font-medium text-gray-100">
                       {agent.name}
                     </span>
-                    {agent.token_id !== null && !agent.name.startsWith("Token #") && (
+                    {agent.token_id !== null && !agent.name.startsWith("Agent #") && (
                       <span className="text-zinc-500 ml-1.5">
                         #{agent.token_id}
                       </span>

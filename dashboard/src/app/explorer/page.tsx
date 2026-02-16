@@ -322,7 +322,7 @@ function ExplorerContent() {
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
                             <span className="font-medium text-[#ededed]">
-                              {agent.name || `Token #${agent.token_id}`}
+                              {agent.name || `Agent #${agent.token_id}`}
                             </span>
                             {agent.name && (
                               <span className="text-zinc-600 text-xs">

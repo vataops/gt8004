@@ -202,7 +202,7 @@ function MyAgentsContent() {
 
         // Extract name from on-chain agentURI, fallback to platform agent name
         const uriName = parseAgentURIName(token.agent_uri);
-        const name = uriName || platformAgent?.name || `Token #${token.token_id}`;
+        const name = uriName || platformAgent?.name || `Agent #${token.token_id}`;
         const imageUrl = parseAgentURIImage(token.agent_uri);
 
         rows.push({
@@ -315,7 +315,7 @@ function MyAgentsContent() {
   const chartAgents = agents.map((a, i) => ({
     key: `a${i}`,
     label:
-      a.token_id !== null && !a.name.startsWith("Token #")
+      a.token_id !== null && !a.name.startsWith("Agent #")
         ? `${a.name} #${a.token_id}`
         : a.name,
     requests: a.total_requests,
@@ -451,7 +451,7 @@ function MyAgentsContent() {
                               {agent.name}
                             </span>
                             {agent.token_id !== null &&
-                              !agent.name.startsWith("Token #") && (
+                              !agent.name.startsWith("Agent #") && (
                                 <span className="text-zinc-500 ml-1.5">
                                   #{agent.token_id}
                                 </span>
