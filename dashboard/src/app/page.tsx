@@ -114,7 +114,7 @@ export default function LandingPage() {
           {/* CTAs */}
           <div className="animate-fade-in-delay-2 mt-10 flex flex-col sm:flex-row items-start sm:items-center gap-4">
             <Link
-              href="/my-agents"
+              href="/dashboard"
               className="group inline-flex items-center gap-2 px-8 py-3.5 bg-[#00FFE0] text-black font-semibold rounded-lg hover:shadow-[0_0_30px_rgba(0,255,224,0.35)] transition-shadow text-sm"
             >
               Go to Dashboard
@@ -307,7 +307,7 @@ export default function LandingPage() {
           </p>
           <div className="mt-10 flex items-center justify-center gap-4">
             <Link
-              href="/my-agents"
+              href="/dashboard"
               className="group inline-flex items-center gap-2 px-8 py-3.5 bg-[#00FFE0] text-black font-semibold rounded-lg hover:shadow-[0_0_40px_rgba(0,255,224,0.3)] transition-shadow text-sm"
             >
               Go to Dashboard
@@ -394,7 +394,7 @@ function MockBar({ label, value, percent, color }: { label: string; value: strin
 
 function DashboardMock() {
   return (
-    <BrowserFrame url="gt8004.xyz/my-agents">
+    <BrowserFrame url="gt8004.xyz/dashboard">
       <div className="p-4 space-y-4">
         {/* Tab bar */}
         <div className="flex gap-1 border-b border-[#1a1a1a]">
@@ -508,7 +508,7 @@ function RequestsMock() {
   const areaPath = `${path} L${w},${h} L0,${h} Z`;
 
   return (
-    <BrowserFrame url="gt8004.xyz/my-agents#requests">
+    <BrowserFrame url="gt8004.xyz/dashboard#requests">
       <div className="p-4 space-y-3">
         {/* Line chart */}
         <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-3">
@@ -553,7 +553,7 @@ function RequestsMock() {
 
 function RevenueMock() {
   return (
-    <BrowserFrame url="gt8004.xyz/my-agents#revenue">
+    <BrowserFrame url="gt8004.xyz/dashboard#revenue">
       <div className="p-4 space-y-3">
         {/* Stat cards */}
         <div className="grid grid-cols-3 gap-2">
@@ -592,7 +592,7 @@ function HealthMock() {
   ];
 
   return (
-    <BrowserFrame url="gt8004.xyz/my-agents#observability">
+    <BrowserFrame url="gt8004.xyz/dashboard#observability">
       <div className="p-4 space-y-3">
         {/* Stat cards */}
         <div className="grid grid-cols-3 gap-2">

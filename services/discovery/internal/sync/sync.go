@@ -88,7 +88,9 @@ func (j *Job) Stop() {
 	close(j.stopCh)
 }
 
-// Sync discovers all tokens from all configured chains and upserts them.
+// Sync discovers new tokens from all configured chains and upserts them.
+// Uses incremental scanning: only scans blocks after the last synced block.
+// Falls back to full scan on the first run (no sync state).
 func (j *Job) Sync() {
 	for chainID, client := range j.registry.Clients() {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
@@ -98,12 +100,68 @@ func (j *Job) Sync() {
 }
 
 func (j *Job) syncChain(ctx context.Context, chainID int, client *erc8004.Client) {
-	tokens, err := client.DiscoverAllTokens(ctx)
+	lastBlock, err := j.store.GetLastSyncedBlock(ctx, chainID)
 	if err != nil {
-		j.logger.Error("failed to discover tokens",
+		j.logger.Error("failed to get last synced block",
 			zap.Int("chain_id", chainID),
 			zap.Error(err),
 		)
+		return
+	}
+
+	var tokens []erc8004.DiscoveredToken
+	var scannedTo uint64
+
+	if lastBlock == 0 {
+		// First sync: full scan
+		j.logger.Info("first sync, performing full scan", zap.Int("chain_id", chainID))
+		tokens, err = client.DiscoverAllTokens(ctx)
+		if err != nil {
+			j.logger.Error("failed to discover tokens",
+				zap.Int("chain_id", chainID),
+				zap.Error(err),
+			)
+			return
+		}
+		scannedTo, err = client.CurrentBlock(ctx)
+		if err != nil {
+			j.logger.Error("failed to get current block", zap.Int("chain_id", chainID), zap.Error(err))
+			return
+		}
+	} else {
+		// Incremental sync: only scan new blocks
+		tokens, scannedTo, err = client.DiscoverNewTokens(ctx, lastBlock+1)
+		if err != nil {
+			j.logger.Error("failed to discover new tokens",
+				zap.Int("chain_id", chainID),
+				zap.Uint64("from_block", lastBlock+1),
+				zap.Error(err),
+			)
+			return
+		}
+		j.logger.Info("incremental scan complete",
+			zap.Int("chain_id", chainID),
+			zap.Uint64("from_block", lastBlock+1),
+			zap.Uint64("to_block", scannedTo),
+			zap.Int("new_tokens", len(tokens)),
+		)
+	}
+
+	j.upsertTokens(ctx, chainID, tokens)
+
+	// Update sync state
+	if err := j.store.SetLastSyncedBlock(ctx, chainID, scannedTo); err != nil {
+		j.logger.Error("failed to update sync state",
+			zap.Int("chain_id", chainID),
+			zap.Uint64("block", scannedTo),
+			zap.Error(err),
+		)
+	}
+}
+
+// upsertTokens converts discovered tokens to network agents, fetches metadata, and upserts them.
+func (j *Job) upsertTokens(ctx context.Context, chainID int, tokens []erc8004.DiscoveredToken) {
+	if len(tokens) == 0 {
 		return
 	}
 

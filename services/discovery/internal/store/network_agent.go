@@ -213,6 +213,30 @@ func (s *Store) GetNetworkAgentStats(ctx context.Context, chainIDs []int) (*Netw
 	return stats, nil
 }
 
+// GetLastSyncedBlock returns the last scanned block for the given chain.
+// Returns 0 if no state exists yet.
+func (s *Store) GetLastSyncedBlock(ctx context.Context, chainID int) (uint64, error) {
+	var block int64
+	err := s.pool.QueryRow(ctx, `SELECT last_block FROM sync_state WHERE chain_id = $1`, chainID).Scan(&block)
+	if err != nil {
+		return 0, nil // no row = first sync
+	}
+	return uint64(block), nil
+}
+
+// SetLastSyncedBlock updates the last scanned block for the given chain.
+func (s *Store) SetLastSyncedBlock(ctx context.Context, chainID int, block uint64) error {
+	_, err := s.pool.Exec(ctx, `
+		INSERT INTO sync_state (chain_id, last_block, updated_at)
+		VALUES ($1, $2, NOW())
+		ON CONFLICT (chain_id) DO UPDATE SET last_block = $2, updated_at = NOW()
+	`, chainID, int64(block))
+	if err != nil {
+		return fmt.Errorf("set last synced block: %w", err)
+	}
+	return nil
+}
+
 // InsertNetworkAgentHistory records a change in the network_agent_history table.
 func (s *Store) InsertNetworkAgentHistory(ctx context.Context, chainID int, tokenID int64, changeType string, oldValue, newValue json.RawMessage) error {
 	_, err := s.pool.Exec(ctx, `

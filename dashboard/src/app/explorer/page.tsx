@@ -258,25 +258,23 @@ function ExplorerContent() {
               </button>
             );
           })}
-          {registeredCount > 0 && (
-            <button
-              onClick={handlePlatformToggle}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                platformOnly
-                  ? "bg-[#00FFE0] text-black"
-                  : "bg-[#141414] text-zinc-400 hover:bg-[#1a1a1a] hover:text-zinc-200"
+          <button
+            onClick={handlePlatformToggle}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              platformOnly
+                ? "bg-[#00FFE0] text-black"
+                : "bg-[#141414] text-zinc-400 hover:bg-[#1a1a1a] hover:text-zinc-200"
+            }`}
+          >
+            GT8004
+            <span
+              className={`ml-1.5 text-xs ${
+                platformOnly ? "text-black/70" : "text-zinc-500"
               }`}
             >
-              GT8004
-              <span
-                className={`ml-1.5 text-xs ${
-                  platformOnly ? "text-black/70" : "text-zinc-500"
-                }`}
-              >
-                {registeredCount}
-              </span>
-            </button>
-          )}
+              {registeredCount}
+            </span>
+          </button>
           {walletAddress && (
             <button
               onClick={handleMineToggle}

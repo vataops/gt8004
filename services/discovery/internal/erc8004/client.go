@@ -163,6 +163,50 @@ type DiscoveredToken struct {
 	CreatedTx      string    `json:"created_tx"`
 }
 
+// CurrentBlock returns the latest block number from the chain.
+func (c *Client) CurrentBlock(ctx context.Context) (uint64, error) {
+	if c.ethClient == nil {
+		return 0, fmt.Errorf("ethclient not initialised")
+	}
+	return c.ethClient.BlockNumber(ctx)
+}
+
+// scanMintLogs scans mint events from startBlock to endBlock using chunked queries.
+func (c *Client) scanMintLogs(ctx context.Context, startBlock, endBlock uint64) ([]MintEvent, error) {
+	// Try full-range query first
+	fromBig := new(big.Int).SetUint64(startBlock)
+	toBig := new(big.Int).SetUint64(endBlock)
+	candidates, err := c.filterMintLogs(ctx, fromBig, toBig)
+	if err == nil {
+		return candidates, nil
+	}
+
+	// Fall back to chunked scan
+	c.logger.Info("full-range query failed, chunking", zap.Uint64("from", startBlock), zap.Uint64("to", endBlock), zap.Error(err))
+	const chunkSize uint64 = 49999
+	candidates = nil
+	seen := make(map[int64]bool)
+	for from := startBlock; from <= endBlock; from += chunkSize {
+		end := from + chunkSize - 1
+		if end > endBlock {
+			end = endBlock
+		}
+		events, chunkErr := c.filterMintLogs(ctx, new(big.Int).SetUint64(from), new(big.Int).SetUint64(end))
+		if chunkErr != nil {
+			c.logger.Warn("chunk mint scan failed, skipping",
+				zap.Uint64("from", from), zap.Uint64("to", end), zap.Error(chunkErr))
+			continue
+		}
+		for _, ev := range events {
+			if !seen[ev.TokenID] {
+				seen[ev.TokenID] = true
+				candidates = append(candidates, ev)
+			}
+		}
+	}
+	return candidates, nil
+}
+
 // DiscoverAllTokens scans mint events (Transfer from zero address) to find
 // all tokens ever minted, then verifies current ownership and fetches agentURI.
 func (c *Client) DiscoverAllTokens(ctx context.Context) ([]DiscoveredToken, error) {
@@ -170,45 +214,56 @@ func (c *Client) DiscoverAllTokens(ctx context.Context) ([]DiscoveredToken, erro
 		return nil, fmt.Errorf("ethclient not initialised")
 	}
 
-	candidates, err := c.filterMintLogs(ctx, nil, nil)
+	currentBlock, err := c.ethClient.BlockNumber(ctx)
 	if err != nil {
-		c.logger.Info("full-range mint log query failed, falling back to chunked scan", zap.Error(err))
-		currentBlock, blockErr := c.ethClient.BlockNumber(ctx)
-		if blockErr != nil {
-			return nil, fmt.Errorf("failed to get block number: %w", blockErr)
-		}
-
-		const chunkSize uint64 = 49999
-		var startBlock uint64
-		if currentBlock > 20000000 {
-			startBlock = currentBlock - 20000000
-		}
-
-		candidates = nil
-		seen := make(map[int64]bool)
-		for from := startBlock; from <= currentBlock; from += chunkSize {
-			end := from + chunkSize - 1
-			if end > currentBlock {
-				end = currentBlock
-			}
-			fromBig := new(big.Int).SetUint64(from)
-			endBig := new(big.Int).SetUint64(end)
-			events, chunkErr := c.filterMintLogs(ctx, fromBig, endBig)
-			if chunkErr != nil {
-				c.logger.Warn("chunk mint scan failed, skipping",
-					zap.Uint64("from", from), zap.Uint64("to", end), zap.Error(chunkErr))
-				continue
-			}
-			for _, ev := range events {
-				if !seen[ev.TokenID] {
-					seen[ev.TokenID] = true
-					candidates = append(candidates, ev)
-				}
-			}
-		}
+		return nil, fmt.Errorf("failed to get block number: %w", err)
 	}
 
-	// Fetch block timestamps for mint blocks
+	var startBlock uint64
+	if currentBlock > 20000000 {
+		startBlock = currentBlock - 20000000
+	}
+
+	candidates, err := c.scanMintLogs(ctx, startBlock, currentBlock)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.resolveTokens(ctx, candidates), nil
+}
+
+// DiscoverNewTokens scans only new mint events from fromBlock to the current block.
+// Much faster than DiscoverAllTokens for incremental updates.
+func (c *Client) DiscoverNewTokens(ctx context.Context, fromBlock uint64) ([]DiscoveredToken, uint64, error) {
+	if c.ethClient == nil {
+		return nil, 0, fmt.Errorf("ethclient not initialised")
+	}
+
+	currentBlock, err := c.ethClient.BlockNumber(ctx)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get block number: %w", err)
+	}
+
+	if fromBlock >= currentBlock {
+		return nil, currentBlock, nil
+	}
+
+	candidates, err := c.scanMintLogs(ctx, fromBlock, currentBlock)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if len(candidates) == 0 {
+		return nil, currentBlock, nil
+	}
+
+	tokens := c.resolveTokens(ctx, candidates)
+	return tokens, currentBlock, nil
+}
+
+// resolveTokens verifies ownership and fetches agentURI for mint events.
+func (c *Client) resolveTokens(ctx context.Context, candidates []MintEvent) []DiscoveredToken {
+	// Fetch block timestamps
 	blockNums := make(map[uint64]bool)
 	mintBlocks := make(map[int64]uint64)
 	mintCreators := make(map[int64]string)
@@ -235,7 +290,6 @@ func (c *Client) DiscoverAllTokens(ctx context.Context) ([]DiscoveredToken, erro
 			defer func() { <-headerSem }()
 			header, err := c.ethClient.HeaderByNumber(headerCtx, new(big.Int).SetUint64(blockNum))
 			if err != nil {
-				c.logger.Warn("failed to fetch block header", zap.Uint64("block", blockNum), zap.Error(err))
 				return
 			}
 			headerMu.Lock()
@@ -245,7 +299,7 @@ func (c *Client) DiscoverAllTokens(ctx context.Context) ([]DiscoveredToken, erro
 	}
 	headerWg.Wait()
 
-	// Verify current owner and get agentURI (20 concurrent workers)
+	// Verify current owner and get agentURI
 	verifyCtx, verifyCancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer verifyCancel()
 
@@ -278,7 +332,7 @@ func (c *Client) DiscoverAllTokens(ctx context.Context) ([]DiscoveredToken, erro
 	}
 	verifyWg.Wait()
 
-	return tokens, nil
+	return tokens
 }
 
 // filterMintLogs queries Transfer event logs from the zero address (mints).

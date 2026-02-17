@@ -36,7 +36,7 @@ export default function LoginPage() {
   // Redirect if already connected
   useEffect(() => {
     if (!authLoading && (agent || storedWallet)) {
-      router.replace("/my-agents");
+      router.replace("/dashboard");
     }
   }, [authLoading, agent, storedWallet, router]);
 
@@ -128,7 +128,7 @@ export default function LoginPage() {
       }
 
       // 4. Always redirect to My Agents after wallet verification
-      router.push("/my-agents");
+      router.push("/dashboard");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Wallet login failed");
     } finally {
@@ -143,7 +143,7 @@ export default function LoginPage() {
 
     try {
       await login(key.trim());
-      router.push("/my-agents");
+      router.push("/dashboard");
     } catch {
       setKeyError("Invalid API key. Please check and try again.");
     } finally {

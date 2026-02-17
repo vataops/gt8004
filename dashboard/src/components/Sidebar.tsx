@@ -32,7 +32,7 @@ export function Navbar() {
             ))}
             {isConnected && (
               <Link
-                href="/my-agents"
+                href="/dashboard"
                 className="px-3 py-1.5 rounded-md text-sm text-zinc-400 hover:text-[#00FFE0] transition-colors"
               >
                 Dashboard

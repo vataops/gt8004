@@ -192,7 +192,7 @@ export default function AgentDashboardPage() {
         <div>
           <div className="flex items-center gap-3">
             <Link
-              href="/my-agents"
+              href="/dashboard"
               className="text-zinc-500 hover:text-zinc-300 transition-colors"
             >
               <svg
@@ -353,7 +353,7 @@ function DeregisterSection({
         await openApi.deregisterAgent(agentId, apiKey!);
       }
 
-      window.location.href = "/my-agents";
+      window.location.href = "/dashboard";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to deregister");
       setLoading(false);
