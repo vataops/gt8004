@@ -48,3 +48,14 @@ output "dns_records_ingest" {
   description = "ingest.gt8004.xyz DNS records for Route 53"
   value       = google_cloud_run_domain_mapping.ingest.status[0].resource_records
 }
+
+output "database_url" {
+  description = "Cloud SQL connection string"
+  value       = local.database_url
+  sensitive   = true
+}
+
+output "database_private_ip" {
+  description = "Cloud SQL private IP"
+  value       = google_sql_database_instance.main.private_ip_address
+}

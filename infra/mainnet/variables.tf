@@ -10,8 +10,8 @@ variable "region" {
 }
 
 # ── Database & Network ─────────────────────────────────
-variable "database_url" {
-  description = "Cloud SQL connection string"
+variable "db_password" {
+  description = "Cloud SQL database password"
   type        = string
   sensitive   = true
 }
