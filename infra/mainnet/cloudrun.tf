@@ -145,6 +145,10 @@ resource "google_cloud_run_v2_service" "analytics" {
         name  = "DATABASE_URL"
         value = var.database_url
       }
+      env {
+        name  = "NETWORK_MODE"
+        value = "mainnet"
+      }
     }
   }
 

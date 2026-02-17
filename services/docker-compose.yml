@@ -90,6 +90,7 @@ services:
       DATABASE_URL: postgres://gt8004:gt8004@postgres:5432/gt8004?sslmode=disable
       REDIS_URL: redis://redis:6379/1
       GEOIP_DB_PATH: /data/GeoLite2-City.mmdb
+      NETWORK_MODE: ${NETWORK_MODE:-testnet}
     volumes:
       - ./data/geoip:/data:ro
     depends_on:

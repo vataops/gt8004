@@ -825,7 +825,7 @@ function OverviewTab({ agent, networkAgent, id }: OverviewTabProps) {
   const description = meta?.description ?? networkAgent?.description;
   const metaServices: AgentService[] = useMemo(() => {
     const list = (meta?.services ?? meta?.endpoints ?? [])
-      .filter((s: AgentService) => s.name !== "OASF");
+      .filter((s: AgentService) => s.name?.toUpperCase() !== "OASF");
     // If no services array but metadata has a url, derive a service entry from it
     if (list.length === 0 && meta?.url) {
       const url = meta.url as string;
@@ -838,7 +838,7 @@ function OverviewTab({ agent, networkAgent, id }: OverviewTabProps) {
   // Build service list from on-chain metadata only
   const services: AgentService[] = useMemo(() => {
     return metaServices.filter((s) => {
-      const endpoint = s.endpoint.toLowerCase();
+      const endpoint = (s.endpoint || "").toLowerCase();
       return !endpoint.includes('/gateway/') && !endpoint.includes('/v1/agents/');
     });
   }, [metaServices]);

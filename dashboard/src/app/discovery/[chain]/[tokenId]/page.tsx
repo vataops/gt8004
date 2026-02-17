@@ -83,7 +83,7 @@ export default function AgentDetailPage() {
     );
   }
 
-  const services = (agent?.metadata?.services ?? agent?.metadata?.endpoints ?? []).filter((s: AgentService) => s.name !== "OASF");
+  const services = (agent?.metadata?.services ?? agent?.metadata?.endpoints ?? []).filter((s: AgentService) => s.name?.toUpperCase() !== "OASF");
   const trusts = agent?.metadata?.supportedTrust || agent?.metadata?.supportedTrusts || [];
   const hasX402 = !!(agent?.metadata?.x402Support || agent?.metadata?.x402support);
   const avgScore = reputation?.score ?? 0;

@@ -1,3 +1,4 @@
+import json
 import logging
 import uuid
 from contextlib import asynccontextmanager
@@ -6,6 +7,8 @@ import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastmcp import FastMCP
+from starlette.responses import JSONResponse
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from shared.config import settings
 
@@ -13,8 +16,159 @@ _mcp_logger = None
 _http_client: httpx.AsyncClient | None = None
 
 
+# ── x402 Payment Middleware for MCP (JSON-RPC) ──
+
+
+class MCPPaymentMiddleware:
+    """ASGI middleware that enforces x402 payment on MCP tools/call requests.
+
+    MCP uses JSON-RPC over HTTP, so fastapi-x402's @pay() decorator can't be
+    used directly. This middleware intercepts POST /mcp requests, parses the
+    JSON-RPC body, and only requires payment for tools/call method.
+    """
+
+    def __init__(self, app: ASGIApp, pay_to: str, network: str, price: str):
+        self.app = app
+        self.pay_to = pay_to
+        self.network = network
+        self.atomic_amount = str(int(float(price) * 1_000_000))  # USDC 6 decimals
+
+        from fastapi_x402 import get_default_asset_config
+        asset = get_default_asset_config(network)
+        self.asset_address = asset.address
+        self.asset_extra = {"name": asset.eip712_name, "version": asset.eip712_version}
+
+        from fastapi_x402.facilitator import UnifiedFacilitatorClient
+        self.facilitator = UnifiedFacilitatorClient("https://x402.org/facilitator")
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        if scope["type"] != "http" or scope.get("method") != "POST":
+            return await self.app(scope, receive, send)
+
+        path = scope.get("path", "")
+        if not path.startswith("/mcp"):
+            return await self.app(scope, receive, send)
+
+        # Read full request body
+        body = b""
+        while True:
+            msg = await receive()
+            body += msg.get("body", b"")
+            if not msg.get("more_body", False):
+                break
+
+        # Parse JSON-RPC
+        try:
+            data = json.loads(body)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return await self._pass_through(scope, body, send)
+
+        # Only require payment for tools/call
+        if data.get("method") != "tools/call":
+            return await self._pass_through(scope, body, send)
+
+        # Check X-PAYMENT header
+        payment_header = None
+        for key, value in scope.get("headers", []):
+            if key == b"x-payment":
+                payment_header = value.decode()
+                break
+
+        if not payment_header:
+            return await self._return_402(scope, send)
+
+        # Build payment requirements
+        from fastapi_x402.models import PaymentRequirements
+        host = self._get_host(scope)
+        requirements = PaymentRequirements(
+            scheme="exact",
+            network=self.network,
+            maxAmountRequired=self.atomic_amount,
+            resource=f"https://{host}{path}",
+            payTo=self.pay_to,
+            maxTimeoutSeconds=300,
+            asset=self.asset_address,
+            extra=self.asset_extra,
+        )
+
+        # Verify payment with facilitator
+        verify_result = await self.facilitator.verify_payment(payment_header, requirements)
+        if not verify_result.isValid:
+            return await self._return_402(scope, send, error=verify_result.error)
+
+        # Buffer downstream response to check status before settling
+        response_parts: list[dict] = []
+
+        async def buffer_send(message: dict):
+            response_parts.append(message)
+
+        await self._pass_through(scope, body, buffer_send)
+
+        # Settle payment if response was successful
+        status = 200
+        for part in response_parts:
+            if part["type"] == "http.response.start":
+                status = part.get("status", 200)
+
+        if status < 400:
+            try:
+                await self.facilitator.settle_payment(payment_header, requirements)
+            except Exception as e:
+                logging.warning(f"x402 settlement failed: {e}")
+
+        # Send buffered response to client
+        for part in response_parts:
+            await send(part)
+
+    async def _pass_through(self, scope: Scope, body: bytes, send: Send):
+        """Forward request to downstream app with replayed body."""
+        body_sent = False
+
+        async def replay_receive():
+            nonlocal body_sent
+            if not body_sent:
+                body_sent = True
+                return {"type": "http.request", "body": body}
+            return {"type": "http.request", "body": b""}
+
+        await self.app(scope, replay_receive, send)
+
+    async def _return_402(self, scope: Scope, send: Send, error: str | None = None):
+        """Return HTTP 402 Payment Required with x402 payment requirements."""
+        host = self._get_host(scope)
+        path = scope.get("path", "")
+        content = {
+            "x402Version": 1,
+            "error": error or "X-PAYMENT header is required",
+            "accepts": [{
+                "scheme": "exact",
+                "network": self.network,
+                "maxAmountRequired": self.atomic_amount,
+                "resource": f"https://{host}{path}",
+                "description": "",
+                "mimeType": "",
+                "payTo": self.pay_to,
+                "maxTimeoutSeconds": 300,
+                "asset": self.asset_address,
+                "extra": self.asset_extra,
+            }],
+        }
+        response = JSONResponse(status_code=402, content=content)
+        await response(scope, lambda: {"type": "http.request", "body": b""}, send)
+
+    @staticmethod
+    def _get_host(scope: Scope) -> str:
+        for key, value in scope.get("headers", []):
+            if key == b"host":
+                return value.decode()
+        return "localhost"
+
+
+# ── A2A Internal Proxy ──
+
+
 async def _call_a2a(text: str, skill_id: str | None = None) -> str:
-    """Send a task to the A2A server and return the result text."""
+    """Send a task to the A2A server via internal bypass (no x402)."""
     if not settings.a2a_base_url:
         return "Error: A2A_BASE_URL is not configured."
 
@@ -30,7 +184,8 @@ async def _call_a2a(text: str, skill_id: str | None = None) -> str:
 
     assert _http_client is not None
     resp = await _http_client.post(
-        f"{settings.a2a_base_url}/a2a/tasks/send",
+        f"{settings.a2a_base_url}/internal/tasks/send",
+        headers={"X-Internal-Key": settings.internal_api_key},
         json=payload,
         timeout=60.0,
     )
@@ -73,7 +228,7 @@ async def about() -> str:
         "- analyze(stablecoin): In-depth analysis of a specific stablecoin\n"
         "- compare(coins): Side-by-side comparison of multiple stablecoins\n"
         "- risk(stablecoin): Risk assessment\n\n"
-        "Payment: x402 protocol, 0.00001 ETH per request"
+        "Payment: x402 protocol, $0.01 USDC on Base per tool call"
     )
 
 
@@ -129,6 +284,8 @@ async def lifespan(app: FastAPI):
             ok = await _mcp_logger.verify_connection()
             logging.info(f"GT8004 MCP SDK: {'verified' if ok else 'failed'}")
         logging.info(f"A2A backend: {settings.a2a_base_url or '(not configured)'}")
+        if settings.x402_pay_to:
+            logging.info(f"x402 payment enabled: ${settings.x402_price} USDC to {settings.x402_pay_to}")
         yield
         if _mcp_logger:
             await _mcp_logger.close()
@@ -149,9 +306,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/mcp", mcp_app)
-
-
 @app.get("/health")
 async def health():
     return {
@@ -160,6 +314,17 @@ async def health():
         "protocol": "mcp",
         "a2a_backend": settings.a2a_base_url or None,
     }
+
+app.mount("/mcp", mcp_app)
+
+# Wrap the entire ASGI app with x402 payment middleware
+if settings.x402_pay_to:
+    app = MCPPaymentMiddleware(
+        app,
+        pay_to=settings.x402_pay_to,
+        network=settings.x402_network,
+        price=settings.x402_price,
+    )
 
 
 if __name__ == "__main__":
