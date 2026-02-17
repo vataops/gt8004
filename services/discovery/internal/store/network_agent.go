@@ -250,6 +250,15 @@ func (s *Store) SetLastSyncedBlock(ctx context.Context, chainID int, block uint6
 	return nil
 }
 
+// ResetSyncState deletes the sync state for a chain, forcing a full rescan on next sync.
+func (s *Store) ResetSyncState(ctx context.Context, chainID int) error {
+	_, err := s.pool.Exec(ctx, `DELETE FROM sync_state WHERE chain_id = $1`, chainID)
+	if err != nil {
+		return fmt.Errorf("reset sync state: %w", err)
+	}
+	return nil
+}
+
 // UpdateNetworkAgentReputation updates the reputation score and count for a network agent.
 func (s *Store) UpdateNetworkAgentReputation(ctx context.Context, chainID int, tokenID int64, score float64, count int) error {
 	_, err := s.pool.Exec(ctx, `

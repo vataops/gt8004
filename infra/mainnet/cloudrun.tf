@@ -1,5 +1,6 @@
 locals {
   registry_path = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.main.repository_id}"
+  database_url  = "postgres://gt8004:${var.db_password}@${google_sql_database_instance.main.private_ip_address}:5432/gt8004?sslmode=disable"
 }
 
 # ── Registry ──────────────────────────────────────────
@@ -59,7 +60,7 @@ resource "google_cloud_run_v2_service" "registry" {
       }
       env {
         name  = "DATABASE_URL"
-        value = var.database_url
+        value = local.database_url
       }
       env {
         name  = "NETWORK_MODE"
@@ -143,7 +144,7 @@ resource "google_cloud_run_v2_service" "analytics" {
       }
       env {
         name  = "DATABASE_URL"
-        value = var.database_url
+        value = local.database_url
       }
       env {
         name  = "NETWORK_MODE"
@@ -215,7 +216,7 @@ resource "google_cloud_run_v2_service" "discovery" {
       }
       env {
         name  = "DATABASE_URL"
-        value = var.database_url
+        value = local.database_url
       }
       env {
         name  = "NETWORK_MODE"
@@ -224,6 +225,10 @@ resource "google_cloud_run_v2_service" "discovery" {
       env {
         name  = "SCAN_SYNC_INTERVAL"
         value = tostring(var.scan_sync_interval)
+      }
+      env {
+        name  = "RESCAN_CHAINS"
+        value = "8453"
       }
     }
   }
@@ -287,7 +292,7 @@ resource "google_cloud_run_v2_service" "ingest" {
       }
       env {
         name  = "DATABASE_URL"
-        value = var.database_url
+        value = local.database_url
       }
       env {
         name  = "INGEST_WORKERS"

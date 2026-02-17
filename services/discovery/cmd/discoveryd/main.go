@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -54,6 +56,21 @@ func main() {
 		}
 	}
 	erc8004Registry := erc8004.NewRegistry(networkConfigs, logger)
+
+	// Reset sync state for specific chains if requested (one-time rescan trigger).
+	if raw := os.Getenv("RESCAN_CHAINS"); raw != "" {
+		rescanCtx, rescanCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		for _, s := range strings.Split(raw, ",") {
+			if chainID, err := strconv.Atoi(strings.TrimSpace(s)); err == nil {
+				if err := db.ResetSyncState(rescanCtx, chainID); err != nil {
+					logger.Error("failed to reset sync state", zap.Int("chain_id", chainID), zap.Error(err))
+				} else {
+					logger.Info("reset sync state for rescan", zap.Int("chain_id", chainID))
+				}
+			}
+		}
+		rescanCancel()
+	}
 
 	// Network agent sync job
 	syncJob := netsync.NewJob(db, erc8004Registry, logger, time.Duration(cfg.ScanSyncInterval)*time.Second)
