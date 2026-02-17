@@ -151,9 +151,10 @@ func (h *Handler) AgentOriginHealth(c *gin.Context) {
 	}
 }
 
-// checkMCPSSE tries standard MCP SSE paths and returns true if any responds
-// with 200 + text/event-stream (i.e. the MCP server is alive).
+// checkMCPSSE checks if an MCP server is alive. It tries SSE paths first
+// (legacy MCP transport), then falls back to /health (Streamable HTTP transport).
 func checkMCPSSE(ctx context.Context, client *http.Client, base string) bool {
+	// 1. Try SSE transport paths.
 	for _, path := range []string{"/sse", "/mcp/sse"} {
 		req, err := http.NewRequestWithContext(ctx, "GET", base+path, nil)
 		if err != nil {
@@ -169,7 +170,18 @@ func checkMCPSSE(ctx context.Context, client *http.Client, base string) bool {
 			return true
 		}
 	}
-	return false
+
+	// 2. Fallback: /health endpoint (Streamable HTTP MCP servers).
+	req, err := http.NewRequestWithContext(ctx, "GET", base+"/health", nil)
+	if err != nil {
+		return false
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return false
+	}
+	resp.Body.Close()
+	return resp.StatusCode >= 200 && resp.StatusCode < 300
 }
 
 // hasMCP checks if "mcp" is in the protocols list.
