@@ -128,24 +128,10 @@ func (h *Handler) AgentOriginHealth(c *gin.Context) {
 
 	// MCP protocol: check SSE endpoint connectivity
 	if hasMCP(agent.Protocols) {
-		sseURL := base + "/mcp/sse"
-		req, err := http.NewRequestWithContext(c.Request.Context(), "GET", sseURL, nil)
-		if err != nil {
-			c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": agent.OriginEndpoint, "error": "endpoint unreachable"})
-			return
-		}
-		resp, err := client.Do(req)
-		if err != nil {
-			c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": agent.OriginEndpoint, "error": "endpoint unreachable"})
-			return
-		}
-		resp.Body.Close()
-
-		ct := resp.Header.Get("Content-Type")
-		if resp.StatusCode == http.StatusOK && strings.Contains(ct, "text/event-stream") {
+		if checkMCPSSE(c.Request.Context(), client, base) {
 			c.JSON(http.StatusOK, gin.H{"status": "healthy", "endpoint": agent.OriginEndpoint, "protocol": "mcp"})
 		} else {
-			c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": agent.OriginEndpoint, "http_status": resp.StatusCode})
+			c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": agent.OriginEndpoint, "error": "SSE endpoint unreachable"})
 		}
 		return
 	}
@@ -163,6 +149,27 @@ func (h *Handler) AgentOriginHealth(c *gin.Context) {
 	} else {
 		c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": agent.OriginEndpoint, "http_status": resp.StatusCode})
 	}
+}
+
+// checkMCPSSE tries standard MCP SSE paths and returns true if any responds
+// with 200 + text/event-stream (i.e. the MCP server is alive).
+func checkMCPSSE(ctx context.Context, client *http.Client, base string) bool {
+	for _, path := range []string{"/sse", "/mcp/sse"} {
+		req, err := http.NewRequestWithContext(ctx, "GET", base+path, nil)
+		if err != nil {
+			continue
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			continue
+		}
+		resp.Body.Close()
+		ct := resp.Header.Get("Content-Type")
+		if resp.StatusCode == http.StatusOK && strings.Contains(ct, "text/event-stream") {
+			return true
+		}
+	}
+	return false
 }
 
 // hasMCP checks if "mcp" is in the protocols list.
@@ -203,24 +210,10 @@ func (h *Handler) ServiceHealth(c *gin.Context) {
 
 	// MCP protocol: check SSE endpoint
 	if strings.EqualFold(protocol, "mcp") {
-		sseURL := base + "/mcp/sse"
-		req, err := http.NewRequestWithContext(c.Request.Context(), "GET", sseURL, nil)
-		if err != nil {
-			c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": endpoint, "error": "endpoint unreachable"})
-			return
-		}
-		resp, err := client.Do(req)
-		if err != nil {
-			c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": endpoint, "error": "endpoint unreachable"})
-			return
-		}
-		resp.Body.Close()
-
-		ct := resp.Header.Get("Content-Type")
-		if resp.StatusCode == http.StatusOK && strings.Contains(ct, "text/event-stream") {
+		if checkMCPSSE(c.Request.Context(), client, base) {
 			c.JSON(http.StatusOK, gin.H{"status": "healthy", "endpoint": endpoint, "protocol": "mcp"})
 		} else {
-			c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": endpoint, "http_status": resp.StatusCode})
+			c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": endpoint, "error": "SSE endpoint unreachable"})
 		}
 		return
 	}
