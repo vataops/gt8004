@@ -11,10 +11,12 @@ function usePolling<T>(fetchFn: () => Promise<T>, intervalMs: number) {
   const [error, setError] = useState<Error | null>(null);
   const [loading, setLoading] = useState(true);
   const retryRef = useRef(0);
+  const fetchRef = useRef(fetchFn);
+  fetchRef.current = fetchFn;
 
   const refresh = useCallback(async () => {
     try {
-      const result = await fetchFn();
+      const result = await fetchRef.current();
       setData(result);
       setError(null);
       retryRef.current = 0;
@@ -28,7 +30,7 @@ function usePolling<T>(fetchFn: () => Promise<T>, intervalMs: number) {
     } finally {
       setLoading(false);
     }
-  }, [fetchFn]);
+  }, []);
 
   useEffect(() => {
     retryRef.current = 0;
