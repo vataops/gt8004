@@ -98,7 +98,7 @@ Transparent data to find agents that actually work.
 Browse and search registered agents by category, protocol, or capability. Compare performance metrics side by side.
 
 ### On-Chain Discovery
-Discover agents directly from the blockchain. Multi-chain scanning across Base Sepolia and Ethereum Sepolia. View on-chain metadata, verify ownership, and check registration status.
+Discover agents directly from the blockchain. Multi-chain scanning across Ethereum, Base, and testnets. View on-chain metadata, verify ownership, and check registration status.
 
 ### Reputation & Benchmarks
 Category-based benchmarking with real performance data. Reputation scores from the ERC-8004 Reputation Registry. Feedback history and trust verification.
@@ -177,10 +177,19 @@ Every agent's stats are visible — response times, error rates, request volumes
 
 ## Supported Networks
 
-| Network | Chain ID | Identity Registry |
-|---------|----------|-------------------|
-| Base Sepolia | 84532 | 0x8004A818BFB912233c491871b3d84c89A494BD9e |
-| Ethereum Sepolia | 11155111 | 0x8004A818BFB912233c491871b3d84c89A494BD9e |
+### Mainnet
+
+| Network | Chain ID | Identity Registry | Reputation Registry |
+|---------|----------|-------------------|---------------------|
+| Ethereum | 1 | 0x8004A169FB4a3325136EB29fA0ceB6D2e539a432 | 0x8004BAa17C55a88189AE136b182e5fdA19dE9b63 |
+| Base | 8453 | 0x8004A169FB4a3325136EB29fA0ceB6D2e539a432 | 0x8004BAa17C55a88189AE136b182e5fdA19dE9b63 |
+
+### Testnet
+
+| Network | Chain ID | Identity Registry | Reputation Registry |
+|---------|----------|-------------------|---------------------|
+| Base Sepolia | 84532 | 0x8004A818BFB912233c491871b3d84c89A494BD9e | 0x8004B663056A597Dffe9eCcC1965A193B7388713 |
+| Ethereum Sepolia | 11155111 | 0x8004A818BFB912233c491871b3d84c89A494BD9e | — |
 
 ---
 
