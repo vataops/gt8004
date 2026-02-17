@@ -38,7 +38,11 @@ function usePolling<T>(fetchFn: () => Promise<T>, intervalMs: number) {
     refresh();
     const id = setInterval(refresh, intervalMs);
     return () => clearInterval(id);
-  }, [refresh, intervalMs, fetchFn]);
+    // fetchFn is tracked via fetchRef so it must NOT be in the dep array;
+    // including it causes infinite effect re-runs when callers pass unstable
+    // references (e.g. arrays like chainIds).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refresh, intervalMs]);
 
   return { data, error, loading, refresh };
 }
