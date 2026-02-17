@@ -169,15 +169,12 @@ function MyAgentsContent() {
     }
 
     try {
-      // Fetch platform agents and on-chain tokens in parallel
-      const [platformResult, ...tokenResults] = await Promise.allSettled([
+      // Fetch platform agents and on-chain tokens in parallel.
+      // Use Discovery DB (getNetworkAgents) instead of on-chain RPC
+      // (listTokensByOwner) for fast loading.
+      const [platformResult, discoveryResult] = await Promise.allSettled([
         openApi.getWalletAgents(walletAddress),
-        ...NETWORK_LIST.map((n) =>
-          openApi.listTokensByOwner(walletAddress, n.chainId).then((r) => ({
-            network: n,
-            tokens: r.tokens || [],
-          }))
-        ),
+        openApi.getNetworkAgents({ owner: walletAddress, limit: 1000 }),
       ]);
 
       const allPlatformAgents: Agent[] =
@@ -187,24 +184,23 @@ function MyAgentsContent() {
 
       // Filter platform agents to current network's chain IDs only
       const validChainIds = new Set(NETWORK_LIST.map((n) => n.chainId));
+      const networksByChainId = Object.fromEntries(NETWORK_LIST.map((n) => [n.chainId, n]));
       const platformAgents = allPlatformAgents.filter(
         (a) => a.chain_id && validChainIds.has(a.chain_id)
       );
 
-      // Collect all on-chain tokens
-      const allTokens: { token_id: number; chain_id: number; network: typeof NETWORK_LIST[number]; agent_uri: string }[] = [];
-      const seenTokenIds = new Set<string>();
-
-      for (const result of tokenResults) {
-        if (result.status !== "fulfilled") continue;
-        const { network, tokens } = result.value;
-        for (const token of tokens) {
-          const key = `${network.chainId}-${token.token_id}`;
-          if (seenTokenIds.has(key)) continue;
-          seenTokenIds.add(key);
-          allTokens.push({ token_id: token.token_id, chain_id: network.chainId, network, agent_uri: token.agent_uri || "" });
-        }
-      }
+      // Collect all on-chain tokens from Discovery DB
+      const discoveryAgents = discoveryResult.status === "fulfilled"
+        ? (discoveryResult.value.agents || [])
+        : [];
+      const allTokens = discoveryAgents
+        .filter((a) => validChainIds.has(a.chain_id))
+        .map((a) => ({
+          token_id: a.token_id,
+          chain_id: a.chain_id,
+          network: networksByChainId[a.chain_id],
+          agent_uri: a.agent_uri || "",
+        }));
 
       // Build agent rows from on-chain tokens + platform data
       const rows: AgentRow[] = [];
