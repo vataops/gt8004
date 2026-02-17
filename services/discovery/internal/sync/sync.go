@@ -293,7 +293,8 @@ func (j *Job) upsertTokens(ctx context.Context, chainID int, tokens []erc8004.Di
 	}
 
 	// Upsert all agents with fresh DB context and change tracking.
-	dbCtx, dbCancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	// 30 minutes to handle 25k+ individual upserts on first full scan.
+	dbCtx, dbCancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer dbCancel()
 
 	upserted := 0
