@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -50,13 +49,7 @@ func (h *Handler) AgentOriginHealth(c *gin.Context) {
 		return
 	}
 
-	ep := strings.TrimRight(agent.OriginEndpoint, "/")
-	var healthURL string
-	if strings.HasSuffix(ep, "/.well-known/agent.json") {
-		healthURL = ep
-	} else {
-		healthURL = fmt.Sprintf("%s/.well-known/agent.json", ep)
-	}
+	healthURL := strings.TrimRight(agent.OriginEndpoint, "/")
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Get(healthURL)

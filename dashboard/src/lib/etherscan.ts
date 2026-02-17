@@ -4,6 +4,8 @@ import { NETWORKS } from "./networks";
 // ── Chain → Etherscan API base URL ──
 
 const ETHERSCAN_API_BASES: Record<number, string> = {
+  1: "https://api.etherscan.io/api",
+  8453: "https://api.basescan.org/api",
   84532: "https://api-sepolia.basescan.org/api",
   11155111: "https://api-sepolia.etherscan.io/api",
 };

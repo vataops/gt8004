@@ -21,7 +21,8 @@ func init() {
 	switch os.Getenv("NETWORK_MODE") {
 	case "mainnet":
 		SupportedNetworks = map[int]NetworkConfig{
-			1: {ChainID: 1, RegistryAddr: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432", RegistryRPC: "https://ethereum-rpc.publicnode.com"},
+			1:    {ChainID: 1, RegistryAddr: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432", RegistryRPC: "https://ethereum-rpc.publicnode.com"},
+			8453: {ChainID: 8453, RegistryAddr: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432", RegistryRPC: "https://base-rpc.publicnode.com"},
 		}
 	default: // "testnet" or unset
 		SupportedNetworks = map[int]NetworkConfig{

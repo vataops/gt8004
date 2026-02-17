@@ -6,16 +6,8 @@ import { fetchOnChainActivity } from "./etherscan";
 
 type Auth = string | { walletAddress: string };
 
-function usePolling<T>(fetchFn: () => Promise<T>, intervalMs: number, cacheKey?: string) {
-  const [data, setData] = useState<T | null>(() => {
-    if (cacheKey && typeof window !== "undefined") {
-      try {
-        const cached = localStorage.getItem(`poll:${cacheKey}`);
-        return cached ? JSON.parse(cached) : null;
-      } catch { return null; }
-    }
-    return null;
-  });
+function usePolling<T>(fetchFn: () => Promise<T>, intervalMs: number) {
+  const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const [loading, setLoading] = useState(true);
   const retryRef = useRef(0);
@@ -28,9 +20,6 @@ function usePolling<T>(fetchFn: () => Promise<T>, intervalMs: number, cacheKey?:
       setData(result);
       setError(null);
       retryRef.current = 0;
-      if (cacheKey) {
-        try { localStorage.setItem(`poll:${cacheKey}`, JSON.stringify(result)); } catch {}
-      }
     } catch (e) {
       setError(e as Error);
       if (retryRef.current < 3) {
@@ -41,7 +30,7 @@ function usePolling<T>(fetchFn: () => Promise<T>, intervalMs: number, cacheKey?:
     } finally {
       setLoading(false);
     }
-  }, [cacheKey]);
+  }, []);
 
   useEffect(() => {
     retryRef.current = 0;

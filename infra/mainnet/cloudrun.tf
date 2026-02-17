@@ -160,7 +160,7 @@ resource "google_cloud_run_v2_service" "discovery" {
     service_account = google_service_account.runner.email
 
     scaling {
-      min_instance_count = 0
+      min_instance_count = 1
       max_instance_count = 2
     }
 
@@ -318,7 +318,7 @@ resource "google_cloud_run_v2_service" "apigateway" {
     service_account = google_service_account.runner.email
 
     scaling {
-      min_instance_count = 0
+      min_instance_count = 1
       max_instance_count = 2
     }
 

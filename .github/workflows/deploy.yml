@@ -141,4 +141,4 @@ jobs:
           else
             SITE="vataops-gt8004"
           fi
-          npx firebase-tools deploy --only "hosting:${SITE}" --project vataops
+          npx firebase-tools deploy --only "hosting:${SITE}" --project vataops --non-interactive

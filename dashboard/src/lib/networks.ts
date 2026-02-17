@@ -39,6 +39,15 @@ const MAINNET_NETWORKS: Record<string, NetworkConfig> = {
     reputationAddress: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63",
     blockExplorer: "https://etherscan.io",
   },
+  base: {
+    chainId: 8453,
+    name: "Base",
+    shortName: "Base",
+    rpcUrl: "https://base-rpc.publicnode.com",
+    contractAddress: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    reputationAddress: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63",
+    blockExplorer: "https://basescan.org",
+  },
 };
 
 const isMainnet = process.env.NEXT_PUBLIC_NETWORK_MODE === "mainnet";
