@@ -49,6 +49,7 @@ func main() {
 			ChainID:      nc.ChainID,
 			RegistryAddr: nc.RegistryAddr,
 			RegistryRPC:  nc.RegistryRPC,
+			DeployBlock:  nc.DeployBlock,
 		}
 	}
 	erc8004Registry := erc8004.NewRegistry(networkConfigs, logger)

@@ -18,6 +18,7 @@ import (
 // USDC contract addresses per chain.
 var usdcContracts = map[int]common.Address{
 	1:        common.HexToAddress("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"), // Ethereum Mainnet
+	8453:     common.HexToAddress("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"), // Base Mainnet
 	84532:    common.HexToAddress("0x036CbD53842c5426634e7929541eC2318f3dCF7e"), // Base Sepolia
 	11155111: common.HexToAddress("0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"), // Ethereum Sepolia
 }
@@ -25,6 +26,7 @@ var usdcContracts = map[int]common.Address{
 // RPC endpoints per chain.
 var chainRPCs = map[int]string{
 	1:        "https://ethereum-rpc.publicnode.com",
+	8453:     "https://base-rpc.publicnode.com",
 	84532:    "https://base-sepolia-rpc.publicnode.com",
 	11155111: "https://ethereum-sepolia-rpc.publicnode.com",
 }

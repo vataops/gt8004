@@ -20,6 +20,7 @@ type Client struct {
 	chainID      int
 	registryAddr string
 	registryRPC  string
+	deployBlock  uint64
 	logger       *zap.Logger
 
 	ethClient    *ethclient.Client
@@ -31,6 +32,7 @@ type Config struct {
 	ChainID      int
 	RegistryAddr string
 	RegistryRPC  string
+	DeployBlock  uint64 // block number at which the registry was deployed; scan starts here
 }
 
 // OwnedToken represents a single ERC-8004 token owned by an address.
@@ -53,6 +55,7 @@ func NewClient(cfg Config, logger *zap.Logger) *Client {
 		chainID:      cfg.ChainID,
 		registryAddr: cfg.RegistryAddr,
 		registryRPC:  cfg.RegistryRPC,
+		deployBlock:  cfg.DeployBlock,
 		logger:       logger,
 	}
 
@@ -223,10 +226,20 @@ func (c *Client) DiscoverAllTokens(ctx context.Context) ([]DiscoveredToken, erro
 		return nil, fmt.Errorf("failed to get block number: %w", err)
 	}
 
-	var startBlock uint64
-	if currentBlock > 20000000 {
-		startBlock = currentBlock - 20000000
+	startBlock := c.deployBlock
+	if startBlock == 0 {
+		// Fallback: scan last 500k blocks if deploy block is unknown
+		if currentBlock > 500000 {
+			startBlock = currentBlock - 500000
+		}
 	}
+
+	c.logger.Info("full token scan",
+		zap.Int("chain_id", c.chainID),
+		zap.Uint64("start_block", startBlock),
+		zap.Uint64("current_block", currentBlock),
+		zap.Uint64("range", currentBlock-startBlock),
+	)
 
 	candidates, err := c.scanMintLogs(ctx, startBlock, currentBlock)
 	if err != nil {
