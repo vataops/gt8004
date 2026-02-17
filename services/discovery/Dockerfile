@@ -12,10 +12,11 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /discoveryd ./cmd/discoveryd
 
 FROM alpine:3.19
 
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata && adduser -D -u 1000 appuser
 
 COPY --from=builder /discoveryd /usr/local/bin/discoveryd
 
+USER appuser
 EXPOSE 8080
 
 ENTRYPOINT ["discoveryd"]

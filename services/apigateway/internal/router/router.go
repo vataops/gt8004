@@ -1,6 +1,7 @@
 package router
 
 import (
+	"net/http"
 	"strings"
 
 	"github.com/GT8004/apigateway/internal/config"
@@ -65,6 +66,12 @@ func Setup(r *gin.Engine, cfg *config.Config, logger *zap.Logger) {
 
 	// ── Discovery ───────────────────────────────────
 	r.Any("/v1/network/*path", proxy.ProxyTo(cfg.DiscoveryURL, logger))
+
+	// ── Block internal endpoints ────────────────────
+	// Prevent external access to service-to-service APIs.
+	r.Any("/internal/*path", func(c *gin.Context) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+	})
 
 	// ── Registry (default) ──────────────────────────
 	// NoRoute catches all unmatched paths and proxies to Registry.

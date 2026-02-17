@@ -12,7 +12,7 @@ resource "google_sql_database_instance" "main" {
   database_version = "POSTGRES_16"
   region           = var.region
 
-  deletion_protection = false
+  deletion_protection = true
 
   settings {
     tier              = "db-f1-micro"
@@ -25,10 +25,21 @@ resource "google_sql_database_instance" "main" {
       ipv4_enabled                                  = false
       private_network                               = data.google_compute_network.shared.id
       enable_private_path_for_google_cloud_services = true
+      require_ssl                                   = true
     }
 
     backup_configuration {
-      enabled = false
+      enabled                        = true
+      start_time                     = "03:00"
+      transaction_log_retention_days = 7
+      backup_retention_settings {
+        retained_backups = 7
+      }
+    }
+
+    database_flags {
+      name  = "log_connections"
+      value = "on"
     }
   }
 }

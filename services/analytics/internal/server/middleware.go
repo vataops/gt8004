@@ -11,8 +11,8 @@ import (
 	"github.com/GT8004/gt8004-analytics/internal/store"
 )
 
-// OwnerAuthMiddleware authenticates the request via API key or wallet address,
-// then sets the authenticated EVM address in context for downstream ownership checks.
+// OwnerAuthMiddleware authenticates the request via API key or wallet address.
+// Wallet address is only trusted when it matches a registered agent's EVM address.
 func OwnerAuthMiddleware(s *store.Store) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 1) Try API key (Authorization: Bearer <key>)
@@ -32,12 +32,27 @@ func OwnerAuthMiddleware(s *store.Store) gin.HandlerFunc {
 			}
 		}
 
-		// 2) Try wallet address (X-Wallet-Address header)
+		// 2) Try wallet address — verify ownership of the requested agent
 		walletAddr := c.GetHeader("X-Wallet-Address")
-		if walletAddr != "" {
-			c.Set("auth_evm_address", walletAddr)
-			c.Next()
-			return
+		if walletAddr != "" && strings.HasPrefix(walletAddr, "0x") && len(walletAddr) == 42 {
+			// For agent endpoints, verify the wallet owns the agent
+			if agentID := c.Param("agent_id"); agentID != "" {
+				if dbID, evmAddr, err := s.GetAgentEVMAddress(c.Request.Context(), agentID); err == nil {
+					if strings.EqualFold(evmAddr, walletAddr) {
+						_ = dbID
+						c.Set("auth_evm_address", strings.ToLower(walletAddr))
+						c.Next()
+						return
+					}
+				}
+			} else {
+				// For wallet endpoints (/wallet/:address/*), accept if header matches URL
+				if urlAddr := c.Param("address"); urlAddr != "" && strings.EqualFold(urlAddr, walletAddr) {
+					c.Set("auth_evm_address", strings.ToLower(walletAddr))
+					c.Next()
+					return
+				}
+			}
 		}
 
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authorization required"})

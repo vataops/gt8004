@@ -9,9 +9,19 @@ import (
 	"github.com/GT8004/gt8004-analytics/internal/handler"
 )
 
+var allowedOrigins = map[string]bool{
+	"https://gt8004.xyz":     true,
+	"https://www.gt8004.xyz": true,
+	"http://localhost:3000":   true,
+	"http://localhost:8080":   true,
+}
+
 func corsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
+		origin := c.GetHeader("Origin")
+		if allowedOrigins[origin] {
+			c.Header("Access-Control-Allow-Origin", origin)
+		}
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization, X-Customer-ID, X-Wallet-Address")
 		c.Header("Access-Control-Max-Age", "86400")
@@ -23,9 +33,18 @@ func corsMiddleware() gin.HandlerFunc {
 	}
 }
 
+func securityHeaders() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("X-Content-Type-Options", "nosniff")
+		c.Header("X-Frame-Options", "DENY")
+		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
+		c.Next()
+	}
+}
+
 func NewRouter(cfg *config.Config, h *handler.Handler) *gin.Engine {
 	r := gin.New()
-	r.Use(corsMiddleware(), gin.Logger(), gin.Recovery())
+	r.Use(corsMiddleware(), securityHeaders(), gin.Logger(), gin.Recovery())
 
 	// Health
 	r.GET("/healthz", h.Healthz)

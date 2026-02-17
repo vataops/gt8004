@@ -52,6 +52,9 @@ type Config struct {
 
 	// Gateway
 	GatewayBaseURL string `mapstructure:"GATEWAY_BASE_URL"`
+
+	// Internal API shared secret (service-to-service auth)
+	InternalSecret string `mapstructure:"INTERNAL_SECRET"`
 }
 
 func Load() (*Config, error) {
@@ -82,6 +85,7 @@ func Load() (*Config, error) {
 	if cfg.GatewayBaseURL == "" {
 		cfg.GatewayBaseURL = "http://localhost:8080"
 	}
+	cfg.InternalSecret = viper.GetString("INTERNAL_SECRET")
 
 	return cfg, nil
 }

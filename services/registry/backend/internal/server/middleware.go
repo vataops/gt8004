@@ -53,14 +53,11 @@ func APIKeyAuthMiddleware(h *handler.Handler) gin.HandlerFunc {
 // Wallet owners are treated as root owners of their agents.
 func WalletOwnerAuthMiddleware(h *handler.Handler) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Log ALL relevant headers for debugging
-		h.Logger().Info("WalletOwnerAuth - Request headers",
+		h.Logger().Debug("WalletOwnerAuth - Request",
 			zap.String("method", c.Request.Method),
 			zap.String("path", c.Request.URL.Path),
-			zap.String("Authorization", c.GetHeader("Authorization")),
+			zap.Bool("has_auth", c.GetHeader("Authorization") != ""),
 			zap.String("X-Wallet-Address", c.GetHeader("X-Wallet-Address")),
-			zap.String("X-Real-IP", c.GetHeader("X-Real-IP")),
-			zap.String("X-Forwarded-For", c.GetHeader("X-Forwarded-For")),
 			zap.String("agent_id_param", c.Param("agent_id")))
 
 		// 1) Try API key
@@ -110,6 +107,23 @@ func WalletOwnerAuthMiddleware(h *handler.Handler) gin.HandlerFunc {
 
 		h.Logger().Warn("Authorization required - no valid auth provided")
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authorization required"})
+	}
+}
+
+// InternalAuthMiddleware validates the shared secret for service-to-service calls.
+func InternalAuthMiddleware(secret string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if secret == "" {
+			// No secret configured — allow (dev mode)
+			c.Next()
+			return
+		}
+		token := c.GetHeader("X-Internal-Secret")
+		if token == "" || token != secret {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			return
+		}
+		c.Next()
 	}
 }
 

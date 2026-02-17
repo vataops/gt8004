@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httputil"
@@ -142,7 +141,7 @@ func (p *Proxy) Forward(w http.ResponseWriter, r *http.Request, originEndpoint s
 		},
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
 			p.logger.Error("proxy error", zap.String("origin", originEndpoint), zap.Error(err))
-			http.Error(w, fmt.Sprintf("gateway error: %v", err), http.StatusBadGateway)
+			http.Error(w, "gateway error: upstream unreachable", http.StatusBadGateway)
 			result.StatusCode = http.StatusBadGateway
 			result.Error = err
 		},

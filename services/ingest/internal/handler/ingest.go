@@ -26,15 +26,20 @@ func (h *Handler) IngestLogs(c *gin.Context) {
 	chainIDVal, _ := c.Get(middleware.ContextKeyChainID)
 	chainID, _ := chainIDVal.(int)
 
-	body, err := io.ReadAll(c.Request.Body)
+	const maxBodySize = 51200 // 50KB
+	body, err := io.ReadAll(io.LimitReader(c.Request.Body, maxBodySize+1))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read body"})
+		return
+	}
+	if len(body) > maxBodySize {
+		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "request body too large"})
 		return
 	}
 
 	batch, err := ingest.ParseBatch(body)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid batch format"})
 		return
 	}
 

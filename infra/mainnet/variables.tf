@@ -69,3 +69,10 @@ variable "gt8004_agent_uri" {
   type        = string
   default     = "https://api.gt8004.xyz"
 }
+
+# ── Security ──────────────────────────────────────────
+variable "internal_secret" {
+  description = "Shared secret for service-to-service internal API auth"
+  type        = string
+  sensitive   = true
+}

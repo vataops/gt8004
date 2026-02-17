@@ -2,7 +2,7 @@ name: Deploy GT8004
 
 on:
   push:
-    branches: [main, stg]
+    branches: [main]
 
 concurrency:
   group: deploy-${{ github.ref_name }}

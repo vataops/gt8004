@@ -1,6 +1,6 @@
 locals {
   registry_path = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.main.repository_id}"
-  database_url  = "postgres://gt8004:${var.db_password}@${google_sql_database_instance.main.private_ip_address}:5432/gt8004_new?sslmode=disable"
+  database_url  = "postgres://gt8004:${var.db_password}@${google_sql_database_instance.main.private_ip_address}:5432/gt8004_new?sslmode=require"
 }
 
 # ── Registry ──────────────────────────────────────────
@@ -81,6 +81,10 @@ resource "google_cloud_run_v2_service" "registry" {
       env {
         name  = "GT8004_AGENT_URI"
         value = var.gt8004_agent_uri
+      }
+      env {
+        name  = "INTERNAL_SECRET"
+        value = var.internal_secret
       }
     }
   }
@@ -452,25 +456,26 @@ resource "google_cloud_run_v2_service_iam_member" "ingest_public" {
   member   = "allUsers"
 }
 
-resource "google_cloud_run_v2_service_iam_member" "registry_public" {
+# Internal services: only callable by the service account (via API Gateway)
+resource "google_cloud_run_v2_service_iam_member" "registry_internal" {
   name     = google_cloud_run_v2_service.registry.name
   location = var.region
   role     = "roles/run.invoker"
-  member   = "allUsers"
+  member   = "serviceAccount:${google_service_account.runner.email}"
 }
 
-resource "google_cloud_run_v2_service_iam_member" "analytics_public" {
+resource "google_cloud_run_v2_service_iam_member" "analytics_internal" {
   name     = google_cloud_run_v2_service.analytics.name
   location = var.region
   role     = "roles/run.invoker"
-  member   = "allUsers"
+  member   = "serviceAccount:${google_service_account.runner.email}"
 }
 
-resource "google_cloud_run_v2_service_iam_member" "discovery_public" {
+resource "google_cloud_run_v2_service_iam_member" "discovery_internal" {
   name     = google_cloud_run_v2_service.discovery.name
   location = var.region
   role     = "roles/run.invoker"
-  member   = "allUsers"
+  member   = "serviceAccount:${google_service_account.runner.email}"
 }
 
 resource "google_cloud_run_v2_service_iam_member" "dashboard_public" {

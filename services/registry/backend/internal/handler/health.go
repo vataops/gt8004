@@ -1,12 +1,81 @@
 package handler
 
 import (
+	"context"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 )
+
+// isPrivateIP checks whether an IP is in a private/reserved range.
+func isPrivateIP(ip net.IP) bool {
+	privateRanges := []string{
+		"10.0.0.0/8",
+		"172.16.0.0/12",
+		"192.168.0.0/16",
+		"127.0.0.0/8",
+		"169.254.0.0/16", // link-local / cloud metadata
+		"100.64.0.0/10",  // CGN
+		"0.0.0.0/8",
+		"::1/128",
+		"fc00::/7",
+		"fe80::/10",
+	}
+	for _, cidr := range privateRanges {
+		_, network, _ := net.ParseCIDR(cidr)
+		if network.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+// validateExternalURL ensures the URL resolves to a public IP (SSRF protection).
+func validateExternalURL(rawURL string) error {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return err
+	}
+	host := u.Hostname()
+	ips, err := net.DefaultResolver.LookupIPAddr(context.Background(), host)
+	if err != nil {
+		return err
+	}
+	for _, ip := range ips {
+		if isPrivateIP(ip.IP) {
+			return &net.AddrError{Err: "private IP not allowed", Addr: host}
+		}
+	}
+	return nil
+}
+
+// safeHTTPClient returns an HTTP client that refuses to connect to private IPs.
+func safeHTTPClient() *http.Client {
+	transport := &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			host, port, err := net.SplitHostPort(addr)
+			if err != nil {
+				return nil, err
+			}
+			ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+			if err != nil {
+				return nil, err
+			}
+			for _, ip := range ips {
+				if isPrivateIP(ip.IP) {
+					return nil, &net.AddrError{Err: "private IP not allowed", Addr: host}
+				}
+			}
+			dialer := &net.Dialer{Timeout: 10 * time.Second}
+			return dialer.DialContext(ctx, network, net.JoinHostPort(ips[0].IP.String(), port))
+		},
+	}
+	return &http.Client{Timeout: 30 * time.Second, Transport: transport}
+}
 
 func (h *Handler) Healthz(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
@@ -49,12 +118,17 @@ func (h *Handler) AgentOriginHealth(c *gin.Context) {
 		return
 	}
 
+	if err := validateExternalURL(agent.OriginEndpoint); err != nil {
+		c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": agent.OriginEndpoint, "error": "endpoint resolves to a restricted address"})
+		return
+	}
+
 	healthURL := strings.TrimRight(agent.OriginEndpoint, "/")
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := safeHTTPClient()
 	resp, err := client.Get(healthURL)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": agent.OriginEndpoint, "error": err.Error()})
+		c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": agent.OriginEndpoint, "error": "endpoint unreachable"})
 		return
 	}
 	defer resp.Body.Close()
@@ -82,8 +156,14 @@ func (h *Handler) ServiceHealth(c *gin.Context) {
 		return
 	}
 
+	// SSRF protection: block private/reserved IPs
+	if err := validateExternalURL(endpoint); err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "endpoint resolves to a restricted address"})
+		return
+	}
+
 	base := strings.TrimRight(endpoint, "/")
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := safeHTTPClient()
 
 	// Try /health first for proper status check
 	resp, err := client.Get(base + "/health")
@@ -102,7 +182,7 @@ func (h *Handler) ServiceHealth(c *gin.Context) {
 	// Fallback: /health missing or unreachable, check base URL reachability
 	resp2, err2 := client.Get(base)
 	if err2 != nil {
-		c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": endpoint, "error": err2.Error()})
+		c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": endpoint, "error": "endpoint unreachable"})
 		return
 	}
 	defer resp2.Body.Close()

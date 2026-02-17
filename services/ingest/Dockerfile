@@ -12,10 +12,11 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /ingestd ./cmd/ingestd
 
 FROM alpine:3.19
 
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata && adduser -D -u 1000 appuser
 
 COPY --from=builder /ingestd /usr/local/bin/ingestd
 
+USER appuser
 EXPOSE 9094
 
 ENTRYPOINT ["ingestd"]
