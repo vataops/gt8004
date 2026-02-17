@@ -12,6 +12,7 @@ function usePolling<T>(fetchFn: () => Promise<T>, intervalMs: number) {
   const [loading, setLoading] = useState(true);
   const retryRef = useRef(0);
   const fetchRef = useRef(fetchFn);
+  const mountedRef = useRef(false);
   fetchRef.current = fetchFn;
 
   const refresh = useCallback(async () => {
@@ -32,17 +33,24 @@ function usePolling<T>(fetchFn: () => Promise<T>, intervalMs: number) {
     }
   }, []);
 
+  // Set up polling interval (stable — only depends on intervalMs).
   useEffect(() => {
     retryRef.current = 0;
     setLoading(true);
     refresh();
+    mountedRef.current = true;
     const id = setInterval(refresh, intervalMs);
     return () => clearInterval(id);
-    // fetchFn is tracked via fetchRef so it must NOT be in the dep array;
-    // including it causes infinite effect re-runs when callers pass unstable
-    // references (e.g. arrays like chainIds).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refresh, intervalMs]);
+
+  // When fetchFn identity changes (params changed), re-fetch immediately.
+  useEffect(() => {
+    if (!mountedRef.current) return; // skip initial mount (handled above)
+    setLoading(true);
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchFn]);
 
   return { data, error, loading, refresh };
 }

@@ -120,7 +120,7 @@ export default function MyAgentsPage() {
 }
 
 function MyAgentsContent() {
-  const { apiKey, walletAddress, loading: authLoading, logout } = useAuth();
+  const { apiKey, walletAddress, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [agents, setAgents] = useState<AgentRow[]>([]);
@@ -409,12 +409,6 @@ function MyAgentsContent() {
             Manage your agents registered on the ERC-8004 registry
           </p>
         </div>
-        <button
-          onClick={() => { if (window.confirm("Are you sure you want to disconnect your wallet?")) logout(); }}
-          className="px-4 py-2 rounded-md text-sm font-medium text-zinc-400 hover:text-white border border-[#1f1f1f] hover:border-zinc-500 transition-colors"
-        >
-          Disconnect
-        </button>
       </div>
 
       {/* Tab Navigation */}
