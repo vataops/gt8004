@@ -15,10 +15,10 @@ RUN npm run build
 
 FROM node:22-alpine
 WORKDIR /app
-RUN adduser -D -u 1000 appuser && chown -R appuser /app
-COPY --from=builder --chown=appuser /app/.next ./.next
-COPY --from=builder --chown=appuser /app/node_modules ./node_modules
-COPY --from=builder --chown=appuser /app/package.json ./
-USER appuser
+RUN chown -R node /app
+COPY --from=builder --chown=node /app/.next ./.next
+COPY --from=builder --chown=node /app/node_modules ./node_modules
+COPY --from=builder --chown=node /app/package.json ./
+USER node
 EXPOSE 3000
 CMD ["npm", "start"]
