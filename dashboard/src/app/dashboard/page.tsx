@@ -142,12 +142,11 @@ function MyAgentsContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 20;
 
-  // Resolve auth for analytics calls
-  const auth: string | { walletAddress: string } | null = apiKey
-    ? apiKey
-    : walletAddress
-      ? { walletAddress }
-      : null;
+  // Resolve auth for analytics calls (memoised to avoid unstable object refs)
+  const auth = useMemo<string | { walletAddress: string } | null>(
+    () => (apiKey ? apiKey : walletAddress ? { walletAddress } : null),
+    [apiKey, walletAddress]
+  );
 
   // Filter analytics by current network's chain IDs to avoid
   // showing data from other networks (e.g. testnet agents on mainnet dashboard)

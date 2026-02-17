@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useLogs } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
 import { RequireAuth } from "@/components/RequireAuth";
@@ -69,7 +70,10 @@ export default function LogsPage() {
 
 function LogsContent() {
   const { agent, apiKey, walletAddress } = useAuth();
-  const auth: string | { walletAddress: string } | null = apiKey ?? (walletAddress ? { walletAddress } : null);
+  const auth = useMemo<string | { walletAddress: string } | null>(
+    () => (apiKey ?? (walletAddress ? { walletAddress } : null)),
+    [apiKey, walletAddress]
+  );
   const { data, loading } = useLogs(agent!.agent_id, auth);
 
   if (loading) {

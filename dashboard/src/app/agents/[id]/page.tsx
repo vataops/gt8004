@@ -128,12 +128,11 @@ export default function AgentDashboardPage() {
     }
   };
 
-  // Resolve auth for analytics API calls
-  const auth: string | { walletAddress: string } | null = apiKey
-    ? apiKey
-    : walletAddress
-      ? { walletAddress }
-      : null;
+  // Resolve auth for analytics API calls (memoised to avoid unstable object refs)
+  const auth = useMemo<string | { walletAddress: string } | null>(
+    () => (apiKey ? apiKey : walletAddress ? { walletAddress } : null),
+    [apiKey, walletAddress]
+  );
 
   // Fetch all data in parallel (owner-authenticated)
   const { data: stats } = useAgentStats(id, auth);
