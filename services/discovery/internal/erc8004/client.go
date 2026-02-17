@@ -195,32 +195,12 @@ func (c *Client) scanMintLogs(ctx context.Context, startBlock, endBlock uint64) 
 	// L2 chains (Base etc.) have faster blocks, so use smaller chunks to avoid RPC timeouts
 	var chunkSize uint64 = 49999
 	if c.chainID == 8453 || c.chainID == 84532 {
-		chunkSize = 10000
+		chunkSize = 5000
 	}
 	candidates = nil
 	seen := make(map[int64]bool)
-	for from := startBlock; from <= endBlock; from += chunkSize {
-		end := from + chunkSize - 1
-		if end > endBlock {
-			end = endBlock
-		}
-		var events []MintEvent
-		var chunkErr error
-		for attempt := 0; attempt < 3; attempt++ {
-			events, chunkErr = c.filterMintLogs(ctx, new(big.Int).SetUint64(from), new(big.Int).SetUint64(end))
-			if chunkErr == nil {
-				break
-			}
-			c.logger.Warn("chunk mint scan failed, retrying",
-				zap.Uint64("from", from), zap.Uint64("to", end),
-				zap.Int("attempt", attempt+1), zap.Error(chunkErr))
-			time.Sleep(time.Duration(1<<uint(attempt)) * time.Second)
-		}
-		if chunkErr != nil {
-			c.logger.Error("chunk mint scan failed after retries, skipping",
-				zap.Uint64("from", from), zap.Uint64("to", end), zap.Error(chunkErr))
-			continue
-		}
+
+	addEvents := func(events []MintEvent) {
 		for _, ev := range events {
 			if !seen[ev.TokenID] {
 				seen[ev.TokenID] = true
@@ -228,7 +208,96 @@ func (c *Client) scanMintLogs(ctx context.Context, startBlock, endBlock uint64) 
 			}
 		}
 	}
+
+	for from := startBlock; from <= endBlock; from += chunkSize {
+		end := from + chunkSize - 1
+		if end > endBlock {
+			end = endBlock
+		}
+		events, chunkErr := c.scanChunkWithRetry(ctx, from, end, 3)
+		if chunkErr != nil {
+			// Subdivide failed chunk into smaller sub-chunks and retry
+			subEvents := c.subdivideAndRetry(ctx, from, end, chunkSize, seen)
+			addEvents(subEvents)
+			continue
+		}
+		addEvents(events)
+	}
 	return candidates, nil
+}
+
+// scanChunkWithRetry attempts to fetch mint logs for a block range with retries.
+func (c *Client) scanChunkWithRetry(ctx context.Context, from, end uint64, maxRetries int) ([]MintEvent, error) {
+	var events []MintEvent
+	var err error
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		events, err = c.filterMintLogs(ctx, new(big.Int).SetUint64(from), new(big.Int).SetUint64(end))
+		if err == nil {
+			return events, nil
+		}
+		c.logger.Warn("chunk mint scan failed, retrying",
+			zap.Uint64("from", from), zap.Uint64("to", end),
+			zap.Int("attempt", attempt+1), zap.Error(err))
+		time.Sleep(time.Duration(1<<uint(attempt)) * time.Second)
+	}
+	return nil, err
+}
+
+// subdivideAndRetry splits a failed block range into smaller sub-chunks and retries each.
+// Progressively reduces chunk size: chunkSize/10 → chunkSize/100 (minimum 200 blocks).
+func (c *Client) subdivideAndRetry(ctx context.Context, from, end, parentChunkSize uint64, seen map[int64]bool) []MintEvent {
+	subSize := parentChunkSize / 10
+	if subSize < 200 {
+		subSize = 200
+	}
+	c.logger.Info("subdividing failed chunk",
+		zap.Uint64("from", from), zap.Uint64("to", end),
+		zap.Uint64("sub_chunk_size", subSize))
+
+	var result []MintEvent
+	for sf := from; sf <= end; sf += subSize {
+		se := sf + subSize - 1
+		if se > end {
+			se = end
+		}
+		events, err := c.scanChunkWithRetry(ctx, sf, se, 3)
+		if err != nil {
+			// Try even smaller sub-chunks as last resort
+			microSize := subSize / 10
+			if microSize >= 200 {
+				c.logger.Warn("sub-chunk failed, trying micro-chunks",
+					zap.Uint64("from", sf), zap.Uint64("to", se),
+					zap.Uint64("micro_size", microSize))
+				for mf := sf; mf <= se; mf += microSize {
+					me := mf + microSize - 1
+					if me > se {
+						me = se
+					}
+					mEvents, mErr := c.scanChunkWithRetry(ctx, mf, me, 2)
+					if mErr != nil {
+						c.logger.Error("micro-chunk scan failed, skipping",
+							zap.Uint64("from", mf), zap.Uint64("to", me), zap.Error(mErr))
+						continue
+					}
+					for _, ev := range mEvents {
+						if !seen[ev.TokenID] {
+							result = append(result, ev)
+						}
+					}
+				}
+			} else {
+				c.logger.Error("sub-chunk scan failed, skipping",
+					zap.Uint64("from", sf), zap.Uint64("to", se), zap.Error(err))
+			}
+			continue
+		}
+		for _, ev := range events {
+			if !seen[ev.TokenID] {
+				result = append(result, ev)
+			}
+		}
+	}
+	return result
 }
 
 // DiscoverAllTokens scans mint events (Transfer from zero address) to find
