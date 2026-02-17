@@ -56,8 +56,8 @@ func main() {
 
 	// === Shared components ===
 
-	// ERC-8004 identity verifier (from common)
-	idVerifier := identity.NewVerifier(cfg.IdentityRegistryAddr, cfg.IdentityRegistryRPC, logger)
+	// ERC-8004 identity verifier (backed by PostgreSQL for multi-instance safety)
+	idVerifier := identity.NewVerifierWithStore(cfg.IdentityRegistryAddr, cfg.IdentityRegistryRPC, db, logger)
 
 	// WebSocket hub for real-time events (from common)
 	hub := ws.NewHub(logger)

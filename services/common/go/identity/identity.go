@@ -1,6 +1,7 @@
 package identity
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -38,31 +39,90 @@ type VerifyRequest struct {
 	AgentID   string `json:"agent_id" binding:"required"`
 }
 
+// ChallengeStore abstracts challenge persistence so it can be backed by
+// a database (PostgreSQL) instead of an in-memory map.  This is critical
+// for multi-instance deployments (e.g. Cloud Run) where a challenge created
+// on one instance must be verifiable on another.
+type ChallengeStore interface {
+	SaveChallenge(ctx context.Context, challengeHex, agentID string, expiresAt time.Time) error
+	// ConsumeChallenge atomically retrieves and deletes the challenge.
+	// Returns agentID, expiresAt. If not found, returns an error.
+	ConsumeChallenge(ctx context.Context, challengeHex string) (agentID string, expiresAt time.Time, err error)
+}
+
 type challenge struct {
 	agentID   string
 	expiresAt time.Time
 }
 
+// memoryStore is the default in-memory fallback (single-instance only).
+type memoryStore struct {
+	challenges map[string]challenge
+	mu         sync.Mutex
+}
+
+func (m *memoryStore) SaveChallenge(_ context.Context, challengeHex, agentID string, expiresAt time.Time) error {
+	m.mu.Lock()
+	m.challenges[challengeHex] = challenge{agentID: agentID, expiresAt: expiresAt}
+	m.mu.Unlock()
+	return nil
+}
+
+func (m *memoryStore) ConsumeChallenge(_ context.Context, challengeHex string) (string, time.Time, error) {
+	m.mu.Lock()
+	ch, exists := m.challenges[challengeHex]
+	if exists {
+		delete(m.challenges, challengeHex)
+	}
+	m.mu.Unlock()
+	if !exists {
+		return "", time.Time{}, fmt.Errorf("challenge not found or already used")
+	}
+	return ch.agentID, ch.expiresAt, nil
+}
+
+func (m *memoryStore) cleanup() {
+	m.mu.Lock()
+	now := time.Now()
+	for k, ch := range m.challenges {
+		if now.After(ch.expiresAt) {
+			delete(m.challenges, k)
+		}
+	}
+	m.mu.Unlock()
+}
+
 // Verifier handles ERC-8004 identity verification.
 type Verifier struct {
-	challenges map[string]challenge // challenge hex → metadata
-	mu         sync.RWMutex
-	logger     *zap.Logger
+	store  ChallengeStore
+	logger *zap.Logger
 
 	registryAddress string
 	registryRPC     string
 }
 
 func NewVerifier(registryAddress, registryRPC string, logger *zap.Logger) *Verifier {
+	ms := &memoryStore{challenges: make(map[string]challenge)}
 	v := &Verifier{
-		challenges:      make(map[string]challenge),
+		store:           ms,
 		logger:          logger,
 		registryAddress: registryAddress,
 		registryRPC:     registryRPC,
 	}
-	// Cleanup expired challenges every minute
-	go v.cleanupLoop()
+	go v.cleanupLoop(ms)
 	return v
+}
+
+// NewVerifierWithStore creates a Verifier backed by an external ChallengeStore
+// (e.g. PostgreSQL). No cleanup goroutine is started because the store is
+// expected to handle expiry (e.g. via SQL DELETE).
+func NewVerifierWithStore(registryAddress, registryRPC string, cs ChallengeStore, logger *zap.Logger) *Verifier {
+	return &Verifier{
+		store:           cs,
+		logger:          logger,
+		registryAddress: registryAddress,
+		registryRPC:     registryRPC,
+	}
 }
 
 // CreateChallenge generates a random 32-byte challenge for an agent.
@@ -75,9 +135,9 @@ func (v *Verifier) CreateChallenge(agentID string) (*ChallengeResponse, error) {
 	ch := hex.EncodeToString(b)
 	expiresAt := time.Now().Add(30 * time.Second)
 
-	v.mu.Lock()
-	v.challenges[ch] = challenge{agentID: agentID, expiresAt: expiresAt}
-	v.mu.Unlock()
+	if err := v.store.SaveChallenge(context.Background(), ch, agentID, expiresAt); err != nil {
+		return nil, fmt.Errorf("save challenge: %w", err)
+	}
 
 	return &ChallengeResponse{
 		Challenge: ch,
@@ -87,21 +147,14 @@ func (v *Verifier) CreateChallenge(agentID string) (*ChallengeResponse, error) {
 
 // VerifySignature verifies that the agent signed the challenge with their EVM key.
 func (v *Verifier) VerifySignature(req VerifyRequest) (*AgentInfo, error) {
-	// Check challenge exists and is not expired
-	v.mu.Lock()
-	ch, exists := v.challenges[req.Challenge]
-	if exists {
-		delete(v.challenges, req.Challenge)
+	agentID, expiresAt, err := v.store.ConsumeChallenge(context.Background(), req.Challenge)
+	if err != nil {
+		return nil, err
 	}
-	v.mu.Unlock()
-
-	if !exists {
-		return nil, fmt.Errorf("challenge not found or already used")
-	}
-	if time.Now().After(ch.expiresAt) {
+	if time.Now().After(expiresAt) {
 		return nil, fmt.Errorf("challenge expired")
 	}
-	if ch.agentID != req.AgentID {
+	if agentID != req.AgentID {
 		return nil, fmt.Errorf("agent_id mismatch")
 	}
 
@@ -169,18 +222,11 @@ func (v *Verifier) queryRegistry(addr common.Address) (*AgentInfo, error) {
 	return nil, nil
 }
 
-func (v *Verifier) cleanupLoop() {
+func (v *Verifier) cleanupLoop(ms *memoryStore) {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 	for range ticker.C {
-		v.mu.Lock()
-		now := time.Now()
-		for k, ch := range v.challenges {
-			if now.After(ch.expiresAt) {
-				delete(v.challenges, k)
-			}
-		}
-		v.mu.Unlock()
+		ms.cleanup()
 	}
 }
 
