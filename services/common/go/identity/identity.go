@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -135,6 +136,9 @@ func (v *Verifier) CreateChallenge(agentID string) (*ChallengeResponse, error) {
 	ch := hex.EncodeToString(b)
 	expiresAt := time.Now().Add(30 * time.Second)
 
+	// Normalize EVM address to lowercase to avoid checksum case mismatches.
+	agentID = strings.ToLower(agentID)
+
 	if err := v.store.SaveChallenge(context.Background(), ch, agentID, expiresAt); err != nil {
 		return nil, fmt.Errorf("save challenge: %w", err)
 	}
@@ -154,7 +158,8 @@ func (v *Verifier) VerifySignature(req VerifyRequest) (*AgentInfo, error) {
 	if time.Now().After(expiresAt) {
 		return nil, fmt.Errorf("challenge expired")
 	}
-	if agentID != req.AgentID {
+	// Normalize to lowercase — challenge was stored with lowercase agentID.
+	if agentID != strings.ToLower(req.AgentID) {
 		return nil, fmt.Errorf("agent_id mismatch")
 	}
 

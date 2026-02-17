@@ -361,7 +361,7 @@ func (h *Handler) DeregisterService(c *gin.Context) {
 	dbID := agentDBID.(uuid.UUID)
 
 	// If using wallet auth (X-Wallet-Address), require signature verification
-	walletAddr := c.GetHeader("X-Wallet-Address")
+	walletAddr := strings.ToLower(c.GetHeader("X-Wallet-Address"))
 	if walletAddr != "" {
 		var req DeregisterRequest
 		if err := c.ShouldBindJSON(&req); err != nil {

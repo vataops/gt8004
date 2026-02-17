@@ -457,25 +457,26 @@ resource "google_cloud_run_v2_service_iam_member" "ingest_public" {
 }
 
 # Internal services: only callable by the service account (via API Gateway)
-resource "google_cloud_run_v2_service_iam_member" "registry_internal" {
+# iam_binding is authoritative — removes allUsers and grants only the SA
+resource "google_cloud_run_v2_service_iam_binding" "registry_internal" {
   name     = google_cloud_run_v2_service.registry.name
   location = var.region
   role     = "roles/run.invoker"
-  member   = "serviceAccount:${google_service_account.runner.email}"
+  members  = ["serviceAccount:${google_service_account.runner.email}"]
 }
 
-resource "google_cloud_run_v2_service_iam_member" "analytics_internal" {
+resource "google_cloud_run_v2_service_iam_binding" "analytics_internal" {
   name     = google_cloud_run_v2_service.analytics.name
   location = var.region
   role     = "roles/run.invoker"
-  member   = "serviceAccount:${google_service_account.runner.email}"
+  members  = ["serviceAccount:${google_service_account.runner.email}"]
 }
 
-resource "google_cloud_run_v2_service_iam_member" "discovery_internal" {
+resource "google_cloud_run_v2_service_iam_binding" "discovery_internal" {
   name     = google_cloud_run_v2_service.discovery.name
   location = var.region
   role     = "roles/run.invoker"
-  member   = "serviceAccount:${google_service_account.runner.email}"
+  members  = ["serviceAccount:${google_service_account.runner.email}"]
 }
 
 resource "google_cloud_run_v2_service_iam_member" "dashboard_public" {
