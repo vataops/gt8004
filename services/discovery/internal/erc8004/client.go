@@ -315,7 +315,11 @@ func (c *Client) resolveTokens(ctx context.Context, candidates []MintEvent) []Di
 	blockTimestamps := make(map[uint64]time.Time)
 	var headerMu sync.Mutex
 	var headerWg sync.WaitGroup
-	headerSem := make(chan struct{}, 10)
+	headerConcurrency := 10
+	if c.chainID == 8453 || c.chainID == 84532 {
+		headerConcurrency = 3
+	}
+	headerSem := make(chan struct{}, headerConcurrency)
 	for bn := range blockNums {
 		headerWg.Add(1)
 		go func(blockNum uint64) {
@@ -340,7 +344,12 @@ func (c *Client) resolveTokens(ctx context.Context, candidates []MintEvent) []Di
 	tokens := make([]DiscoveredToken, 0, len(candidates))
 	var tokensMu sync.Mutex
 	var verifyWg sync.WaitGroup
-	verifySem := make(chan struct{}, 20)
+	// Reduce concurrency for L2 chains to avoid RPC rate limits.
+	verifyConcurrency := 20
+	if c.chainID == 8453 || c.chainID == 84532 {
+		verifyConcurrency = 3
+	}
+	verifySem := make(chan struct{}, verifyConcurrency)
 	for _, ev := range candidates {
 		verifyWg.Add(1)
 		go func(mint MintEvent) {
