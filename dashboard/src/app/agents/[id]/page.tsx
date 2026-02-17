@@ -337,8 +337,8 @@ function DeregisterSection({
       if (walletAddress && !apiKey) {
         console.log("[deregister] wallet auth", { agentId, walletAddress });
 
-        // Get challenge
-        const { challenge } = await openApi.getChallenge(agentId);
+        // Get challenge (use walletAddress so VerifySignature can match the signer)
+        const { challenge } = await openApi.getChallenge(walletAddress);
         console.log("[deregister] challenge received", challenge?.slice(0, 16));
 
         // Sign challenge with wallet

@@ -369,23 +369,16 @@ func (h *Handler) DeregisterService(c *gin.Context) {
 			return
 		}
 
-		// Verify signature
-		agentID := c.Param("agent_id")
+		// Verify signature — use walletAddr as AgentID because VerifySignature
+		// recovers the signer and compares against AgentID as an EVM address.
 		verifyReq := identity.VerifyRequest{
-			AgentID:   agentID,
+			AgentID:   walletAddr,
 			Challenge: req.Challenge,
 			Signature: req.Signature,
 		}
-		info, err := h.identity.VerifySignature(verifyReq)
-		if err != nil {
+		if _, err := h.identity.VerifySignature(verifyReq); err != nil {
 			h.logger.Warn("signature verification failed", zap.Error(err))
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid signature"})
-			return
-		}
-
-		// Check that the signer matches the wallet address
-		if !strings.EqualFold(info.EVMAddress, walletAddr) {
-			c.JSON(http.StatusForbidden, gin.H{"error": "signature does not match wallet address"})
 			return
 		}
 	}
