@@ -268,7 +268,7 @@ async def risk(stablecoin: str) -> str:
     )
 
 
-mcp_app = mcp.http_app(path="/", transport="sse")
+mcp_app = mcp.http_app(path="/sse", transport="sse")
 
 
 # ── FastAPI wrapper ──

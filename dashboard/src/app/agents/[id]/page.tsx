@@ -335,11 +335,15 @@ function DeregisterSection({
     try {
       // If using wallet, get signature
       if (walletAddress && !apiKey) {
+        console.log("[deregister] wallet auth", { agentId, walletAddress });
+
         // Get challenge
         const { challenge } = await openApi.getChallenge(agentId);
+        console.log("[deregister] challenge received", challenge?.slice(0, 16));
 
         // Sign challenge with wallet
         const signature = await signChallenge(challenge);
+        console.log("[deregister] signature received", signature?.slice(0, 16));
 
         // Deregister with signature
         await openApi.deregisterAgent(agentId, {
@@ -348,12 +352,14 @@ function DeregisterSection({
           signature
         });
       } else {
+        console.log("[deregister] api key auth", { agentId });
         // Deregister with API key
         await openApi.deregisterAgent(agentId, apiKey!);
       }
 
       window.location.href = "/dashboard";
     } catch (err) {
+      console.error("[deregister] failed", err);
       setError(err instanceof Error ? err.message : "Failed to deregister");
       setLoading(false);
     }
