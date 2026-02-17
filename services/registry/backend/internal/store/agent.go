@@ -124,8 +124,13 @@ func (s *Store) GetAgentByDBID(ctx context.Context, id uuid.UUID) (*Agent, error
 	return a, nil
 }
 
-func (s *Store) GetAgentByTokenID(ctx context.Context, tokenID int64) (*Agent, error) {
-	row := s.pool.QueryRow(ctx, `SELECT `+agentSelectCols+` FROM agents WHERE erc8004_token_id = $1`, tokenID)
+func (s *Store) GetAgentByTokenID(ctx context.Context, tokenID int64, chainID ...int) (*Agent, error) {
+	var row interface{ Scan(dest ...any) error }
+	if len(chainID) > 0 && chainID[0] > 0 {
+		row = s.pool.QueryRow(ctx, `SELECT `+agentSelectCols+` FROM agents WHERE erc8004_token_id = $1 AND chain_id = $2`, tokenID, chainID[0])
+	} else {
+		row = s.pool.QueryRow(ctx, `SELECT `+agentSelectCols+` FROM agents WHERE erc8004_token_id = $1`, tokenID)
+	}
 	a, err := scanAgent(row.Scan)
 	if err != nil {
 		return nil, fmt.Errorf("get agent by token id: %w", err)

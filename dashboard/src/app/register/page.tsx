@@ -171,6 +171,19 @@ function RegisterPageInner() {
       setPhase("apikey");
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Registration failed";
+      // If token is already registered, find the existing agent and redirect
+      if (errorMsg.includes("already linked") && walletAddress) {
+        try {
+          const { agents } = await openApi.getWalletAgents(walletAddress);
+          const existing = agents.find(
+            (a) => a.erc8004_token_id === token.token_id && a.chain_id === NETWORKS[selectedNetwork]?.chainId
+          );
+          if (existing) {
+            router.push(`/agents/${existing.agent_id}`);
+            return;
+          }
+        } catch { /* fallthrough to show error */ }
+      }
       setError(errorMsg);
       setIsAutoRegistering(false); // Reset auto-registering state on error
       console.error("Registration error:", errorMsg);

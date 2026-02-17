@@ -135,10 +135,13 @@ func (h *Handler) RegisterService(c *gin.Context) {
 		return
 	}
 
-	// Check for duplicate token ID (only active agents)
-	existing, _ := h.store.GetAgentByTokenID(c.Request.Context(), *req.ERC8004TokenID)
+	// Check for duplicate token ID on the same chain (only active agents)
+	existing, _ := h.store.GetAgentByTokenID(c.Request.Context(), *req.ERC8004TokenID, chainID)
 	if existing != nil && existing.Status != "deregistered" {
-		c.JSON(http.StatusConflict, gin.H{"error": "token already linked to another agent"})
+		c.JSON(http.StatusConflict, gin.H{
+			"error":    "token already linked to another agent",
+			"agent_id": existing.AgentID,
+		})
 		return
 	}
 
@@ -419,8 +422,14 @@ func (h *Handler) LinkERC8004(c *gin.Context) {
 		return
 	}
 
-	// Check duplicate token ID
-	existing, _ := h.store.GetAgentByTokenID(c.Request.Context(), req.ERC8004TokenID)
+	// Resolve chain-specific client
+	chainID := defaultChainID
+	if req.ChainID != nil {
+		chainID = *req.ChainID
+	}
+
+	// Check duplicate token ID on the same chain
+	existing, _ := h.store.GetAgentByTokenID(c.Request.Context(), req.ERC8004TokenID, chainID)
 	if existing != nil && existing.ID != dbID {
 		c.JSON(http.StatusConflict, gin.H{"error": "token already linked to another agent"})
 		return
@@ -436,12 +445,6 @@ func (h *Handler) LinkERC8004(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "signature verification failed: " + err.Error()})
 		return
-	}
-
-	// Resolve chain-specific client
-	chainID := defaultChainID
-	if req.ChainID != nil {
-		chainID = *req.ChainID
 	}
 
 	agentURI := ""
