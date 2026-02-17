@@ -183,7 +183,11 @@ func (c *Client) scanMintLogs(ctx context.Context, startBlock, endBlock uint64) 
 
 	// Fall back to chunked scan
 	c.logger.Info("full-range query failed, chunking", zap.Uint64("from", startBlock), zap.Uint64("to", endBlock), zap.Error(err))
-	const chunkSize uint64 = 49999
+	// L2 chains (Base etc.) have faster blocks, so use smaller chunks to avoid RPC timeouts
+	var chunkSize uint64 = 49999
+	if c.chainID == 8453 || c.chainID == 84532 {
+		chunkSize = 10000
+	}
 	candidates = nil
 	seen := make(map[int64]bool)
 	for from := startBlock; from <= endBlock; from += chunkSize {
