@@ -178,10 +178,16 @@ function MyAgentsContent() {
         ),
       ]);
 
-      const platformAgents: Agent[] =
+      const allPlatformAgents: Agent[] =
         platformResult.status === "fulfilled"
           ? platformResult.value.agents || []
           : [];
+
+      // Filter platform agents to current network's chain IDs only
+      const validChainIds = new Set(NETWORK_LIST.map((n) => n.chainId));
+      const platformAgents = allPlatformAgents.filter(
+        (a) => a.chain_id && validChainIds.has(a.chain_id)
+      );
 
       // Collect all on-chain tokens
       const allTokens: { token_id: number; chain_id: number; network: typeof NETWORK_LIST[number]; agent_uri: string }[] = [];
