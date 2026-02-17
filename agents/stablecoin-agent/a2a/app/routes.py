@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi_x402 import pay
 from app.models import AgentCard, AgentProvider, Authentication, Skill, TaskRequest
 from app.task_manager import TaskManager
@@ -40,16 +40,18 @@ async def agent_card():
     return _build_agent_card()
 
 
+async def _process_task(body: dict) -> dict:
+    """Shared task processing logic for public and internal endpoints."""
+    task_req = TaskRequest(**body)
+    from app.main import get_llm
+    response = await task_manager.submit(task_req, get_llm())
+    return response.model_dump()
+
+
 @router.post("/a2a/tasks/send")
 @pay(f"${settings.x402_price}")
 async def send_task(request: Request):
-    body = await request.json()
-    task_req = TaskRequest(**body)
-
-    from app.main import get_llm
-    llm = get_llm()
-    response = await task_manager.submit(task_req, llm)
-    return response.model_dump()
+    return await _process_task(await request.json())
 
 
 @router.get("/a2a/tasks/{task_id}")
@@ -65,9 +67,16 @@ async def get_task(task_id: str):
 async def direct_skill(skill_id: str, request: Request):
     body = await request.json()
     body["skill_id"] = skill_id
-    task_req = TaskRequest(**body)
+    return await _process_task(body)
 
-    from app.main import get_llm
-    llm = get_llm()
-    response = await task_manager.submit(task_req, llm)
-    return response.model_dump()
+
+def _check_internal_key(request: Request):
+    key = request.headers.get("X-Internal-Key")
+    if not key or key != settings.internal_api_key:
+        raise HTTPException(status_code=401, detail="Invalid internal key")
+
+
+@router.post("/internal/tasks/send")
+async def send_task_internal(request: Request):
+    _check_internal_key(request)
+    return await _process_task(await request.json())

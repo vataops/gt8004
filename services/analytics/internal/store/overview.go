@@ -15,7 +15,7 @@ type DashboardOverview struct {
 	AvgResponseMs    float64 `json:"avg_response_ms"`
 }
 
-func (s *Store) GetDashboardOverview(ctx context.Context) (*DashboardOverview, error) {
+func (s *Store) GetDashboardOverview(ctx context.Context, chainIDs []int) (*DashboardOverview, error) {
 	o := &DashboardOverview{}
 
 	err := s.pool.QueryRow(ctx, `
@@ -26,14 +26,17 @@ func (s *Store) GetDashboardOverview(ctx context.Context) (*DashboardOverview, e
 			COALESCE(SUM(total_revenue_usdc), 0) AS total_revenue_usdc,
 			COALESCE(AVG(avg_response_ms), 0) AS avg_response_ms
 		FROM agents
-	`).Scan(&o.TotalAgents, &o.ActiveAgents, &o.TotalRequests, &o.TotalRevenueUSDC, &o.AvgResponseMs)
+		WHERE chain_id = ANY($1)
+	`, chainIDs).Scan(&o.TotalAgents, &o.ActiveAgents, &o.TotalRequests, &o.TotalRevenueUSDC, &o.AvgResponseMs)
 	if err != nil {
 		return nil, fmt.Errorf("get agent overview: %w", err)
 	}
 
 	_ = s.pool.QueryRow(ctx, `
-		SELECT COUNT(*) FROM request_logs WHERE created_at >= CURRENT_DATE
-	`).Scan(&o.TodayRequests)
+		SELECT COUNT(*) FROM request_logs rl
+		JOIN agents a ON rl.agent_id = a.id
+		WHERE rl.created_at >= CURRENT_DATE AND a.chain_id = ANY($1)
+	`, chainIDs).Scan(&o.TodayRequests)
 
 	return o, nil
 }

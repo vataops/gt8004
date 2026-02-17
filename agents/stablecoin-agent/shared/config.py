@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     x402_network: str = "base"
     x402_price: str = "0.01"
 
+    # Internal MCP↔A2A communication
+    internal_api_key: str = ""
+
     # GT8004 SDK
     gt8004_agent_id: str = ""
     gt8004_api_key: str = ""

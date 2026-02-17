@@ -18,7 +18,7 @@ func (h *Handler) DashboardOverview(c *gin.Context) {
 		return
 	}
 
-	overview, err := h.store.GetDashboardOverview(c.Request.Context())
+	overview, err := h.store.GetDashboardOverview(c.Request.Context(), h.chainIDs)
 	if err != nil {
 		h.logger.Error("failed to get dashboard overview", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get overview"})

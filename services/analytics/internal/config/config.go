@@ -16,6 +16,15 @@ type Config struct {
 	BodyRetentionDays int    `mapstructure:"BODY_RETENTION_DAYS"`
 	GeoIPDBPath       string `mapstructure:"GEOIP_DB_PATH"`
 	RegistryURL       string `mapstructure:"REGISTRY_URL"`
+	NetworkMode       string `mapstructure:"NETWORK_MODE"`
+}
+
+// ChainIDs returns the chain IDs for the current network mode.
+func (c *Config) ChainIDs() []int {
+	if c.NetworkMode == "mainnet" {
+		return []int{1, 8453}
+	}
+	return []int{84532, 11155111}
 }
 
 func Load() (*Config, error) {
@@ -30,6 +39,7 @@ func Load() (*Config, error) {
 	viper.SetDefault("REPUTATION_INTERVAL", 600)
 	viper.SetDefault("MAX_BODY_SIZE_BYTES", 51200)
 	viper.SetDefault("BODY_RETENTION_DAYS", 30)
+	viper.SetDefault("NETWORK_MODE", "testnet")
 
 	cfg := &Config{}
 	cfg.Port = viper.GetInt("PORT")
@@ -45,6 +55,7 @@ func Load() (*Config, error) {
 	cfg.BodyRetentionDays = viper.GetInt("BODY_RETENTION_DAYS")
 	cfg.GeoIPDBPath = viper.GetString("GEOIP_DB_PATH")
 	cfg.RegistryURL = viper.GetString("REGISTRY_URL")
+	cfg.NetworkMode = viper.GetString("NETWORK_MODE")
 
 	return cfg, nil
 }

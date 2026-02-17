@@ -77,6 +77,7 @@ func main() {
 		redisCache,
 		logger,
 		cfg.RegistryURL,
+		cfg.ChainIDs(),
 	)
 
 	// Router + HTTP server
