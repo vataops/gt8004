@@ -9,15 +9,15 @@ variable "region" {
   default     = "us-central1"
 }
 
-# ── Shared DB (testnet Cloud SQL) ──────────────────────
+# ── Database & Network ─────────────────────────────────
 variable "database_url" {
-  description = "Shared Cloud SQL connection string (from testnet)"
+  description = "Cloud SQL connection string"
   type        = string
   sensitive   = true
 }
 
 variable "vpc_connector_id" {
-  description = "Shared VPC connector ID (from testnet)"
+  description = "VPC connector ID for Cloud SQL access"
   type        = string
 }
 
