@@ -123,10 +123,35 @@ func (h *Handler) AgentOriginHealth(c *gin.Context) {
 		return
 	}
 
-	healthURL := strings.TrimRight(agent.OriginEndpoint, "/")
-
+	base := strings.TrimRight(agent.OriginEndpoint, "/")
 	client := safeHTTPClient()
-	resp, err := client.Get(healthURL)
+
+	// MCP protocol: check SSE endpoint connectivity
+	if hasMCP(agent.Protocols) {
+		sseURL := base + "/mcp/sse"
+		req, err := http.NewRequestWithContext(c.Request.Context(), "GET", sseURL, nil)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": agent.OriginEndpoint, "error": "endpoint unreachable"})
+			return
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": agent.OriginEndpoint, "error": "endpoint unreachable"})
+			return
+		}
+		resp.Body.Close()
+
+		ct := resp.Header.Get("Content-Type")
+		if resp.StatusCode == http.StatusOK && strings.Contains(ct, "text/event-stream") {
+			c.JSON(http.StatusOK, gin.H{"status": "healthy", "endpoint": agent.OriginEndpoint, "protocol": "mcp"})
+		} else {
+			c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": agent.OriginEndpoint, "http_status": resp.StatusCode})
+		}
+		return
+	}
+
+	// Default: HTTP GET health check
+	resp, err := client.Get(base)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": agent.OriginEndpoint, "error": "endpoint unreachable"})
 		return
@@ -138,6 +163,16 @@ func (h *Handler) AgentOriginHealth(c *gin.Context) {
 	} else {
 		c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": agent.OriginEndpoint, "http_status": resp.StatusCode})
 	}
+}
+
+// hasMCP checks if "mcp" is in the protocols list.
+func hasMCP(protocols []string) bool {
+	for _, p := range protocols {
+		if strings.EqualFold(p, "mcp") {
+			return true
+		}
+	}
+	return false
 }
 
 // ServiceHealth proxies a health check to an arbitrary service endpoint
@@ -164,6 +199,31 @@ func (h *Handler) ServiceHealth(c *gin.Context) {
 
 	base := strings.TrimRight(endpoint, "/")
 	client := safeHTTPClient()
+	protocol := c.Query("protocol")
+
+	// MCP protocol: check SSE endpoint
+	if strings.EqualFold(protocol, "mcp") {
+		sseURL := base + "/mcp/sse"
+		req, err := http.NewRequestWithContext(c.Request.Context(), "GET", sseURL, nil)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": endpoint, "error": "endpoint unreachable"})
+			return
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": endpoint, "error": "endpoint unreachable"})
+			return
+		}
+		resp.Body.Close()
+
+		ct := resp.Header.Get("Content-Type")
+		if resp.StatusCode == http.StatusOK && strings.Contains(ct, "text/event-stream") {
+			c.JSON(http.StatusOK, gin.H{"status": "healthy", "endpoint": endpoint, "protocol": "mcp"})
+		} else {
+			c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": endpoint, "http_status": resp.StatusCode})
+		}
+		return
+	}
 
 	// Try /health first for proper status check
 	resp, err := client.Get(base + "/health")

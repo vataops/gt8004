@@ -864,9 +864,10 @@ function OverviewTab({ agent, networkAgent, id }: OverviewTabProps) {
     for (const svc of withEndpoints) {
       const url = svc.endpoint;
       // Proxy all health checks through backend to avoid CORS
+      const isMCP = svc.name?.toUpperCase() === "MCP";
       const healthUrl = svc.name === "Origin"
         ? `${BACKEND_URL}/v1/agents/${id}/origin-health`
-        : `${BACKEND_URL}/v1/proxy/health?endpoint=${encodeURIComponent(url)}`;
+        : `${BACKEND_URL}/v1/proxy/health?endpoint=${encodeURIComponent(url)}${isMCP ? "&protocol=mcp" : ""}`;
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 35000);
       fetch(healthUrl, { method: "GET", signal: controller.signal })
