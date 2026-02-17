@@ -250,18 +250,15 @@ function RegisterPageInner() {
               <h3 className="text-sm font-semibold text-gray-300 mb-3">Step 1: Install SDK</h3>
               <div className="bg-[#0a0a0a] rounded-md p-3 border border-[#1a1a1a] relative group">
                 <code className="text-sm font-mono text-gray-300">
-                  pip install gt8004-sdk
+                  pip install git+https://github.com/vataops/gt8004-sdk.git
                 </code>
                 <button
-                  onClick={() => copyToClipboard("pip install gt8004-sdk", "install")}
+                  onClick={() => copyToClipboard("pip install git+https://github.com/vataops/gt8004-sdk.git", "install")}
                   className="absolute top-2 right-2 px-2 py-1 rounded bg-[#1a1a1a] hover:bg-[#00FFE0]/10 hover:text-[#00FFE0] text-xs text-zinc-400 opacity-0 group-hover:opacity-100 transition-all"
                 >
                   {copied === "install" ? "Copied!" : "Copy"}
                 </button>
               </div>
-              <p className="text-xs text-zinc-600 mt-2">
-                Note: SDK is coming soon. For now, use the manual Ingest API.
-              </p>
             </div>
 
             {/* Step 2: Integration Code */}
