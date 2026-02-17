@@ -61,8 +61,9 @@ func NewJob(s *store.Store, registry *erc8004.Registry, logger *zap.Logger, inte
 	}
 }
 
-// Start begins the periodic sync loop in a background goroutine.
+// Start begins the periodic sync loop and a faster backfill loop in background goroutines.
 func (j *Job) Start() {
+	// Main sync loop (full scan + backfill + reputation).
 	go func() {
 		ticker := time.NewTicker(j.interval)
 		defer ticker.Stop()
@@ -82,6 +83,42 @@ func (j *Job) Start() {
 			}
 		}
 	}()
+
+	// Dedicated backfill loop — runs more frequently to populate missing metadata.
+	go func() {
+		const backfillInterval = 5 * time.Minute
+		// Wait a bit before the first backfill-only pass so the initial full
+		// sync can finish its own backfill pass first.
+		select {
+		case <-time.After(3 * time.Minute):
+		case <-j.stopCh:
+			return
+		}
+
+		ticker := time.NewTicker(backfillInterval)
+		defer ticker.Stop()
+
+		j.logger.Info("backfill loop started", zap.Duration("interval", backfillInterval))
+
+		for {
+			select {
+			case <-ticker.C:
+				j.BackfillAll()
+			case <-j.stopCh:
+				j.logger.Info("backfill loop stopped")
+				return
+			}
+		}
+	}()
+}
+
+// BackfillAll runs backfill for all configured chains.
+func (j *Job) BackfillAll() {
+	for chainID, client := range j.registry.Clients() {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+		j.backfillAgentURIs(ctx, chainID, client)
+		cancel()
+	}
 }
 
 // Stop signals the sync job to stop.
@@ -170,9 +207,9 @@ func (j *Job) syncChain(ctx context.Context, chainID int, client *erc8004.Client
 }
 
 // backfillAgentURIs fetches agentURI for tokens saved without metadata (from lite resolve).
-// Processes a limited batch per cycle to avoid RPC rate limits.
+// Processes up to 500 tokens per cycle using 5 concurrent workers.
 func (j *Job) backfillAgentURIs(ctx context.Context, chainID int, client *erc8004.Client) {
-	tokens, err := j.store.ListTokensMissingURI(ctx, chainID, 100)
+	tokens, err := j.store.ListTokensMissingURI(ctx, chainID, 500)
 	if err != nil {
 		j.logger.Error("failed to list tokens missing URI", zap.Int("chain_id", chainID), zap.Error(err))
 		return
@@ -186,47 +223,53 @@ func (j *Job) backfillAgentURIs(ctx context.Context, chainID int, client *erc800
 		zap.Int("batch_size", len(tokens)),
 	)
 
-	fillCtx, fillCancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	fillCtx, fillCancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer fillCancel()
 
-	filled := 0
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 5) // 5 concurrent workers
+	filled := int64(0)
+
 	for _, tokenID := range tokens {
-		// Rate limit: 1 call per 500ms to stay well under rate limits.
-		time.Sleep(500 * time.Millisecond)
+		wg.Add(1)
+		go func(tid int64) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
 
-		uri, err := client.GetAgentURI(fillCtx, tokenID)
-		if err != nil {
-			continue
-		}
-		if uri == "" {
-			continue
-		}
+			// Small delay to stay under RPC rate limits.
+			time.Sleep(100 * time.Millisecond)
 
-		// Also verify current ownership while we're at it.
-		owner, ownerErr := client.VerifyOwnership(fillCtx, tokenID)
+			uri, err := client.GetAgentURI(fillCtx, tid)
+			if err != nil || uri == "" {
+				return
+			}
 
-		agent := &store.NetworkAgent{
-			ChainID:  chainID,
-			TokenID:  tokenID,
-			AgentURI: uri,
-		}
-		if ownerErr == nil {
-			agent.OwnerAddress = owner
-		}
+			owner, ownerErr := client.VerifyOwnership(fillCtx, tid)
 
-		// Fetch metadata from URI.
-		j.fetchMetadata(agent)
+			agent := &store.NetworkAgent{
+				ChainID:  chainID,
+				TokenID:  tid,
+				AgentURI: uri,
+			}
+			if ownerErr == nil {
+				agent.OwnerAddress = owner
+			}
 
-		if err := j.store.UpdateAgentURI(fillCtx, chainID, tokenID, uri, agent.Name, agent.Description, agent.ImageURL, agent.Metadata, owner); err != nil {
-			j.logger.Warn("failed to update agent URI", zap.Int64("token_id", tokenID), zap.Error(err))
-			continue
-		}
-		filled++
+			j.fetchMetadata(agent)
+
+			if err := j.store.UpdateAgentURI(fillCtx, chainID, tid, uri, agent.Name, agent.Description, agent.ImageURL, agent.Metadata, owner); err != nil {
+				j.logger.Warn("failed to update agent URI", zap.Int64("token_id", tid), zap.Error(err))
+				return
+			}
+			atomic.AddInt64(&filled, 1)
+		}(tokenID)
 	}
+	wg.Wait()
 
 	j.logger.Info("backfill complete",
 		zap.Int("chain_id", chainID),
-		zap.Int("filled", filled),
+		zap.Int64("filled", filled),
 		zap.Int("batch_size", len(tokens)),
 	)
 }
