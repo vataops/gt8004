@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { openApi } from "./api";
 import { fetchOnChainActivity } from "./etherscan";
 
@@ -10,20 +10,28 @@ function usePolling<T>(fetchFn: () => Promise<T>, intervalMs: number) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const [loading, setLoading] = useState(true);
+  const retryRef = useRef(0);
 
   const refresh = useCallback(async () => {
     try {
       const result = await fetchFn();
       setData(result);
       setError(null);
+      retryRef.current = 0;
     } catch (e) {
       setError(e as Error);
+      if (retryRef.current < 3) {
+        retryRef.current += 1;
+        const delay = 1000 * 2 ** (retryRef.current - 1);
+        setTimeout(refresh, delay);
+      }
     } finally {
       setLoading(false);
     }
   }, [fetchFn]);
 
   useEffect(() => {
+    retryRef.current = 0;
     refresh();
     const id = setInterval(refresh, intervalMs);
     return () => clearInterval(id);

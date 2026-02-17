@@ -289,7 +289,7 @@ function MyAgentsContent() {
     for (const agent of agents) {
       if (!agent.registered) continue;
       for (const svc of agent.parsed_services) {
-        if (svc.endpoint && svc.name !== "OASF") checks.push({ agentId: agent.agent_id, endpoint: svc.endpoint });
+        if (svc.endpoint && svc.name !== "OASF" && (svc.endpoint.startsWith("http://") || svc.endpoint.startsWith("https://"))) checks.push({ agentId: agent.agent_id, endpoint: svc.endpoint });
       }
     }
     if (checks.length === 0) return;
@@ -565,9 +565,9 @@ function MyAgentsContent() {
 
                     {/* Health (per-service) */}
                     <td className="p-3">
-                      {agent.registered && agent.parsed_services.some(s => s.endpoint && s.name !== "OASF") ? (
+                      {agent.registered && agent.parsed_services.some(s => s.endpoint && s.name !== "OASF" && (s.endpoint.startsWith("http://") || s.endpoint.startsWith("https://"))) ? (
                         <div className="flex flex-col gap-1">
-                          {agent.parsed_services.filter(s => s.endpoint && s.name !== "OASF").map((svc, i) => {
+                          {agent.parsed_services.filter(s => s.endpoint && s.name !== "OASF" && (s.endpoint.startsWith("http://") || s.endpoint.startsWith("https://"))).map((svc, i) => {
                             const key = `${agent.agent_id}:${svc.endpoint}`;
                             const status = healthStatus[key];
                             return (

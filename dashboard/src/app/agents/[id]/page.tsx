@@ -853,7 +853,7 @@ function OverviewTab({ agent, networkAgent, id }: OverviewTabProps) {
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
 
   const runHealthChecks = useCallback(() => {
-    const withEndpoints = services.filter((s) => s.endpoint);
+    const withEndpoints = services.filter((s) => s.endpoint && (s.endpoint.startsWith("http://") || s.endpoint.startsWith("https://")));
     if (withEndpoints.length === 0) return;
 
     const init: Record<string, { status: "checking" }> = {};

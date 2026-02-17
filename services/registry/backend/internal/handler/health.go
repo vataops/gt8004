@@ -89,13 +89,7 @@ func (h *Handler) ServiceHealth(c *gin.Context) {
 		return
 	}
 
-	base := strings.TrimRight(endpoint, "/")
-	var healthURL string
-	if strings.HasSuffix(base, "/.well-known/agent.json") {
-		healthURL = base
-	} else {
-		healthURL = fmt.Sprintf("%s/.well-known/agent.json", base)
-	}
+	healthURL := strings.TrimRight(endpoint, "/")
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Get(healthURL)
