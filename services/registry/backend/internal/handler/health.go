@@ -82,20 +82,35 @@ func (h *Handler) ServiceHealth(c *gin.Context) {
 		return
 	}
 
-	healthURL := strings.TrimRight(endpoint, "/")
-
+	base := strings.TrimRight(endpoint, "/")
 	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Get(healthURL)
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": endpoint, "error": err.Error()})
+
+	// Try /health first for proper status check
+	resp, err := client.Get(base + "/health")
+	if err == nil {
+		defer resp.Body.Close()
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			c.JSON(http.StatusOK, gin.H{"status": "healthy", "endpoint": endpoint})
+			return
+		}
+		if resp.StatusCode != http.StatusNotFound {
+			c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": endpoint, "http_status": resp.StatusCode})
+			return
+		}
+	}
+
+	// Fallback: /health missing or unreachable, check base URL reachability
+	resp2, err2 := client.Get(base)
+	if err2 != nil {
+		c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": endpoint, "error": err2.Error()})
 		return
 	}
-	defer resp.Body.Close()
+	defer resp2.Body.Close()
 
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+	if resp2.StatusCode < 500 {
 		c.JSON(http.StatusOK, gin.H{"status": "healthy", "endpoint": endpoint})
 	} else {
-		c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": endpoint, "http_status": resp.StatusCode})
+		c.JSON(http.StatusOK, gin.H{"status": "unhealthy", "endpoint": endpoint, "http_status": resp2.StatusCode})
 	}
 }
 

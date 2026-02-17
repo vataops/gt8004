@@ -24,7 +24,7 @@ func init() {
 	case "mainnet":
 		SupportedNetworks = map[int]NetworkConfig{
 			1:    {ChainID: 1, RegistryAddr: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432", ReputationAddr: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63", RegistryRPC: "https://ethereum-rpc.publicnode.com", DeployBlock: 24339900},
-			8453: {ChainID: 8453, RegistryAddr: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432", ReputationAddr: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63", RegistryRPC: "https://mainnet.base.org", DeployBlock: 41453200},
+			8453: {ChainID: 8453, RegistryAddr: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432", ReputationAddr: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63", RegistryRPC: "https://base.drpc.org", DeployBlock: 41000000},
 		}
 	default: // "testnet" or unset
 		SupportedNetworks = map[int]NetworkConfig{

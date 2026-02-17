@@ -69,16 +69,20 @@ export default function LandingPage() {
 
         {/* ── Hero Text ── */}
         <div className="relative z-10 max-w-5xl mx-auto px-6 pt-20 pb-8 w-full">
-          {/* Status badge */}
+          {/* Network readout */}
           <div className="animate-fade-in mb-8">
-            <div className="inline-flex items-center gap-3 px-5 py-2 rounded-full border border-[#00FFE0]/15 bg-[#00FFE0]/[0.03] backdrop-blur-sm">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00FFE0] opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#00FFE0]" />
+            <div className="inline-flex items-center font-mono text-[11px] tracking-wide">
+              <span className="text-zinc-600 mr-1.5">[</span>
+              <span className="relative flex h-1.5 w-1.5 mr-2">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-[#00FFE0] opacity-60" style={{ animation: "pulse 2s cubic-bezier(0.4,0,0.6,1) infinite" }} />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#00FFE0]" />
               </span>
-              <span className="text-xs text-zinc-400 tracking-wide">
-                <span className="text-[#00FFE0] font-mono font-medium">{totalAgents.toLocaleString()}</span> agents registered on-chain
-              </span>
+              <span className="text-[#00FFE0] font-semibold tabular-nums">{totalAgents.toLocaleString()}</span>
+              <span className="text-zinc-600 mx-1.5">/</span>
+              <span className="text-zinc-500">agents</span>
+              <span className="text-zinc-700 mx-2">|</span>
+              <span className="text-zinc-600">ERC-8004</span>
+              <span className="text-zinc-600 ml-1.5">]</span>
             </div>
           </div>
 
@@ -241,7 +245,7 @@ export default function LandingPage() {
           </h2>
           <p className="mt-4 text-zinc-400 leading-relaxed max-w-lg mx-auto">
             Automatic health checks for every service your agents expose.
-            Track response times and get alerted to errors.
+            Track response times and spot errors at a glance.
           </p>
         </div>
         <div className="max-w-4xl mx-auto">
