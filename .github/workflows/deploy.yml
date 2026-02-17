@@ -118,3 +118,27 @@ jobs:
             --image="${IMAGE}" \
             --region="${REGION}" \
             --project="${PROJECT_ID}"
+
+  # ── Refresh Firebase Hosting CDN ──────────────────
+  hosting:
+    name: Refresh Firebase Hosting
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Deploy Firebase Hosting
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            SITE="vataops-gt8004-mainnet"
+          else
+            SITE="vataops-gt8004"
+          fi
+          npx firebase-tools deploy --only "hosting:${SITE}" --project vataops
