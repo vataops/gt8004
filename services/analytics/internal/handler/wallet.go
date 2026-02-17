@@ -125,6 +125,10 @@ func (h *Handler) WalletErrors(c *gin.Context) {
 // When chainFilter is non-nil, only agents on those chain IDs are returned.
 // Uses cache with 5-minute TTL to avoid repeated calls to registry service.
 func (h *Handler) getWalletAgentIDs(ctx context.Context, address string, chainFilter map[int]struct{}) ([]uuid.UUID, error) {
+	if h.registryURL == "" {
+		return nil, fmt.Errorf("REGISTRY_URL not configured")
+	}
+
 	// Build cache key including chain filter for correctness
 	cacheKey := "wallet_agents:" + address
 	if chainFilter != nil {

@@ -149,6 +149,10 @@ resource "google_cloud_run_v2_service" "analytics" {
         name  = "NETWORK_MODE"
         value = "mainnet"
       }
+      env {
+        name  = "REGISTRY_URL"
+        value = google_cloud_run_v2_service.registry.uri
+      }
     }
   }
 
