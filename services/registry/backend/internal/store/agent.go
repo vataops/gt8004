@@ -339,6 +339,26 @@ func (s *Store) UpdateAgentTotalCustomers(ctx context.Context, agentDBID uuid.UU
 	return nil
 }
 
+// ReconcileERC8004 clears erc8004 fields for agents whose tokens
+// no longer exist in the network_agents (on-chain discovery) table.
+func (s *Store) ReconcileERC8004(ctx context.Context) (int64, error) {
+	tag, err := s.pool.Exec(ctx, `
+		UPDATE agents
+		SET erc8004_token_id = NULL, chain_id = 0, agent_uri = '',
+			verified_at = NULL, updated_at = NOW()
+		WHERE erc8004_token_id IS NOT NULL
+		  AND NOT EXISTS (
+			SELECT 1 FROM network_agents na
+			WHERE na.token_id = agents.erc8004_token_id
+			  AND na.chain_id = agents.chain_id
+		  )
+	`)
+	if err != nil {
+		return 0, fmt.Errorf("reconcile erc8004: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
 // DashboardOverview contains overview data for admin.
 type DashboardOverview struct {
 	TotalAgents      int     `json:"total_agents"`

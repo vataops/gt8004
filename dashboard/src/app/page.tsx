@@ -1,50 +1,53 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react"; // used by SDKSection
 import { useNetworkStats, useOverview } from "@/lib/hooks";
 import { NETWORK_LIST } from "@/lib/networks";
 
+/* ── Mock Data ── */
+
+const MOCK_AGENTS = [
+  { name: "SearchBot", tokenId: 12, chain: "Base", requests: 8420, customers: 234, revenue: 1892.5, health: "healthy" as const, services: ["MCP", "A2A"] },
+  { name: "DataAgent", tokenId: 7, chain: "Base", requests: 3102, customers: 89, revenue: 412.0, health: "healthy" as const, services: ["A2A", "HTTP"] },
+  { name: "CodeReview", tokenId: 23, chain: "Base", requests: 1325, customers: 45, revenue: 37.0, health: "unhealthy" as const, services: ["MCP"] },
+];
+
+const MOCK_TOTAL_REQUESTS = MOCK_AGENTS.reduce((s, a) => s + a.requests, 0);
+const MOCK_TOTAL_REVENUE = MOCK_AGENTS.reduce((s, a) => s + a.revenue, 0);
+
+const BAR_COLORS = ["#00FFE0", "#06b6d4", "#8b5cf6", "#f59e0b", "#ef4444"];
+
+/* ── Main Page ── */
+
 export default function LandingPage() {
-  const router = useRouter();
   const { data: stats } = useNetworkStats();
   const { data: overview } = useOverview();
-  const [search, setSearch] = useState("");
 
   const totalAgents = stats?.total ?? 0;
   const totalRequests = overview?.total_requests ?? 0;
   const totalRevenue = overview?.total_revenue_usdc ?? 0;
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (search.trim()) {
-      router.push(`/explorer?q=${encodeURIComponent(search.trim())}`);
-    } else {
-      router.push("/explorer");
-    }
-  };
-
   return (
     <div className="-mx-6 -mt-6">
       {/* ── Hero ── */}
-      <section className="relative overflow-hidden min-h-[90vh] flex items-center">
+      <section className="relative overflow-hidden min-h-[90vh] flex flex-col justify-center">
         {/* Background layers */}
         <div className="absolute inset-0 tech-grid" />
         <div className="absolute inset-0 noise-overlay" />
 
-        {/* Animated glow orbs */}
+        {/* Animated glow orbs — reduced intensity */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <div
-            className="absolute -top-[200px] -left-[200px] w-[700px] h-[700px] rounded-full bg-[#00FFE0]/[0.07]"
+            className="absolute -top-[200px] -left-[200px] w-[700px] h-[700px] rounded-full bg-[#00FFE0]/[0.05]"
             style={{ animation: "glow-pulse 8s ease-in-out infinite", filter: "blur(80px)" }}
           />
           <div
-            className="absolute top-[30%] -right-[150px] w-[500px] h-[500px] rounded-full bg-[#00FFE0]/[0.05]"
+            className="absolute top-[30%] -right-[150px] w-[500px] h-[500px] rounded-full bg-[#00FFE0]/[0.04]"
             style={{ animation: "glow-pulse 8s ease-in-out 3s infinite", filter: "blur(60px)" }}
           />
           <div
-            className="absolute -bottom-[200px] left-[30%] w-[600px] h-[600px] rounded-full bg-[#00FFE0]/[0.04]"
+            className="absolute -bottom-[200px] left-[30%] w-[600px] h-[600px] rounded-full bg-[#00FFE0]/[0.03]"
             style={{ animation: "glow-pulse 8s ease-in-out 5s infinite", filter: "blur(100px)" }}
           />
         </div>
@@ -63,12 +66,11 @@ export default function LandingPage() {
         {/* Corner accents */}
         <div className="absolute top-6 left-6 w-16 h-16 border-l border-t border-[#00FFE0]/20" />
         <div className="absolute top-6 right-6 w-16 h-16 border-r border-t border-[#00FFE0]/20" />
-        <div className="absolute bottom-6 left-6 w-16 h-16 border-l border-b border-[#00FFE0]/10" />
-        <div className="absolute bottom-6 right-6 w-16 h-16 border-r border-b border-[#00FFE0]/10" />
 
-        <div className="relative z-10 max-w-5xl mx-auto px-6 py-24 w-full">
+        {/* ── Hero Text ── */}
+        <div className="relative z-10 max-w-5xl mx-auto px-6 pt-20 pb-8 w-full">
           {/* Status badge */}
-          <div className="animate-fade-in mb-10">
+          <div className="animate-fade-in mb-8">
             <div className="inline-flex items-center gap-3 px-5 py-2 rounded-full border border-[#00FFE0]/15 bg-[#00FFE0]/[0.03] backdrop-blur-sm">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00FFE0] opacity-75" />
@@ -80,10 +82,10 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Title block */}
+          {/* Headline */}
           <div className="animate-fade-in">
-            <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-bold tracking-tight leading-[1.05]">
-              <span className="block text-[#ededed]">The Dashboard</span>
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-[1.1]">
+              <span className="block text-[#ededed]">The operating system</span>
               <span className="block text-[#ededed]">for{" "}
                 <span
                   className="bg-gradient-to-r from-[#00FFE0] via-cyan-300 to-[#00FFE0] bg-clip-text text-transparent"
@@ -95,158 +97,155 @@ export default function LandingPage() {
             </h1>
           </div>
 
-          {/* Subtitle with monospace accent */}
-          <div className="animate-fade-in-delay mt-8 max-w-xl">
+          {/* Subtitle */}
+          <div className="animate-fade-in-delay mt-6 max-w-2xl">
             <p className="text-lg md:text-xl text-zinc-400 leading-relaxed">
-              Explore, validate, and interact with autonomous agents
-              registered on{" "}
-              <span className="font-mono text-[#00FFE0]/80 text-base">ERC-8004</span>
+              <span className="font-mono text-[#00FFE0]/80">Requests</span>
+              <span className="text-zinc-600 mx-2">&middot;</span>
+              <span className="font-mono text-[#00FFE0]/80">Customers</span>
+              <span className="text-zinc-600 mx-2">&middot;</span>
+              <span className="font-mono text-[#00FFE0]/80">Revenue</span>
+              <span className="text-zinc-600 mx-2">&middot;</span>
+              <span className="font-mono text-[#00FFE0]/80">Health</span>
+              <span className="text-zinc-500 ml-1"> &mdash; All in one dashboard.</span>
             </p>
           </div>
 
-          {/* Search + CTAs row */}
-          <div className="animate-fade-in-delay-2 mt-12 flex flex-col sm:flex-row items-stretch sm:items-center gap-4 max-w-2xl">
-            <form onSubmit={handleSearch} className="flex-1">
-              <div className="relative group">
-                <div className="absolute -inset-px bg-gradient-to-r from-[#00FFE0]/20 via-transparent to-[#00FFE0]/20 rounded-lg opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500" />
-                <div className="relative flex items-center bg-[#0a0a0a] border border-[#1f1f1f] rounded-lg overflow-hidden group-focus-within:border-[#00FFE0]/30 transition-colors">
-                  <svg className="w-4 h-4 text-zinc-600 ml-4 shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  <input
-                    type="text"
-                    name="search"
-                    placeholder="Search agents by name, address, or token ID\u2026"
-                    aria-label="Search agents"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="flex-1 bg-transparent px-4 py-3.5 text-sm text-[#ededed] placeholder-zinc-600 focus:outline-none"
-                  />
-                </div>
-              </div>
-            </form>
+          {/* CTAs */}
+          <div className="animate-fade-in-delay-2 mt-10 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <Link
+              href="/my-agents"
+              className="group inline-flex items-center gap-2 px-8 py-3.5 bg-[#00FFE0] text-black font-semibold rounded-lg hover:shadow-[0_0_30px_rgba(0,255,224,0.35)] transition-shadow text-sm"
+            >
+              Go to Dashboard
+              <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+              </svg>
+            </Link>
+            <a
+              href="#features"
+              className="inline-flex items-center gap-2 px-6 py-3.5 text-[#00FFE0] font-semibold rounded-lg border border-[#00FFE0]/20 hover:border-[#00FFE0]/40 hover:bg-[#00FFE0]/[0.05] transition-all text-sm"
+            >
+              See Features
+              <svg className="w-4 h-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3" />
+              </svg>
+            </a>
+            <Link
+              href="/explorer"
+              className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-[#00FFE0] transition-colors font-medium"
+            >
+              Browse Agents
+              <svg className="w-3.5 h-3.5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+              </svg>
+            </Link>
+          </div>
+        </div>
 
-            <div className="flex gap-3">
-              <Link
-                href="/explorer"
-                className="group inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-[#00FFE0] text-black font-semibold rounded-lg hover:shadow-[0_0_30px_rgba(0,255,224,0.35)] transition-shadow text-sm whitespace-nowrap"
-              >
-                Browse Agents
-                <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-                </svg>
-              </Link>
-              <Link
-                href="/create"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 text-[#00FFE0] font-semibold rounded-lg border border-[#00FFE0]/20 hover:border-[#00FFE0]/40 hover:bg-[#00FFE0]/[0.05] transition-all text-sm whitespace-nowrap"
-              >
-                <svg className="w-4 h-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
-                Create
-              </Link>
+        {/* ── Dashboard Mock ── */}
+        <div className="relative z-10 max-w-5xl mx-auto px-6 pb-12 w-full animate-fade-in-delay-3">
+          <div className="relative" style={{ perspective: "1200px" }}>
+            <div className="md:transform md:[transform:rotateX(2deg)]">
+              <DashboardMock />
             </div>
+            {/* Glow beneath */}
+            <div className="absolute -bottom-16 left-[10%] right-[10%] h-[120px] bg-[#00FFE0]/[0.06] blur-[80px] rounded-full pointer-events-none" />
           </div>
         </div>
 
         {/* Bottom fade */}
-        <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-[#0a0a0a] to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-[#0a0a0a] to-transparent pointer-events-none" />
       </section>
 
-      {/* ── Live Stats Ticker ── */}
-      <section className="relative -mt-20 z-10 max-w-5xl mx-auto px-6">
-        <div className="animated-border bg-[#0a0a0a]/90 backdrop-blur-md rounded-2xl">
-          <div className="relative z-10 grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-[#1a1a1a]">
-            <StatBlock
-              label="On-chain Agents"
-              value={totalAgents.toLocaleString()}
-              prefix=""
-            />
-            <StatBlock
-              label="Total Requests"
-              value={totalRequests.toLocaleString()}
-              prefix=""
-            />
-            <StatBlock
-              label="Total Revenue"
-              value={`$${totalRevenue.toFixed(2)}`}
-              prefix=""
-              suffix="USDC"
-            />
+      {/* ── Feature Deep-Dive: Requests ── */}
+      <section id="features" className="max-w-5xl mx-auto px-6 py-24">
+        <div className="grid md:grid-cols-2 gap-12 items-center">
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-px flex-1 max-w-[40px] bg-[#00FFE0]/40" />
+              <span className="text-xs text-[#00FFE0] uppercase tracking-[0.2em] font-medium font-mono">Requests</span>
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
+              Track every request, down to the customer
+            </h2>
+            <p className="mt-4 text-zinc-400 leading-relaxed">
+              See real-time request volume per agent, identify your top customers,
+              and spot traffic patterns with 30-day trend analysis.
+            </p>
+            <div className="mt-8 space-y-4">
+              {[
+                { mono: "30d", text: "Daily trend charts with request volume" },
+                { mono: "Top 10", text: "Agent ranking by requests and customers" },
+                { mono: "Per-user", text: "Individual customer tracking" },
+              ].map((item) => (
+                <div key={item.mono} className="flex items-center gap-4">
+                  <span className="w-14 text-right font-mono text-xs text-[#00FFE0]/60">{item.mono}</span>
+                  <div className="w-px h-4 bg-[#1f1f1f]" />
+                  <span className="text-sm text-zinc-400">{item.text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <RequestsMock />
           </div>
         </div>
       </section>
 
-      {/* ── Features — Bento Grid ── */}
-      <section className="max-w-5xl mx-auto px-6 pt-32 pb-20">
-        <div className="mb-16">
-          <div className="flex items-center gap-3 mb-4">
+      {/* ── Feature Deep-Dive: Revenue ── */}
+      <section className="max-w-5xl mx-auto px-6 py-24">
+        <div className="grid md:grid-cols-2 gap-12 items-center">
+          <div className="order-2 md:order-1">
+            <RevenueMock />
+          </div>
+          <div className="order-1 md:order-2">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-px flex-1 max-w-[40px] bg-[#00FFE0]/40" />
+              <span className="text-xs text-[#00FFE0] uppercase tracking-[0.2em] font-medium font-mono">Revenue</span>
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
+              Know exactly what your agents earn
+            </h2>
+            <p className="mt-4 text-zinc-400 leading-relaxed">
+              Track USDC revenue per agent, calculate average revenue per request,
+              and see which agents are monetizing across your entire portfolio.
+            </p>
+            <div className="mt-8 space-y-4">
+              {[
+                { mono: "USDC", text: "Real-time revenue tracking per agent" },
+                { mono: "ARPU", text: "Average revenue per request" },
+                { mono: "%", text: "Monetization rate across portfolio" },
+              ].map((item) => (
+                <div key={item.mono} className="flex items-center gap-4">
+                  <span className="w-14 text-right font-mono text-xs text-[#00FFE0]/60">{item.mono}</span>
+                  <div className="w-px h-4 bg-[#1f1f1f]" />
+                  <span className="text-sm text-zinc-400">{item.text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Feature Deep-Dive: Health ── */}
+      <section className="max-w-5xl mx-auto px-6 py-24">
+        <div className="text-center mb-12">
+          <div className="flex items-center justify-center gap-3 mb-4">
             <div className="h-px flex-1 max-w-[40px] bg-[#00FFE0]/40" />
-            <span className="text-xs text-[#00FFE0] uppercase tracking-[0.2em] font-medium font-mono">Platform</span>
+            <span className="text-xs text-[#00FFE0] uppercase tracking-[0.2em] font-medium font-mono">Observability</span>
+            <div className="h-px flex-1 max-w-[40px] bg-[#00FFE0]/40" />
           </div>
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
-            Everything your agent needs
+            Every endpoint, always monitored
           </h2>
-          <p className="mt-3 text-zinc-500 max-w-lg">
-            Built-in tools for monitoring, security, and discovery. No additional setup required.
+          <p className="mt-4 text-zinc-400 leading-relaxed max-w-lg mx-auto">
+            Automatic health checks for every service your agents expose.
+            Track response times and get alerted to errors.
           </p>
         </div>
-
-        {/* Bento layout: 1 large left + 2 stacked right */}
-        <div className="grid md:grid-cols-5 gap-4">
-          {/* Large featured card */}
-          <div className="md:col-span-3 group relative overflow-hidden rounded-2xl border border-[#1a1a1a] bg-[#0f0f0f] p-8 md:p-10 transition-colors hover:border-[#00FFE0]/20">
-            <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-[#00FFE0]/[0.04] rounded-full blur-[100px] transition-opacity duration-700 opacity-0 group-hover:opacity-100" />
-            <div className="relative z-10">
-              <div className="w-12 h-12 rounded-xl bg-[#00FFE0]/[0.08] border border-[#00FFE0]/20 flex items-center justify-center mb-6">
-                <ChartIcon />
-              </div>
-              <h3 className="text-xl font-semibold mb-3">Free Analytics</h3>
-              <p className="text-sm text-zinc-400 leading-relaxed max-w-md">
-                Request logging, customer analysis, and revenue tracking.
-                Zero latency overhead, zero cost. Full visibility into your
-                agent&apos;s performance from day one.
-              </p>
-              <div className="mt-8 flex items-center gap-6">
-                {["Real-time logs", "Revenue tracking", "Customer insights"].map((tag) => (
-                  <span key={tag} className="text-[11px] text-zinc-600 font-mono uppercase tracking-wider">
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Two stacked cards */}
-          <div className="md:col-span-2 flex flex-col gap-4">
-            <div className="group relative flex-1 overflow-hidden rounded-2xl border border-[#1a1a1a] bg-[#0f0f0f] p-6 transition-colors hover:border-[#00FFE0]/20">
-              <div className="absolute top-0 right-0 w-[200px] h-[200px] bg-[#00FFE0]/[0.03] rounded-full blur-[80px] transition-opacity duration-700 opacity-0 group-hover:opacity-100" />
-              <div className="relative z-10">
-                <div className="w-10 h-10 rounded-lg bg-[#00FFE0]/[0.08] border border-[#00FFE0]/20 flex items-center justify-center mb-4">
-                  <ShieldIcon />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">Escrow System</h3>
-                <p className="text-sm text-zinc-400 leading-relaxed">
-                  On-chain payment protection for contracts over $100.
-                  Secure, transparent, and automatic.
-                </p>
-              </div>
-            </div>
-
-            <div className="group relative flex-1 overflow-hidden rounded-2xl border border-[#1a1a1a] bg-[#0f0f0f] p-6 transition-colors hover:border-[#00FFE0]/20">
-              <div className="absolute top-0 right-0 w-[200px] h-[200px] bg-[#00FFE0]/[0.03] rounded-full blur-[80px] transition-opacity duration-700 opacity-0 group-hover:opacity-100" />
-              <div className="relative z-10">
-                <div className="w-10 h-10 rounded-lg bg-[#00FFE0]/[0.08] border border-[#00FFE0]/20 flex items-center justify-center mb-4">
-                  <GridIcon />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">Agent Marketplace</h3>
-                <p className="text-sm text-zinc-400 leading-relaxed">
-                  Discover, compare, and benchmark agents by reputation,
-                  category, and performance.
-                </p>
-              </div>
-            </div>
-          </div>
+        <div className="max-w-4xl mx-auto">
+          <HealthMock />
         </div>
       </section>
 
@@ -269,6 +268,18 @@ export default function LandingPage() {
       {/* ── SDK ── */}
       <SDKSection />
 
+      {/* ── Live Stats Ticker ── */}
+      <section className="max-w-5xl mx-auto px-6 pb-20">
+        <div className="animated-border bg-[#0a0a0a]/90 backdrop-blur-md rounded-2xl">
+          <div className="relative z-10 grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#1a1a1a]">
+            <StatBlock label="On-chain Agents" value={totalAgents.toLocaleString()} />
+            <StatBlock label="Total Requests" value={totalRequests.toLocaleString()} />
+            <StatBlock label="Total Revenue" value={`$${totalRevenue.toFixed(2)}`} suffix="USDC" />
+            <StatBlock label="Networks" value={String(NETWORK_LIST.length)} />
+          </div>
+        </div>
+      </section>
+
       {/* ── Bottom CTA ── */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 tech-grid opacity-50" />
@@ -286,34 +297,355 @@ export default function LandingPage() {
             Get Started
           </p>
           <h2 className="text-3xl md:text-5xl font-bold tracking-tight">
-            Ready to go on-chain?
+            Your agents are already on-chain.
+            <br />
+            <span className="text-zinc-500">Now see what they&apos;re doing.</span>
           </h2>
           <p className="mt-5 text-zinc-400 text-lg max-w-md mx-auto">
-            Join the growing network of autonomous agents
-            on the ERC-8004 registry.
+            Connect your wallet to access your free dashboard.
+            No setup, no credit card.
           </p>
           <div className="mt-10 flex items-center justify-center gap-4">
             <Link
-              href="/explorer"
+              href="/my-agents"
               className="group inline-flex items-center gap-2 px-8 py-3.5 bg-[#00FFE0] text-black font-semibold rounded-lg hover:shadow-[0_0_40px_rgba(0,255,224,0.3)] transition-shadow text-sm"
             >
-              Explore Agents
+              Go to Dashboard
               <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
               </svg>
             </Link>
             <Link
-              href="/create"
+              href="/explorer"
               className="px-8 py-3.5 text-[#00FFE0] font-semibold rounded-lg border border-[#00FFE0]/20 hover:border-[#00FFE0]/40 hover:bg-[#00FFE0]/[0.05] transition-all text-sm"
             >
-              Create Agent
+              Browse Agents
             </Link>
           </div>
+          <p className="mt-6 text-[11px] text-zinc-600 font-mono tracking-wide">
+            Free forever &middot; No usage limits &middot; No latency overhead
+          </p>
         </div>
       </section>
     </div>
   );
 }
+
+/* ══════════════════════════════════════════════════
+   Mock Components — static, hardcoded, no API calls
+   ══════════════════════════════════════════════════ */
+
+/* ── Browser Frame ── */
+
+function BrowserFrame({ url, children }: { url: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border border-[#1a1a1a] bg-[#0a0a0a] overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#1a1a1a]">
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#1a1a1a]" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#1a1a1a]" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#1a1a1a]" />
+          </div>
+        </div>
+        <div className="flex-1 mx-4">
+          <div className="bg-[#141414] rounded-md px-3 py-1 text-[10px] text-zinc-600 font-mono text-center max-w-xs mx-auto">
+            {url}
+          </div>
+        </div>
+        <div className="w-12" />
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/* ── Mock Stat Card ── */
+
+function MockStatCard({ label, value, suffix }: { label: string; value: string; suffix?: string }) {
+  return (
+    <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-3">
+      <p className="text-[9px] text-zinc-600 uppercase tracking-wider font-mono mb-1">{label}</p>
+      <p className="text-lg font-bold text-[#ededed]" style={{ fontVariantNumeric: "tabular-nums" }}>
+        {value}
+        {suffix && <span className="text-[9px] text-zinc-600 font-mono ml-1">{suffix}</span>}
+      </p>
+    </div>
+  );
+}
+
+/* ── Mock Horizontal Bar ── */
+
+function MockBar({ label, value, percent, color }: { label: string; value: string; percent: number; color: string }) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-[10px]">
+        <span className="text-zinc-400 truncate">{label}</span>
+        <span className="text-zinc-500 font-mono ml-2 shrink-0">{value}</span>
+      </div>
+      <div className="h-2 bg-[#141414] rounded-full overflow-hidden">
+        <div className="h-full rounded-full transition-all" style={{ width: `${percent}%`, backgroundColor: color }} />
+      </div>
+    </div>
+  );
+}
+
+/* ── Dashboard Mock (Hero) ── */
+
+function DashboardMock() {
+  return (
+    <BrowserFrame url="gt8004.xyz/my-agents">
+      <div className="p-4 space-y-4">
+        {/* Tab bar */}
+        <div className="flex gap-1 border-b border-[#1a1a1a]">
+          {["Overview", "Requests", "Revenue", "Observability"].map((tab) => (
+            <span
+              key={tab}
+              className={`px-3 py-1.5 text-[10px] font-mono ${
+                tab === "Overview"
+                  ? "text-[#00FFE0] border-b border-[#00FFE0]"
+                  : "text-zinc-600"
+              }`}
+            >
+              {tab}
+            </span>
+          ))}
+        </div>
+
+        {/* Stat cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <MockStatCard label="Total Agents" value="5" />
+          <MockStatCard label="Healthy" value="4 / 5" />
+          <MockStatCard label="Total Requests" value="12,847" />
+          <MockStatCard label="Total Revenue" value="$2,341.50" suffix="USDC" />
+        </div>
+
+        {/* Breakdown charts */}
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-3">
+            <p className="text-[9px] text-zinc-600 uppercase tracking-wider font-mono mb-3">Requests by Agent</p>
+            <div className="space-y-2">
+              {MOCK_AGENTS.map((a, i) => (
+                <MockBar
+                  key={a.name}
+                  label={a.name}
+                  value={a.requests.toLocaleString()}
+                  percent={(a.requests / MOCK_TOTAL_REQUESTS) * 100}
+                  color={BAR_COLORS[i]}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-3">
+            <p className="text-[9px] text-zinc-600 uppercase tracking-wider font-mono mb-3">Revenue by Agent</p>
+            <div className="space-y-2">
+              {MOCK_AGENTS.map((a, i) => (
+                <MockBar
+                  key={a.name}
+                  label={a.name}
+                  value={`$${a.revenue.toFixed(0)}`}
+                  percent={(a.revenue / MOCK_TOTAL_REVENUE) * 100}
+                  color={BAR_COLORS[i]}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Agent table */}
+        <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg overflow-hidden">
+          <table className="w-full text-[10px]">
+            <thead>
+              <tr className="border-b border-[#1a1a1a] text-zinc-600 font-mono uppercase tracking-wider">
+                <th className="text-left px-3 py-2 font-medium">Agent</th>
+                <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">Chain</th>
+                <th className="text-right px-3 py-2 font-medium">Requests</th>
+                <th className="text-right px-3 py-2 font-medium hidden sm:table-cell">Customers</th>
+                <th className="text-center px-3 py-2 font-medium">Health</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#1a1a1a]/50">
+              {MOCK_AGENTS.map((a) => (
+                <tr key={a.name} className="text-zinc-400">
+                  <td className="px-3 py-2">
+                    <span className="text-[#ededed] font-medium">{a.name}</span>
+                    <span className="text-zinc-600 ml-1">#{a.tokenId}</span>
+                  </td>
+                  <td className="px-3 py-2 hidden sm:table-cell">
+                    <span className="px-1.5 py-0.5 bg-blue-500/10 text-blue-400 rounded text-[9px] font-mono">{a.chain}</span>
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono">{a.requests.toLocaleString()}</td>
+                  <td className="px-3 py-2 text-right font-mono hidden sm:table-cell">{a.customers}</td>
+                  <td className="px-3 py-2 text-center">
+                    <span className={`inline-block w-2 h-2 rounded-full ${a.health === "healthy" ? "bg-green-500" : "bg-red-500"}`} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </BrowserFrame>
+  );
+}
+
+/* ── Requests Mock ── */
+
+function RequestsMock() {
+  // Fake 30-day sparkline data
+  const points = [320, 280, 410, 390, 350, 480, 520, 460, 440, 510, 490, 530, 620, 580, 540, 600, 650, 630, 680, 720, 690, 710, 750, 800, 770, 820, 860, 840, 890, 920];
+  const max = Math.max(...points);
+  const min = Math.min(...points);
+  const w = 300;
+  const h = 80;
+  const path = points
+    .map((p, i) => {
+      const x = (i / (points.length - 1)) * w;
+      const y = h - ((p - min) / (max - min)) * h;
+      return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+  const areaPath = `${path} L${w},${h} L0,${h} Z`;
+
+  return (
+    <BrowserFrame url="gt8004.xyz/my-agents#requests">
+      <div className="p-4 space-y-3">
+        {/* Line chart */}
+        <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-3">
+          <p className="text-[9px] text-zinc-600 uppercase tracking-wider font-mono mb-2">Requests Over Time &mdash; Last 30 Days</p>
+          <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-20" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#00FFE0" stopOpacity="0.2" />
+                <stop offset="100%" stopColor="#00FFE0" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            {/* Grid lines */}
+            {[0.25, 0.5, 0.75].map((frac) => (
+              <line key={frac} x1="0" y1={h * frac} x2={w} y2={h * frac} stroke="#1a1a1a" strokeWidth="0.5" />
+            ))}
+            <path d={areaPath} fill="url(#areaGrad)" />
+            <path d={path} fill="none" stroke="#00FFE0" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+
+        {/* Top agents bar chart */}
+        <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-3">
+          <p className="text-[9px] text-zinc-600 uppercase tracking-wider font-mono mb-3">Top Agents by Requests</p>
+          <div className="space-y-2">
+            {MOCK_AGENTS.map((a, i) => (
+              <MockBar
+                key={a.name}
+                label={`${a.name} #${a.tokenId}`}
+                value={`${a.requests.toLocaleString()} (${((a.requests / MOCK_TOTAL_REQUESTS) * 100).toFixed(0)}%)`}
+                percent={(a.requests / MOCK_TOTAL_REQUESTS) * 100}
+                color={BAR_COLORS[i]}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </BrowserFrame>
+  );
+}
+
+/* ── Revenue Mock ── */
+
+function RevenueMock() {
+  return (
+    <BrowserFrame url="gt8004.xyz/my-agents#revenue">
+      <div className="p-4 space-y-3">
+        {/* Stat cards */}
+        <div className="grid grid-cols-3 gap-2">
+          <MockStatCard label="Total Revenue" value="$2,341.50" suffix="USDC" />
+          <MockStatCard label="Portfolio ARPU" value="$0.18" suffix="/req" />
+          <MockStatCard label="Paying Agents" value="3 / 5" suffix="60%" />
+        </div>
+
+        {/* Top agents by revenue */}
+        <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-3">
+          <p className="text-[9px] text-zinc-600 uppercase tracking-wider font-mono mb-3">Top Agents by Revenue</p>
+          <div className="space-y-2">
+            {MOCK_AGENTS.map((a, i) => (
+              <MockBar
+                key={a.name}
+                label={`${a.name} #${a.tokenId}`}
+                value={`$${a.revenue.toFixed(2)} (${((a.revenue / MOCK_TOTAL_REVENUE) * 100).toFixed(0)}%)`}
+                percent={(a.revenue / MOCK_TOTAL_REVENUE) * 100}
+                color={BAR_COLORS[i]}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </BrowserFrame>
+  );
+}
+
+/* ── Health Mock ── */
+
+function HealthMock() {
+  const agents = [
+    { name: "SearchBot", id: 12, health: "healthy", services: [{ name: "MCP", status: "healthy" }, { name: "A2A", status: "healthy" }], avgMs: 124 },
+    { name: "DataAgent", id: 7, health: "healthy", services: [{ name: "A2A", status: "healthy" }, { name: "HTTP", status: "healthy" }], avgMs: 89 },
+    { name: "CodeReview", id: 23, health: "unhealthy", services: [{ name: "MCP", status: "unhealthy" }], avgMs: 2340 },
+  ];
+
+  return (
+    <BrowserFrame url="gt8004.xyz/my-agents#observability">
+      <div className="p-4 space-y-3">
+        {/* Stat cards */}
+        <div className="grid grid-cols-3 gap-2">
+          <MockStatCard label="Health Status" value="4 / 5" suffix="healthy" />
+          <MockStatCard label="Avg Response" value="142" suffix="ms" />
+          <MockStatCard label="Error Rate" value="0.12" suffix="%" />
+        </div>
+
+        {/* Health grid */}
+        <div className="grid sm:grid-cols-3 gap-2">
+          {agents.map((a) => (
+            <div
+              key={a.id}
+              className={`bg-[#0f0f0f] rounded-lg p-3 border ${
+                a.health === "healthy" ? "border-green-500/20" : "border-red-500/30"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] text-[#ededed] font-medium">{a.name} <span className="text-zinc-600">#{a.id}</span></span>
+                <span className="text-[9px] text-zinc-600 font-mono">{a.avgMs}ms</span>
+              </div>
+              <div className="flex gap-2">
+                {a.services.map((s) => (
+                  <div key={s.name} className="flex items-center gap-1">
+                    <span className={`w-1.5 h-1.5 rounded-full ${s.status === "healthy" ? "bg-green-500" : "bg-red-500"}`} />
+                    <span className="text-[9px] text-zinc-500 font-mono">{s.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Alert box */}
+        <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-lg p-3">
+          <div className="flex items-center gap-2 mb-1">
+            <svg className="w-3.5 h-3.5 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+            <span className="text-[10px] text-yellow-500 font-semibold uppercase tracking-wider">Agents Requiring Attention</span>
+          </div>
+          <p className="text-[10px] text-zinc-400">
+            <span className="text-red-400 font-medium">CodeReview #23</span> &mdash; MCP endpoint unhealthy (timeout after 2340ms)
+          </p>
+        </div>
+      </div>
+    </BrowserFrame>
+  );
+}
+
+/* ══════════════════════════════════════════
+   Existing Helper Components
+   ══════════════════════════════════════════ */
 
 /* ── Stat Block ── */
 
@@ -324,7 +656,6 @@ function StatBlock({
 }: {
   label: string;
   value: string;
-  prefix: string;
   suffix?: string;
 }) {
   return (
@@ -358,32 +689,6 @@ function MarqueeItem({ label, value }: { label: string; value: string }) {
 
 function MarqueeDot() {
   return <span className="w-1 h-1 rounded-full bg-[#00FFE0]/30 shrink-0" />;
-}
-
-/* ── Icons ── */
-
-function ChartIcon() {
-  return (
-    <svg className="w-5 h-5 text-[#00FFE0]" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
-    </svg>
-  );
-}
-
-function ShieldIcon() {
-  return (
-    <svg className="w-5 h-5 text-[#00FFE0]" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-    </svg>
-  );
-}
-
-function GridIcon() {
-  return (
-    <svg className="w-5 h-5 text-[#00FFE0]" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
-    </svg>
-  );
 }
 
 /* ── SDK Section ── */
@@ -432,12 +737,12 @@ function SDKSection() {
             <span className="text-xs text-[#00FFE0] uppercase tracking-[0.2em] font-medium font-mono">Integration</span>
           </div>
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
-            Start in 3 lines
+            Ship analytics in 3 lines
           </h2>
           <p className="mt-4 text-zinc-400 leading-relaxed">
-            Drop in the Python SDK — zero config, zero latency impact.
-            Your agent gets analytics, customer tracking, and
-            revenue monitoring instantly.
+            Install the Python SDK and add one middleware call. Every request your
+            agent handles automatically flows to your GT8004 dashboard &mdash;
+            requests, customers, revenue, all captured with zero latency overhead.
           </p>
           <div className="mt-6 mb-6">
             <code className="text-xs text-zinc-500 font-mono bg-[#111] px-3 py-1.5 rounded-md border border-[#1a1a1a]">
@@ -446,9 +751,9 @@ function SDKSection() {
           </div>
           <div className="mt-8 space-y-4">
             {[
-              { text: "Async logging — no added latency", mono: "~0ms" },
+              { text: "Async logging \u2014 no added latency", mono: "~0ms" },
               { text: "MCP \u00b7 A2A \u00b7 Flask \u00b7 FastAPI", mono: "multi" },
-              { text: "Free forever — no usage limits", mono: "$0" },
+              { text: "Free forever \u2014 no usage limits", mono: "$0" },
             ].map((item) => (
               <div key={item.text} className="flex items-center gap-4">
                 <span className="w-14 text-right font-mono text-xs text-[#00FFE0]/60">{item.mono}</span>

@@ -80,7 +80,7 @@ func (s *Store) UpsertNetworkAgent(ctx context.Context, agent *NetworkAgent) err
 }
 
 // ListNetworkAgents returns network agents filtered by chain IDs with optional search.
-func (s *Store) ListNetworkAgents(ctx context.Context, chainIDs []int, search string, limit, offset int, sort string) ([]NetworkAgent, int, error) {
+func (s *Store) ListNetworkAgents(ctx context.Context, chainIDs []int, search, owner string, limit, offset int, sort string) ([]NetworkAgent, int, error) {
 	if limit <= 0 || limit > 200 {
 		limit = 100
 	}
@@ -109,6 +109,11 @@ func (s *Store) ListNetworkAgents(ctx context.Context, chainIDs []int, search st
 		where += fmt.Sprintf(" AND (owner_address ILIKE $%d OR agent_uri ILIKE $%d OR name ILIKE $%d OR token_id::text = $%d)", argIdx, argIdx, argIdx, argIdx+1)
 		args = append(args, "%"+search+"%", search)
 		argIdx += 2
+	}
+	if owner != "" {
+		where += fmt.Sprintf(" AND LOWER(owner_address) = LOWER($%d)", argIdx)
+		args = append(args, owner)
+		argIdx++
 	}
 
 	// Count total

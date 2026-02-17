@@ -100,6 +100,7 @@ func NewRouter(cfg *config.Config, h *handler.Handler, logger *zap.Logger) *gin.
 		internal.POST("/validate-key", h.InternalValidateKey)
 		internal.PUT("/agents/:id/stats", h.InternalUpdateAgentStats)
 		internal.PUT("/agents/:id/customers-count", h.InternalUpdateCustomersCount)
+		internal.POST("/reconcile", h.InternalReconcile)
 	}
 
 	return r

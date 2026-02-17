@@ -8,6 +8,7 @@ import { NETWORKS, NETWORK_LIST } from "@/lib/networks";
 import { AgentAvatar } from "@/components/RobotIcon";
 import { openApi } from "@/lib/api";
 import type { NetworkAgent } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 
 // Chain ID → display name
 const CHAIN_NAMES: Record<number, string> = {};
@@ -49,11 +50,13 @@ export default function ExplorerPage() {
 function ExplorerContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { walletAddress } = useAuth();
 
   const [chainFilter, setChainFilter] = useState(() => Number(searchParams.get("chain") || 0));
   const [search, setSearch] = useState(() => searchParams.get("q") || "");
   const [page, setPage] = useState(() => Number(searchParams.get("page") || 1));
   const [platformOnly, setPlatformOnly] = useState(() => searchParams.get("platform") === "1");
+  const [mineOnly, setMineOnly] = useState(() => searchParams.get("mine") === "1");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">(() =>
     (searchParams.get("sort") as "newest" | "oldest") || "newest"
   );
@@ -85,6 +88,12 @@ function ExplorerContent() {
     setPage(1);
     syncUrl({ platform: next ? 1 : 0, page: 1 });
   };
+  const handleMineToggle = () => {
+    const next = !mineOnly;
+    setMineOnly(next);
+    setPage(1);
+    syncUrl({ mine: next ? 1 : 0, page: 1 });
+  };
   const handleSortToggle = () => {
     const next = sortOrder === "newest" ? "oldest" : "newest";
     setSortOrder(next);
@@ -96,6 +105,7 @@ function ExplorerContent() {
   const { data, loading } = useNetworkAgents({
     chain_id: chainFilter || undefined,
     search: search || undefined,
+    owner: mineOnly && walletAddress ? walletAddress : undefined,
     limit: PAGE_SIZE,
     offset: (page - 1) * PAGE_SIZE,
     sort: sortOrder,
@@ -111,21 +121,38 @@ function ExplorerContent() {
     const supportedChainIds = new Set(NETWORK_LIST.map((n) => n.chainId));
     openApi
       .searchAgents()
-      .then((res) => {
-        const map = new Map<string, PlatformData>();
+      .then(async (res) => {
+        const candidates: Array<{ key: string; data: PlatformData }> = [];
         for (const a of res.agents || []) {
           if (a.erc8004_token_id != null && a.chain_id != null && supportedChainIds.has(a.chain_id)) {
-            map.set(`${a.chain_id}-${a.erc8004_token_id}`, {
-              agent_id: a.agent_id,
-              status: a.status,
-              total_requests: a.total_requests,
-              total_revenue_usdc: a.total_revenue_usdc,
-              total_customers: a.total_customers,
-              protocols: a.protocols || [],
-              reputation_score: a.reputation_score,
+            candidates.push({
+              key: `${a.chain_id}-${a.erc8004_token_id}`,
+              data: {
+                agent_id: a.agent_id,
+                status: a.status,
+                total_requests: a.total_requests,
+                total_revenue_usdc: a.total_revenue_usdc,
+                total_customers: a.total_customers,
+                protocols: a.protocols || [],
+                reputation_score: a.reputation_score,
+              },
             });
           }
         }
+        // Verify each candidate exists on-chain via discovery service
+        const verified = await Promise.all(
+          candidates.map(({ key }) => {
+            const [cid, tid] = key.split("-");
+            return openApi
+              .getNetworkAgent(Number(cid), Number(tid))
+              .then(() => true)
+              .catch(() => false);
+          })
+        );
+        const map = new Map<string, PlatformData>();
+        candidates.forEach((c, i) => {
+          if (verified[i]) map.set(c.key, c.data);
+        });
         setPlatformMap(map);
       })
       .catch(() => {});
@@ -248,6 +275,18 @@ function ExplorerContent() {
               >
                 {registeredCount}
               </span>
+            </button>
+          )}
+          {walletAddress && (
+            <button
+              onClick={handleMineToggle}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                mineOnly
+                  ? "bg-[#00FFE0] text-black"
+                  : "bg-[#141414] text-zinc-400 hover:bg-[#1a1a1a] hover:text-zinc-200"
+              }`}
+            >
+              Mine
             </button>
           )}
         </div>

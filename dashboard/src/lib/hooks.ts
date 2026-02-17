@@ -62,6 +62,7 @@ export function useNetworkAgents(
   params: {
     chain_id?: number;
     search?: string;
+    owner?: string;
     limit?: number;
     offset?: number;
     sort?: string;
@@ -69,7 +70,7 @@ export function useNetworkAgents(
 ) {
   const fn = useCallback(
     () => openApi.getNetworkAgents(params),
-    [params.chain_id, params.search, params.limit, params.offset, params.sort]
+    [params.chain_id, params.search, params.owner, params.limit, params.offset, params.sort]
   );
   return usePolling(fn, 30_000);
 }

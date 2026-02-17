@@ -7,7 +7,6 @@ import { NETWORKS } from "@/lib/networks";
 import { AgentAvatar } from "@/components/RobotIcon";
 import { openApi } from "@/lib/api";
 import type { Agent, AgentService, ReputationSummary, ReputationFeedbackEntry } from "@/lib/api";
-import { ActivityTab } from "./ActivityTab";
 
 // chain key → chainId mapping
 const CHAIN_KEY_TO_ID: Record<string, number> = {};
@@ -21,7 +20,7 @@ for (const [key, cfg] of Object.entries(NETWORKS)) {
   CHAIN_ID_TO_KEY[cfg.chainId] = key;
 }
 
-type TabKey = "overview" | "feedback" | "activity" | "metadata";
+type TabKey = "overview" | "feedback" | "metadata";
 
 function truncateAddr(addr: string): string {
   if (!addr || addr.length < 12) return addr;
@@ -94,7 +93,6 @@ export default function AgentDetailPage() {
   const TABS: { key: TabKey; label: string; count?: number }[] = [
     { key: "overview", label: "Overview" },
     { key: "feedback", label: "Feedback", count: feedbackCount },
-    { key: "activity", label: "On-chain Activity" },
     { key: "metadata", label: "Metadata" },
   ];
 
@@ -420,11 +418,6 @@ export default function AgentDetailPage() {
                 </Section>
               )}
             </div>
-          )}
-
-          {/* ───── On-chain Activity Tab ───── */}
-          {activeTab === "activity" && agent.owner_address && (
-            <ActivityTab chainId={agent.chain_id} ownerAddress={agent.owner_address} />
           )}
 
           {/* ───── Metadata Tab ───── */}

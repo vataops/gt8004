@@ -708,10 +708,11 @@ export const openApi = {
   },
 
   // Network agents (public — on-chain discovery)
-  getNetworkAgents: (params: { chain_id?: number; search?: string; limit?: number; offset?: number; sort?: string } = {}) => {
+  getNetworkAgents: (params: { chain_id?: number; search?: string; owner?: string; limit?: number; offset?: number; sort?: string } = {}) => {
     const query = new URLSearchParams();
     if (params.chain_id) query.set("chain_id", String(params.chain_id));
     if (params.search) query.set("search", params.search);
+    if (params.owner) query.set("owner", params.owner);
     if (params.limit) query.set("limit", String(params.limit));
     if (params.offset) query.set("offset", String(params.offset));
     if (params.sort) query.set("sort", params.sort);

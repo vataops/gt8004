@@ -93,3 +93,16 @@ func (h *Handler) InternalUpdateCustomersCount(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
+
+// InternalReconcile handles POST /internal/reconcile
+// Clears ERC-8004 fields for agents whose tokens no longer exist on-chain.
+func (h *Handler) InternalReconcile(c *gin.Context) {
+	count, err := h.store.ReconcileERC8004(c.Request.Context())
+	if err != nil {
+		h.logger.Error("failed to reconcile erc8004", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "reconciliation failed"})
+		return
+	}
+	h.logger.Info("erc8004 reconciliation complete", zap.Int64("cleaned", count))
+	c.JSON(http.StatusOK, gin.H{"cleaned": count})
+}
