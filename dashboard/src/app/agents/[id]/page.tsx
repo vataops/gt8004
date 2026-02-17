@@ -433,8 +433,18 @@ function SettingsTab({
   networkAgent,
   refreshAgent,
 }: SettingsTabProps) {
+  const [fetchedKey, setFetchedKey] = useState<string | null>(null);
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
   const [keyLoading, setKeyLoading] = useState(false);
+
+  // Fetch existing API key on mount
+  useEffect(() => {
+    const auth = apiKey || (walletAddress ? { walletAddress } : null);
+    if (!auth) return;
+    openApi.getAPIKey(agent?.agent_id || id, auth)
+      .then((res) => setFetchedKey(res.api_key))
+      .catch(() => {}); // key may not exist yet for legacy agents
+  }, [agent?.agent_id, id, apiKey, walletAddress]);
 
   // Metadata editor state
   const [editingMetadata, setEditingMetadata] = useState(false);
@@ -571,32 +581,44 @@ function SettingsTab({
       {/* API Key */}
       <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-5">
         <h4 className="text-sm font-semibold text-zinc-400 mb-4">API Key</h4>
-        {(apiKey || generatedKey) ? (
-          <>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 text-sm font-mono text-gray-300 bg-gray-950 px-3 py-2 rounded border border-[#1a1a1a] break-all">
-                {generatedKey || apiKey}
-              </code>
-              <CopyButton text={generatedKey || apiKey || ""} />
+        {(() => {
+          const displayKey = generatedKey || fetchedKey || apiKey;
+          return displayKey ? (
+            <>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-sm font-mono text-gray-300 bg-gray-950 px-3 py-2 rounded border border-[#1a1a1a] break-all">
+                  {displayKey}
+                </code>
+                <CopyButton text={displayKey} />
+              </div>
+              <div className="flex items-center justify-between mt-3">
+                <p className="text-xs text-gray-600">
+                  Use this key to authenticate SDK and API requests.
+                </p>
+                <button
+                  onClick={handleRegenerateKey}
+                  disabled={keyLoading || (!apiKey && !walletAddress)}
+                  className="px-3 py-1.5 rounded-md border border-[#1a1a1a] text-xs text-zinc-400 hover:text-red-400 hover:border-red-900 transition-colors disabled:opacity-50"
+                >
+                  {keyLoading ? "Regenerating..." : "Regenerate"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-zinc-400">
+                No API key found. Generate a key to use with SDK and API.
+              </p>
+              <button
+                onClick={handleRegenerateKey}
+                disabled={keyLoading || (!apiKey && !walletAddress)}
+                className="px-4 py-2 rounded-md bg-[#00FFE0] text-black hover:shadow-[0_0_20px_rgba(0,255,224,0.4)] text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {keyLoading ? "Generating..." : "Generate API Key"}
+              </button>
             </div>
-            <p className="text-xs text-gray-600 mt-2">
-              Use this key to authenticate SDK and API requests.
-            </p>
-          </>
-        ) : (
-          <div className="space-y-3">
-            <p className="text-sm text-zinc-400">
-              No API key in current session. Generate a new key to use with SDK and API.
-            </p>
-            <button
-              onClick={handleRegenerateKey}
-              disabled={keyLoading || (!apiKey && !walletAddress)}
-              className="px-4 py-2 rounded-md bg-[#00FFE0] text-black hover:shadow-[0_0_20px_rgba(0,255,224,0.4)] text-sm font-medium transition-colors disabled:opacity-50"
-            >
-              {keyLoading ? "Generating..." : "Generate API Key"}
-            </button>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* JSON Metadata Editor */}

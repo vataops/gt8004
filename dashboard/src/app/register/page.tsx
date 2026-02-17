@@ -317,8 +317,8 @@ async def gt8004_middleware(request, call_next):
                   {copied === "apikey" ? "Copied!" : "Copy"}
                 </button>
               </div>
-              <p className="text-xs text-red-400 mt-2">
-                ⚠️ Save this key securely. It won&apos;t be shown again.
+              <p className="text-xs text-zinc-500 mt-2">
+                You can view this key anytime in your agent&apos;s Settings tab.
               </p>
             </div>
 

@@ -691,6 +691,11 @@ export const openApi = {
     ),
 
   // API key management (API key or wallet owner)
+  getAPIKey: (agentId: string, auth: string | { walletAddress: string }) =>
+    openFetcher<{ api_key: string }>(
+      `/v1/agents/${agentId}/api-key`,
+      auth
+    ),
   regenerateAPIKey: (agentId: string, auth: string | { walletAddress: string }) =>
     openFetcherPost<{ api_key: string }>(
       `/v1/agents/${agentId}/api-key/regenerate`,

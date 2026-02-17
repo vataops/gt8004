@@ -31,9 +31,9 @@ func (s *Store) CreateAPIKey(ctx context.Context, agentDBID uuid.UUID) (string, 
 	keyHash := hex.EncodeToString(hash[:])
 
 	_, err := s.pool.Exec(ctx, `
-		INSERT INTO api_keys (agent_id, key_hash, key_prefix)
-		VALUES ($1, $2, $3)
-	`, agentDBID, keyHash, keyPrefix)
+		INSERT INTO api_keys (agent_id, key_hash, key_prefix, key_raw)
+		VALUES ($1, $2, $3, $4)
+	`, agentDBID, keyHash, keyPrefix, rawKey)
 	if err != nil {
 		return "", fmt.Errorf("insert api key: %w", err)
 	}
@@ -51,6 +51,23 @@ func (s *Store) RevokeAPIKeys(ctx context.Context, agentDBID uuid.UUID) error {
 		return fmt.Errorf("revoke api keys: %w", err)
 	}
 	return nil
+}
+
+// GetActiveAPIKey returns the raw API key for the agent's current (non-revoked) key.
+func (s *Store) GetActiveAPIKey(ctx context.Context, agentDBID uuid.UUID) (string, error) {
+	var raw *string
+	err := s.pool.QueryRow(ctx, `
+		SELECT key_raw FROM api_keys
+		WHERE agent_id = $1 AND revoked_at IS NULL
+		ORDER BY created_at DESC LIMIT 1
+	`, agentDBID).Scan(&raw)
+	if err != nil {
+		return "", fmt.Errorf("get active api key: %w", err)
+	}
+	if raw == nil {
+		return "", fmt.Errorf("get active api key: raw key not stored")
+	}
+	return *raw, nil
 }
 
 // ValidateAPIKey looks up an API key by its SHA-256 hash and returns agent info.
