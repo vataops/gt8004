@@ -322,7 +322,7 @@ func (s *Store) UpdateAgentURI(ctx context.Context, chainID int, tokenID int64, 
 			name        = CASE WHEN $4 <> '' THEN $4 ELSE name END,
 			description = CASE WHEN $5 <> '' THEN $5 ELSE description END,
 			image_url   = CASE WHEN $6 <> '' THEN $6 ELSE image_url END,
-			metadata    = CASE WHEN $7::text <> '{}' THEN $7 ELSE metadata END,
+			metadata    = CASE WHEN $7::text <> '{}' THEN $7::jsonb ELSE metadata END,
 			owner_address = CASE WHEN $8 <> '' THEN $8 ELSE owner_address END,
 			synced_at   = NOW()
 		WHERE chain_id = $1 AND token_id = $2

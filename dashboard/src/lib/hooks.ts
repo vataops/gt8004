@@ -34,10 +34,11 @@ function usePolling<T>(fetchFn: () => Promise<T>, intervalMs: number) {
 
   useEffect(() => {
     retryRef.current = 0;
+    setLoading(true);
     refresh();
     const id = setInterval(refresh, intervalMs);
     return () => clearInterval(id);
-  }, [refresh, intervalMs]);
+  }, [refresh, intervalMs, fetchFn]);
 
   return { data, error, loading, refresh };
 }
