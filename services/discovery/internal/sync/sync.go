@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.uber.org/zap"
@@ -149,6 +150,9 @@ func (j *Job) syncChain(ctx context.Context, chainID int, client *erc8004.Client
 
 	j.upsertTokens(ctx, chainID, tokens)
 
+	// Refresh reputation scores for all existing agents on this chain.
+	j.refreshReputation(ctx, chainID, client)
+
 	// Update sync state
 	if err := j.store.SetLastSyncedBlock(ctx, chainID, scannedTo); err != nil {
 		j.logger.Error("failed to update sync state",
@@ -157,6 +161,49 @@ func (j *Job) syncChain(ctx context.Context, chainID int, client *erc8004.Client
 			zap.Error(err),
 		)
 	}
+}
+
+// refreshReputation fetches on-chain reputation for all existing agents on a chain.
+func (j *Job) refreshReputation(ctx context.Context, chainID int, client *erc8004.Client) {
+	tokenIDs, err := j.store.ListTokenIDsByChain(ctx, chainID)
+	if err != nil {
+		j.logger.Error("failed to list tokens for reputation refresh", zap.Int("chain_id", chainID), zap.Error(err))
+		return
+	}
+	if len(tokenIDs) == 0 {
+		return
+	}
+
+	repCtx, repCancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer repCancel()
+
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 5)
+	updated := int64(0)
+	for _, tid := range tokenIDs {
+		wg.Add(1)
+		go func(tokenID int64) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			score, count, err := client.GetReputationSummary(repCtx, tokenID)
+			if err != nil || count == 0 {
+				return
+			}
+			if dbErr := j.store.UpdateNetworkAgentReputation(repCtx, chainID, tokenID, score, int(count)); dbErr != nil {
+				j.logger.Warn("failed to update reputation", zap.Int64("token_id", tokenID), zap.Error(dbErr))
+				return
+			}
+			atomic.AddInt64(&updated, 1)
+		}(tid)
+	}
+	wg.Wait()
+
+	j.logger.Info("reputation refresh complete",
+		zap.Int("chain_id", chainID),
+		zap.Int("total_agents", len(tokenIDs)),
+		zap.Int64("updated", updated),
+	)
 }
 
 // upsertTokens converts discovered tokens to network agents, fetches metadata, and upserts them.
@@ -207,6 +254,40 @@ func (j *Job) upsertTokens(ctx context.Context, chainID int, tokens []erc8004.Di
 		zap.Int("total", len(agents)),
 		zap.Int("with_metadata", withMeta),
 	)
+
+	// Fetch on-chain reputation scores concurrently.
+	client, _ := j.registry.GetClient(chainID)
+	if client != nil {
+		repCtx, repCancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		var repWg sync.WaitGroup
+		repSem := make(chan struct{}, 5)
+		for _, agent := range agents {
+			repWg.Add(1)
+			go func(a *store.NetworkAgent) {
+				defer repWg.Done()
+				repSem <- struct{}{}
+				defer func() { <-repSem }()
+				score, count, err := client.GetReputationSummary(repCtx, a.TokenID)
+				if err == nil && count > 0 {
+					a.ReputationScore = score
+					a.ReputationCount = int(count)
+				}
+			}(agent)
+		}
+		repWg.Wait()
+		repCancel()
+
+		withRep := 0
+		for _, a := range agents {
+			if a.ReputationCount > 0 {
+				withRep++
+			}
+		}
+		j.logger.Info("reputation fetch complete",
+			zap.Int("chain_id", chainID),
+			zap.Int("with_reputation", withRep),
+		)
+	}
 
 	// Upsert all agents with fresh DB context and change tracking.
 	dbCtx, dbCancel := context.WithTimeout(context.Background(), 3*time.Minute)

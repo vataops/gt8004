@@ -661,14 +661,20 @@ export const openApi = {
     ),
 
   // Wallet analytics (owner-authenticated)
-  getWalletStats: (address: string, auth: string | { walletAddress: string }) =>
-    openFetcher<WalletStats>(`/v1/wallet/${address}/stats`, auth),
-  getWalletDailyStats: (address: string, auth: string | { walletAddress: string }, days = 30) =>
-    openFetcher<{ stats: WalletDailyStats[] }>(
-      `/v1/wallet/${address}/daily?days=${days}`, auth
-    ),
-  getWalletErrors: (address: string, auth: string | { walletAddress: string }) =>
-    openFetcher<WalletErrors>(`/v1/wallet/${address}/errors`, auth),
+  getWalletStats: (address: string, auth: string | { walletAddress: string }, chainIds?: number[]) => {
+    const params = chainIds?.length ? `?chain_ids=${chainIds.join(",")}` : "";
+    return openFetcher<WalletStats>(`/v1/wallet/${address}/stats${params}`, auth);
+  },
+  getWalletDailyStats: (address: string, auth: string | { walletAddress: string }, days = 30, chainIds?: number[]) => {
+    const chainParam = chainIds?.length ? `&chain_ids=${chainIds.join(",")}` : "";
+    return openFetcher<{ stats: WalletDailyStats[] }>(
+      `/v1/wallet/${address}/daily?days=${days}${chainParam}`, auth
+    );
+  },
+  getWalletErrors: (address: string, auth: string | { walletAddress: string }, chainIds?: number[]) => {
+    const params = chainIds?.length ? `?chain_ids=${chainIds.join(",")}` : "";
+    return openFetcher<WalletErrors>(`/v1/wallet/${address}/errors${params}`, auth);
+  },
 
   // Gateway (API key or wallet owner)
   enableGateway: (agentId: string, auth: string | { walletAddress: string }) =>

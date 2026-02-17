@@ -66,6 +66,10 @@ func main() {
 	benchCalc := analytics.NewBenchmarkCalculator(db, logger, time.Duration(cfg.BenchmarkInterval)*time.Second)
 	benchCalc.Start()
 
+	// Reputation calculator (background job)
+	repCalc := analytics.NewReputationCalculator(db, logger, time.Duration(cfg.ReputationInterval)*time.Second)
+	repCalc.Start()
+
 	// Handler
 	h := handler.New(
 		db,
@@ -117,6 +121,7 @@ func main() {
 	}
 
 	benchCalc.Stop()
+	repCalc.Stop()
 	retentionJob.Stop()
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)

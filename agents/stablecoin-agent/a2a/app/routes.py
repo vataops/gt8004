@@ -29,7 +29,7 @@ def _build_agent_card() -> dict:
         provider=provider,
         authentication=Authentication(
             schemes=["x402"],
-            description=f"x402 payment required: {settings.x402_price} USDC on Base" if settings.x402_pay_to else "No authentication required",
+            description=f"x402 payment required: ${settings.x402_price} USDC on Base" if settings.x402_pay_to else "No authentication required",
         ),
     )
     return card.model_dump(exclude_none=True)
@@ -41,7 +41,7 @@ async def agent_card():
 
 
 @router.post("/a2a/tasks/send")
-@pay(settings.x402_price)
+@pay(f"${settings.x402_price}")
 async def send_task(request: Request):
     body = await request.json()
     task_req = TaskRequest(**body)
@@ -61,7 +61,7 @@ async def get_task(task_id: str):
 
 
 @router.post("/a2a/{skill_id}")
-@pay(settings.x402_price)
+@pay(f"${settings.x402_price}")
 async def direct_skill(skill_id: str, request: Request):
     body = await request.json()
     body["skill_id"] = skill_id

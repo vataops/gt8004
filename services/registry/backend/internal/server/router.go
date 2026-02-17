@@ -70,6 +70,10 @@ func NewRouter(cfg *config.Config, h *handler.Handler, logger *zap.Logger) *gin.
 	v1.GET("/agents/search", h.SearchAgents)
 	v1.GET("/agents/wallet/:address", h.ListWalletAgents)
 
+	// Agent reviews (public read, wallet-auth write)
+	v1.GET("/agents/:agent_id/reviews", h.ListReviews)
+	v1.POST("/agents/:agent_id/reviews", h.CreateReview)
+
 	// Agent health (public)
 	v1.GET("/agents/:agent_id/health", h.AgentHealth)
 	v1.GET("/agents/:agent_id/origin-health", h.AgentOriginHealth)

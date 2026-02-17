@@ -11,6 +11,7 @@ type Config struct {
 	IngestWorkers     int    `mapstructure:"INGEST_WORKERS"`
 	IngestBufferSize  int    `mapstructure:"INGEST_BUFFER_SIZE"`
 	BenchmarkInterval  int    `mapstructure:"BENCHMARK_INTERVAL"`
+	ReputationInterval int    `mapstructure:"REPUTATION_INTERVAL"`
 	MaxBodySizeBytes  int    `mapstructure:"MAX_BODY_SIZE_BYTES"`
 	BodyRetentionDays int    `mapstructure:"BODY_RETENTION_DAYS"`
 	GeoIPDBPath       string `mapstructure:"GEOIP_DB_PATH"`
@@ -26,6 +27,7 @@ func Load() (*Config, error) {
 	viper.SetDefault("INGEST_WORKERS", 4)
 	viper.SetDefault("INGEST_BUFFER_SIZE", 1000)
 	viper.SetDefault("BENCHMARK_INTERVAL", 300)
+	viper.SetDefault("REPUTATION_INTERVAL", 600)
 	viper.SetDefault("MAX_BODY_SIZE_BYTES", 51200)
 	viper.SetDefault("BODY_RETENTION_DAYS", 30)
 
@@ -38,6 +40,7 @@ func Load() (*Config, error) {
 	cfg.IngestWorkers = viper.GetInt("INGEST_WORKERS")
 	cfg.IngestBufferSize = viper.GetInt("INGEST_BUFFER_SIZE")
 	cfg.BenchmarkInterval = viper.GetInt("BENCHMARK_INTERVAL")
+	cfg.ReputationInterval = viper.GetInt("REPUTATION_INTERVAL")
 	cfg.MaxBodySizeBytes = viper.GetInt("MAX_BODY_SIZE_BYTES")
 	cfg.BodyRetentionDays = viper.GetInt("BODY_RETENTION_DAYS")
 	cfg.GeoIPDBPath = viper.GetString("GEOIP_DB_PATH")

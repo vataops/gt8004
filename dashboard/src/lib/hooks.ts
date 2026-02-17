@@ -200,26 +200,26 @@ export function useCustomerDaily(agentId: string, customerId: string, auth: Auth
 
 // ========== Wallet Analytics Hooks ==========
 
-export function useWalletStats(address: string | null, auth: Auth | null) {
+export function useWalletStats(address: string | null, auth: Auth | null, chainIds?: number[]) {
   const fn = useCallback(
-    () => (address && auth ? openApi.getWalletStats(address, auth) : Promise.resolve(null)),
-    [address, auth]
+    () => (address && auth ? openApi.getWalletStats(address, auth, chainIds) : Promise.resolve(null)),
+    [address, auth, chainIds]
   );
   return usePolling(fn, 15_000);
 }
 
-export function useWalletDailyStats(address: string | null, auth: Auth | null, days = 30) {
+export function useWalletDailyStats(address: string | null, auth: Auth | null, days = 30, chainIds?: number[]) {
   const fn = useCallback(
-    () => (address && auth ? openApi.getWalletDailyStats(address, auth, days) : Promise.resolve(null)),
-    [address, auth, days]
+    () => (address && auth ? openApi.getWalletDailyStats(address, auth, days, chainIds) : Promise.resolve(null)),
+    [address, auth, days, chainIds]
   );
   return usePolling(fn, 60_000);
 }
 
-export function useWalletErrors(address: string | null, auth: Auth | null) {
+export function useWalletErrors(address: string | null, auth: Auth | null, chainIds?: number[]) {
   const fn = useCallback(
-    () => (address && auth ? openApi.getWalletErrors(address, auth) : Promise.resolve(null)),
-    [address, auth]
+    () => (address && auth ? openApi.getWalletErrors(address, auth, chainIds) : Promise.resolve(null)),
+    [address, auth, chainIds]
   );
   return usePolling(fn, 30_000);
 }

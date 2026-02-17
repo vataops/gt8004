@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     # x402 Payment
     x402_pay_to: str = ""
     x402_network: str = "base"
-    x402_price: str = "$0.01"
+    x402_price: str = "0.01"
 
     # GT8004 SDK
     gt8004_agent_id: str = ""

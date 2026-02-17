@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useEffect, useCallback } from "react";
+import { Suspense, useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
@@ -149,10 +149,12 @@ function MyAgentsContent() {
       ? { walletAddress }
       : null;
 
-  // Wallet analytics hooks
-  const { data: walletStats } = useWalletStats(walletAddress, auth);
-  const { data: walletDaily } = useWalletDailyStats(walletAddress, auth, 30);
-  const { data: walletErrors } = useWalletErrors(walletAddress, auth);
+  // Filter analytics by current network's chain IDs to avoid
+  // showing data from other networks (e.g. testnet agents on mainnet dashboard)
+  const activeChainIds = useMemo(() => NETWORK_LIST.map((n) => n.chainId), []);
+  const { data: walletStats } = useWalletStats(walletAddress, auth, activeChainIds);
+  const { data: walletDaily } = useWalletDailyStats(walletAddress, auth, 30, activeChainIds);
+  const { data: walletErrors } = useWalletErrors(walletAddress, auth, activeChainIds);
 
   useEffect(() => {
     if (!authLoading && !walletAddress) {

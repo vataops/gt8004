@@ -31,19 +31,21 @@ func buildChainFilter(chainIDs []int) (string, []interface{}) {
 
 // NetworkAgent represents an ERC-8004 token discovered on-chain.
 type NetworkAgent struct {
-	ID             uuid.UUID       `json:"id"`
-	ChainID        int             `json:"chain_id"`
-	TokenID        int64           `json:"token_id"`
-	OwnerAddress   string          `json:"owner_address"`
-	AgentURI       string          `json:"agent_uri"`
-	Name           string          `json:"name"`
-	Description    string          `json:"description"`
-	ImageURL       string          `json:"image_url"`
-	Metadata       json.RawMessage `json:"metadata"`
-	CreatorAddress string          `json:"creator_address"`
-	CreatedTx      string          `json:"created_tx"`
-	CreatedAt      time.Time       `json:"created_at"`
-	SyncedAt       time.Time       `json:"synced_at"`
+	ID              uuid.UUID       `json:"id"`
+	ChainID         int             `json:"chain_id"`
+	TokenID         int64           `json:"token_id"`
+	OwnerAddress    string          `json:"owner_address"`
+	AgentURI        string          `json:"agent_uri"`
+	Name            string          `json:"name"`
+	Description     string          `json:"description"`
+	ImageURL        string          `json:"image_url"`
+	Metadata        json.RawMessage `json:"metadata"`
+	CreatorAddress  string          `json:"creator_address"`
+	CreatedTx       string          `json:"created_tx"`
+	ReputationScore float64         `json:"reputation_score"`
+	ReputationCount int             `json:"reputation_count"`
+	CreatedAt       time.Time       `json:"created_at"`
+	SyncedAt        time.Time       `json:"synced_at"`
 }
 
 // UpsertNetworkAgent inserts or updates a network agent record.
@@ -57,22 +59,24 @@ func (s *Store) UpsertNetworkAgent(ctx context.Context, agent *NetworkAgent) err
 		createdAt = time.Now()
 	}
 	_, err := s.pool.Exec(ctx, `
-		INSERT INTO network_agents (chain_id, token_id, owner_address, agent_uri, name, description, image_url, metadata, creator_address, created_tx, created_at, synced_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+		INSERT INTO network_agents (chain_id, token_id, owner_address, agent_uri, name, description, image_url, metadata, creator_address, created_tx, reputation_score, reputation_count, created_at, synced_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
 		ON CONFLICT (chain_id, token_id) DO UPDATE SET
-			owner_address   = EXCLUDED.owner_address,
-			agent_uri       = EXCLUDED.agent_uri,
-			name            = CASE WHEN EXCLUDED.name <> '' THEN EXCLUDED.name ELSE network_agents.name END,
-			description     = CASE WHEN EXCLUDED.description <> '' THEN EXCLUDED.description ELSE network_agents.description END,
-			image_url       = CASE WHEN EXCLUDED.image_url <> '' THEN EXCLUDED.image_url ELSE network_agents.image_url END,
-			metadata        = CASE WHEN EXCLUDED.metadata::text <> '{}' THEN EXCLUDED.metadata ELSE network_agents.metadata END,
-			creator_address = CASE WHEN EXCLUDED.creator_address <> '' THEN EXCLUDED.creator_address ELSE network_agents.creator_address END,
-			created_tx      = CASE WHEN EXCLUDED.created_tx <> '' THEN EXCLUDED.created_tx ELSE network_agents.created_tx END,
-			created_at      = LEAST(EXCLUDED.created_at, network_agents.created_at),
-			synced_at       = NOW()
+			owner_address    = EXCLUDED.owner_address,
+			agent_uri        = EXCLUDED.agent_uri,
+			name             = CASE WHEN EXCLUDED.name <> '' THEN EXCLUDED.name ELSE network_agents.name END,
+			description      = CASE WHEN EXCLUDED.description <> '' THEN EXCLUDED.description ELSE network_agents.description END,
+			image_url        = CASE WHEN EXCLUDED.image_url <> '' THEN EXCLUDED.image_url ELSE network_agents.image_url END,
+			metadata         = CASE WHEN EXCLUDED.metadata::text <> '{}' THEN EXCLUDED.metadata ELSE network_agents.metadata END,
+			creator_address  = CASE WHEN EXCLUDED.creator_address <> '' THEN EXCLUDED.creator_address ELSE network_agents.creator_address END,
+			created_tx       = CASE WHEN EXCLUDED.created_tx <> '' THEN EXCLUDED.created_tx ELSE network_agents.created_tx END,
+			reputation_score = EXCLUDED.reputation_score,
+			reputation_count = EXCLUDED.reputation_count,
+			created_at       = LEAST(EXCLUDED.created_at, network_agents.created_at),
+			synced_at        = NOW()
 	`, agent.ChainID, agent.TokenID, agent.OwnerAddress, agent.AgentURI,
 		agent.Name, agent.Description, agent.ImageURL, meta,
-		agent.CreatorAddress, agent.CreatedTx, createdAt)
+		agent.CreatorAddress, agent.CreatedTx, agent.ReputationScore, agent.ReputationCount, createdAt)
 	if err != nil {
 		return fmt.Errorf("upsert network agent: %w", err)
 	}
@@ -128,11 +132,17 @@ func (s *Store) ListNetworkAgents(ctx context.Context, chainIDs []int, search, o
 	if sort == "oldest" {
 		orderDir = "ASC"
 	}
+	orderCol := "token_id"
+	if sort == "reputation" {
+		orderCol = "reputation_score"
+		orderDir = "DESC"
+	}
 	query := `SELECT id, chain_id, token_id, COALESCE(owner_address, ''), COALESCE(agent_uri, ''),
 		COALESCE(name, ''), COALESCE(description, ''), COALESCE(image_url, ''), COALESCE(metadata, '{}'),
 		COALESCE(creator_address, ''), COALESCE(created_tx, ''),
+		reputation_score, reputation_count,
 		created_at, synced_at FROM network_agents ` +
-		where + fmt.Sprintf(" ORDER BY token_id %s LIMIT $%d OFFSET $%d", orderDir, argIdx, argIdx+1)
+		where + fmt.Sprintf(" ORDER BY %s %s LIMIT $%d OFFSET $%d", orderCol, orderDir, argIdx, argIdx+1)
 	args = append(args, limit, offset)
 
 	rows, err := s.pool.Query(ctx, query, args...)
@@ -147,6 +157,7 @@ func (s *Store) ListNetworkAgents(ctx context.Context, chainIDs []int, search, o
 		if err := rows.Scan(&a.ID, &a.ChainID, &a.TokenID, &a.OwnerAddress, &a.AgentURI,
 			&a.Name, &a.Description, &a.ImageURL, &a.Metadata,
 			&a.CreatorAddress, &a.CreatedTx,
+			&a.ReputationScore, &a.ReputationCount,
 			&a.CreatedAt, &a.SyncedAt); err != nil {
 			return nil, 0, fmt.Errorf("scan network agent: %w", err)
 		}
@@ -163,6 +174,7 @@ func (s *Store) GetNetworkAgent(ctx context.Context, chainID int, tokenID int64)
 		SELECT id, chain_id, token_id, COALESCE(owner_address, ''), COALESCE(agent_uri, ''),
 			COALESCE(name, ''), COALESCE(description, ''), COALESCE(image_url, ''), COALESCE(metadata, '{}'),
 			COALESCE(creator_address, ''), COALESCE(created_tx, ''),
+			reputation_score, reputation_count,
 			created_at, synced_at
 		FROM network_agents
 		WHERE chain_id = $1 AND token_id = $2
@@ -170,6 +182,7 @@ func (s *Store) GetNetworkAgent(ctx context.Context, chainID int, tokenID int64)
 		&a.ID, &a.ChainID, &a.TokenID, &a.OwnerAddress, &a.AgentURI,
 		&a.Name, &a.Description, &a.ImageURL, &a.Metadata,
 		&a.CreatorAddress, &a.CreatedTx,
+		&a.ReputationScore, &a.ReputationCount,
 		&a.CreatedAt, &a.SyncedAt,
 	)
 	if err != nil {
@@ -235,6 +248,37 @@ func (s *Store) SetLastSyncedBlock(ctx context.Context, chainID int, block uint6
 		return fmt.Errorf("set last synced block: %w", err)
 	}
 	return nil
+}
+
+// UpdateNetworkAgentReputation updates the reputation score and count for a network agent.
+func (s *Store) UpdateNetworkAgentReputation(ctx context.Context, chainID int, tokenID int64, score float64, count int) error {
+	_, err := s.pool.Exec(ctx, `
+		UPDATE network_agents SET reputation_score = $3, reputation_count = $4, synced_at = NOW()
+		WHERE chain_id = $1 AND token_id = $2
+	`, chainID, tokenID, score, count)
+	if err != nil {
+		return fmt.Errorf("update reputation: %w", err)
+	}
+	return nil
+}
+
+// ListTokenIDsByChain returns all token IDs for a given chain (for bulk reputation refresh).
+func (s *Store) ListTokenIDsByChain(ctx context.Context, chainID int) ([]int64, error) {
+	rows, err := s.pool.Query(ctx, `SELECT token_id FROM network_agents WHERE chain_id = $1`, chainID)
+	if err != nil {
+		return nil, fmt.Errorf("list token ids: %w", err)
+	}
+	defer rows.Close()
+
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan token id: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
 }
 
 // InsertNetworkAgentHistory records a change in the network_agent_history table.

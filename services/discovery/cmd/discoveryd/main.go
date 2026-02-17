@@ -46,10 +46,11 @@ func main() {
 	networkConfigs := make(map[int]erc8004.Config, len(config.SupportedNetworks))
 	for chainID, nc := range config.SupportedNetworks {
 		networkConfigs[chainID] = erc8004.Config{
-			ChainID:      nc.ChainID,
-			RegistryAddr: nc.RegistryAddr,
-			RegistryRPC:  nc.RegistryRPC,
-			DeployBlock:  nc.DeployBlock,
+			ChainID:        nc.ChainID,
+			RegistryAddr:   nc.RegistryAddr,
+			ReputationAddr: nc.ReputationAddr,
+			RegistryRPC:    nc.RegistryRPC,
+			DeployBlock:    nc.DeployBlock,
 		}
 	}
 	erc8004Registry := erc8004.NewRegistry(networkConfigs, logger)

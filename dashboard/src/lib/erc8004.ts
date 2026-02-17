@@ -178,7 +178,12 @@ export function decodeDataUri(uri: string): Record<string, unknown> | null {
 
 /** Encode a JSON object back to data:application/json;base64,... */
 export function encodeDataUri(obj: Record<string, unknown>): string {
-  return "data:application/json;base64," + btoa(JSON.stringify(obj));
+  // btoa cannot handle non-Latin1 characters (e.g. Korean, emoji).
+  // Encode via TextEncoder → binary string to support full Unicode.
+  const bytes = new TextEncoder().encode(JSON.stringify(obj));
+  let binary = "";
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return "data:application/json;base64," + btoa(binary);
 }
 
 interface ServiceEntry {

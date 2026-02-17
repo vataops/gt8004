@@ -6,12 +6,31 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
+
+// parseChainIDs extracts chain_ids query param (comma-separated) into a set.
+func parseChainIDs(c *gin.Context) map[int]struct{} {
+	raw := c.Query("chain_ids")
+	if raw == "" {
+		return nil
+	}
+	ids := make(map[int]struct{})
+	for _, s := range strings.Split(raw, ",") {
+		if v, err := strconv.Atoi(strings.TrimSpace(s)); err == nil && v > 0 {
+			ids[v] = struct{}{}
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	return ids
+}
 
 // WalletStats returns aggregated stats across all agents owned by wallet
 func (h *Handler) WalletStats(c *gin.Context) {
@@ -21,8 +40,10 @@ func (h *Handler) WalletStats(c *gin.Context) {
 		return
 	}
 
+	chainFilter := parseChainIDs(c)
+
 	// Get agent DB IDs for this wallet
-	agentIDs, err := h.getWalletAgentIDs(c.Request.Context(), address)
+	agentIDs, err := h.getWalletAgentIDs(c.Request.Context(), address, chainFilter)
 	if err != nil {
 		h.logger.Error("failed to fetch wallet agents", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch agents"})
@@ -54,7 +75,9 @@ func (h *Handler) WalletDailyStats(c *gin.Context) {
 		days = 30
 	}
 
-	agentIDs, err := h.getWalletAgentIDs(c.Request.Context(), address)
+	chainFilter := parseChainIDs(c)
+
+	agentIDs, err := h.getWalletAgentIDs(c.Request.Context(), address, chainFilter)
 	if err != nil {
 		h.logger.Error("failed to fetch wallet agents", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch agents"})
@@ -79,7 +102,9 @@ func (h *Handler) WalletErrors(c *gin.Context) {
 		return
 	}
 
-	agentIDs, err := h.getWalletAgentIDs(c.Request.Context(), address)
+	chainFilter := parseChainIDs(c)
+
+	agentIDs, err := h.getWalletAgentIDs(c.Request.Context(), address, chainFilter)
 	if err != nil {
 		h.logger.Error("failed to fetch wallet agents", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch agents"})
@@ -97,10 +122,19 @@ func (h *Handler) WalletErrors(c *gin.Context) {
 }
 
 // getWalletAgentIDs fetches agent DB IDs for a wallet address.
+// When chainFilter is non-nil, only agents on those chain IDs are returned.
 // Uses cache with 5-minute TTL to avoid repeated calls to registry service.
-func (h *Handler) getWalletAgentIDs(ctx context.Context, address string) ([]uuid.UUID, error) {
-	// Check cache first
+func (h *Handler) getWalletAgentIDs(ctx context.Context, address string, chainFilter map[int]struct{}) ([]uuid.UUID, error) {
+	// Build cache key including chain filter for correctness
 	cacheKey := "wallet_agents:" + address
+	if chainFilter != nil {
+		parts := make([]string, 0, len(chainFilter))
+		for id := range chainFilter {
+			parts = append(parts, strconv.Itoa(id))
+		}
+		cacheKey += ":chains=" + strings.Join(parts, ",")
+	}
+
 	if cached := h.cache.Get(ctx, cacheKey); cached != nil {
 		var ids []uuid.UUID
 		if err := json.Unmarshal(cached, &ids); err == nil {
@@ -128,7 +162,8 @@ func (h *Handler) getWalletAgentIDs(ctx context.Context, address string) ([]uuid
 
 	var result struct {
 		Agents []struct {
-			ID string `json:"id"` // DB ID (UUID)
+			ID      string `json:"id"`       // DB ID (UUID)
+			ChainID int    `json:"chain_id"` // chain the agent is registered on
 		} `json:"agents"`
 	}
 
@@ -136,9 +171,14 @@ func (h *Handler) getWalletAgentIDs(ctx context.Context, address string) ([]uuid
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
 
-	// Extract UUIDs
+	// Extract UUIDs, filtering by chain_id when specified
 	ids := make([]uuid.UUID, 0, len(result.Agents))
 	for _, a := range result.Agents {
+		if chainFilter != nil {
+			if _, ok := chainFilter[a.ChainID]; !ok {
+				continue
+			}
+		}
 		id, err := uuid.Parse(a.ID)
 		if err == nil {
 			ids = append(ids, id)

@@ -23,16 +23,18 @@ type Client struct {
 	deployBlock  uint64
 	logger       *zap.Logger
 
-	ethClient    *ethclient.Client
-	contractAddr common.Address
+	ethClient      *ethclient.Client
+	contractAddr   common.Address
+	reputationAddr common.Address
 }
 
 // Config holds configuration for the ERC-8004 client.
 type Config struct {
-	ChainID      int
-	RegistryAddr string
-	RegistryRPC  string
-	DeployBlock  uint64 // block number at which the registry was deployed; scan starts here
+	ChainID        int
+	RegistryAddr   string
+	ReputationAddr string
+	RegistryRPC    string
+	DeployBlock    uint64 // block number at which the registry was deployed; scan starts here
 }
 
 // OwnedToken represents a single ERC-8004 token owned by an address.
@@ -67,8 +69,12 @@ func NewClient(cfg Config, logger *zap.Logger) *Client {
 		} else {
 			c.ethClient = ec
 			c.contractAddr = common.HexToAddress(cfg.RegistryAddr)
+			if cfg.ReputationAddr != "" {
+				c.reputationAddr = common.HexToAddress(cfg.ReputationAddr)
+			}
 			logger.Info("ERC-8004 ethclient connected",
 				zap.String("registry", cfg.RegistryAddr),
+				zap.String("reputation", cfg.ReputationAddr),
 				zap.String("rpc", cfg.RegistryRPC))
 		}
 	}
@@ -198,9 +204,20 @@ func (c *Client) scanMintLogs(ctx context.Context, startBlock, endBlock uint64) 
 		if end > endBlock {
 			end = endBlock
 		}
-		events, chunkErr := c.filterMintLogs(ctx, new(big.Int).SetUint64(from), new(big.Int).SetUint64(end))
+		var events []MintEvent
+		var chunkErr error
+		for attempt := 0; attempt < 3; attempt++ {
+			events, chunkErr = c.filterMintLogs(ctx, new(big.Int).SetUint64(from), new(big.Int).SetUint64(end))
+			if chunkErr == nil {
+				break
+			}
+			c.logger.Warn("chunk mint scan failed, retrying",
+				zap.Uint64("from", from), zap.Uint64("to", end),
+				zap.Int("attempt", attempt+1), zap.Error(chunkErr))
+			time.Sleep(time.Duration(1<<uint(attempt)) * time.Second)
+		}
 		if chunkErr != nil {
-			c.logger.Warn("chunk mint scan failed, skipping",
+			c.logger.Error("chunk mint scan failed after retries, skipping",
 				zap.Uint64("from", from), zap.Uint64("to", end), zap.Error(chunkErr))
 			continue
 		}
@@ -330,8 +347,18 @@ func (c *Client) resolveTokens(ctx context.Context, candidates []MintEvent) []Di
 			defer verifyWg.Done()
 			verifySem <- struct{}{}
 			defer func() { <-verifySem }()
-			owner, err := c.VerifyOwnership(verifyCtx, mint.TokenID)
+			var owner string
+			var err error
+			for attempt := 0; attempt < 3; attempt++ {
+				owner, err = c.VerifyOwnership(verifyCtx, mint.TokenID)
+				if err == nil {
+					break
+				}
+				time.Sleep(time.Duration(1<<uint(attempt)) * time.Second)
+			}
 			if err != nil {
+				c.logger.Warn("ownership verification failed after retries, dropping token",
+					zap.Int64("token_id", mint.TokenID), zap.Error(err))
 				return
 			}
 			agentURI, _ := c.GetAgentURI(verifyCtx, mint.TokenID)

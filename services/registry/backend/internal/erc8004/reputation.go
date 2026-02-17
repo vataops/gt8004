@@ -43,29 +43,45 @@ func (c *Client) callReputation(ctx context.Context, data []byte) ([]byte, error
 	return c.ethClient.CallContract(ctx, msg, nil)
 }
 
-// GetReputationSummary calls getSummary(agentId, [], "", "") on the IReputationRegistry.
+// GetReputationSummary calls getSummary on the IReputationRegistry.
+// It first fetches the client list, then passes them to getSummary.
 // Returns (normalizedScore, feedbackCount, error).
 func (c *Client) GetReputationSummary(ctx context.Context, tokenID int64) (float64, int64, error) {
 	if !c.hasReputation() {
 		return 0, 0, nil
 	}
 
-	// ABI-encode: getSummary(uint256, address[], string, string) with empty dynamic args.
+	// The contract requires client addresses; fetch them first.
+	clients, err := c.GetClients(ctx, tokenID)
+	if err != nil || len(clients) == 0 {
+		return 0, 0, nil
+	}
+
+	// ABI-encode: getSummary(uint256, address[], string, string)
 	// Layout (32-byte slots after selector):
 	//   [0] uint256 agentId
 	//   [1] offset to address[] data  = 0x80 (128)
-	//   [2] offset to string tag1     = 0xa0 (160)
-	//   [3] offset to string tag2     = 0xc0 (192)
-	//   [4] address[] length = 0
-	//   [5] string tag1 length = 0
-	//   [6] string tag2 length = 0
-	buf := make([]byte, 0, 4+7*32)
+	//   [2] offset to string tag1     (dynamic, depends on address count)
+	//   [3] offset to string tag2     (dynamic)
+	//   address[] length + elements
+	//   tag1 length = 0
+	//   tag2 length = 0
+	addrDataSlots := 1 + int64(len(clients)) // length slot + address slots
+	addrDataBytes := addrDataSlots * 32
+	tag1Offset := 128 + addrDataBytes         // after head (128) + address array data
+	tag2Offset := tag1Offset + 32             // tag1 length slot (0) + no data
+
+	totalSlots := 4 + addrDataSlots + 2 // head(4) + addr data + tag1(1) + tag2(1)
+	buf := make([]byte, 0, 4+totalSlots*32)
 	buf = append(buf, selGetSummary...)
 	buf = append(buf, common.LeftPadBytes(new(big.Int).SetInt64(tokenID).Bytes(), 32)...)
-	buf = append(buf, common.LeftPadBytes(big.NewInt(128).Bytes(), 32)...)
-	buf = append(buf, common.LeftPadBytes(big.NewInt(160).Bytes(), 32)...)
-	buf = append(buf, common.LeftPadBytes(big.NewInt(192).Bytes(), 32)...)
-	buf = append(buf, make([]byte, 32)...) // address[] length = 0
+	buf = append(buf, common.LeftPadBytes(big.NewInt(128).Bytes(), 32)...)                  // offset to address[]
+	buf = append(buf, common.LeftPadBytes(big.NewInt(tag1Offset).Bytes(), 32)...)            // offset to tag1
+	buf = append(buf, common.LeftPadBytes(big.NewInt(tag2Offset).Bytes(), 32)...)            // offset to tag2
+	buf = append(buf, common.LeftPadBytes(big.NewInt(int64(len(clients))).Bytes(), 32)...)   // address[] length
+	for _, addr := range clients {
+		buf = append(buf, common.LeftPadBytes(common.HexToAddress(addr).Bytes(), 32)...)
+	}
 	buf = append(buf, make([]byte, 32)...) // tag1 length = 0
 	buf = append(buf, make([]byte, 32)...) // tag2 length = 0
 
