@@ -290,6 +290,49 @@ func (s *Store) ListTokenIDsByChain(ctx context.Context, chainID int) ([]int64, 
 	return ids, nil
 }
 
+// ListTokensMissingURI returns token IDs that have an empty agent_uri, limited to `limit` rows.
+func (s *Store) ListTokensMissingURI(ctx context.Context, chainID int, limit int) ([]int64, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT token_id FROM network_agents WHERE chain_id = $1 AND (agent_uri = '' OR agent_uri IS NULL) ORDER BY token_id LIMIT $2`,
+		chainID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list tokens missing URI: %w", err)
+	}
+	defer rows.Close()
+
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan token id: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
+// UpdateAgentURI updates agent_uri and metadata fields for a specific token.
+func (s *Store) UpdateAgentURI(ctx context.Context, chainID int, tokenID int64, uri, name, description, imageURL string, metadata json.RawMessage, owner string) error {
+	if len(metadata) == 0 {
+		metadata = json.RawMessage(`{}`)
+	}
+	_, err := s.pool.Exec(ctx, `
+		UPDATE network_agents SET
+			agent_uri   = $3,
+			name        = CASE WHEN $4 <> '' THEN $4 ELSE name END,
+			description = CASE WHEN $5 <> '' THEN $5 ELSE description END,
+			image_url   = CASE WHEN $6 <> '' THEN $6 ELSE image_url END,
+			metadata    = CASE WHEN $7::text <> '{}' THEN $7 ELSE metadata END,
+			owner_address = CASE WHEN $8 <> '' THEN $8 ELSE owner_address END,
+			synced_at   = NOW()
+		WHERE chain_id = $1 AND token_id = $2
+	`, chainID, tokenID, uri, name, description, imageURL, metadata, owner)
+	if err != nil {
+		return fmt.Errorf("update agent URI: %w", err)
+	}
+	return nil
+}
+
 // InsertNetworkAgentHistory records a change in the network_agent_history table.
 func (s *Store) InsertNetworkAgentHistory(ctx context.Context, chainID int, tokenID int64, changeType string, oldValue, newValue json.RawMessage) error {
 	_, err := s.pool.Exec(ctx, `

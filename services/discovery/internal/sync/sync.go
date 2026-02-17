@@ -150,6 +150,9 @@ func (j *Job) syncChain(ctx context.Context, chainID int, client *erc8004.Client
 
 	j.upsertTokens(ctx, chainID, tokens)
 
+	// Backfill agentURI for tokens saved without metadata (from lite resolve).
+	j.backfillAgentURIs(ctx, chainID, client)
+
 	// Refresh reputation scores for all existing agents on this chain.
 	j.refreshReputation(ctx, chainID, client)
 
@@ -164,6 +167,68 @@ func (j *Job) syncChain(ctx context.Context, chainID int, client *erc8004.Client
 			zap.Error(err),
 		)
 	}
+}
+
+// backfillAgentURIs fetches agentURI for tokens saved without metadata (from lite resolve).
+// Processes a limited batch per cycle to avoid RPC rate limits.
+func (j *Job) backfillAgentURIs(ctx context.Context, chainID int, client *erc8004.Client) {
+	tokens, err := j.store.ListTokensMissingURI(ctx, chainID, 100)
+	if err != nil {
+		j.logger.Error("failed to list tokens missing URI", zap.Int("chain_id", chainID), zap.Error(err))
+		return
+	}
+	if len(tokens) == 0 {
+		return
+	}
+
+	j.logger.Info("backfilling agentURIs",
+		zap.Int("chain_id", chainID),
+		zap.Int("batch_size", len(tokens)),
+	)
+
+	fillCtx, fillCancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer fillCancel()
+
+	filled := 0
+	for _, tokenID := range tokens {
+		// Rate limit: 1 call per 500ms to stay well under rate limits.
+		time.Sleep(500 * time.Millisecond)
+
+		uri, err := client.GetAgentURI(fillCtx, tokenID)
+		if err != nil {
+			continue
+		}
+		if uri == "" {
+			continue
+		}
+
+		// Also verify current ownership while we're at it.
+		owner, ownerErr := client.VerifyOwnership(fillCtx, tokenID)
+
+		agent := &store.NetworkAgent{
+			ChainID:  chainID,
+			TokenID:  tokenID,
+			AgentURI: uri,
+		}
+		if ownerErr == nil {
+			agent.OwnerAddress = owner
+		}
+
+		// Fetch metadata from URI.
+		j.fetchMetadata(agent)
+
+		if err := j.store.UpdateAgentURI(fillCtx, chainID, tokenID, uri, agent.Name, agent.Description, agent.ImageURL, agent.Metadata, owner); err != nil {
+			j.logger.Warn("failed to update agent URI", zap.Int64("token_id", tokenID), zap.Error(err))
+			continue
+		}
+		filled++
+	}
+
+	j.logger.Info("backfill complete",
+		zap.Int("chain_id", chainID),
+		zap.Int("filled", filled),
+		zap.Int("batch_size", len(tokens)),
+	)
 }
 
 // refreshReputation fetches on-chain reputation for all existing agents on a chain.

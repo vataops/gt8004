@@ -296,7 +296,43 @@ func (c *Client) DiscoverNewTokens(ctx context.Context, fromBlock uint64) ([]Dis
 }
 
 // resolveTokens verifies ownership and fetches agentURI for mint events.
+// For large batches (>500 tokens), uses "lite" mode: saves tokens directly
+// from mint event data without per-token RPC calls to avoid rate limiting.
+// Ownership and agentURI are fetched gradually in subsequent incremental syncs.
 func (c *Client) resolveTokens(ctx context.Context, candidates []MintEvent) []DiscoveredToken {
+	// For large batches, skip per-token RPC calls to avoid rate limits.
+	// Use mint event data directly (creator as owner, empty agentURI).
+	if len(candidates) > 500 {
+		c.logger.Info("large batch: using lite resolve (mint data only)",
+			zap.Int("chain_id", c.chainID),
+			zap.Int("count", len(candidates)),
+		)
+		return c.resolveTokensLite(ctx, candidates)
+	}
+
+	return c.resolveTokensFull(ctx, candidates)
+}
+
+// resolveTokensLite converts mint events to tokens using only mint data.
+// No per-token RPC calls (ownerOf, tokenURI) are made.
+func (c *Client) resolveTokensLite(ctx context.Context, candidates []MintEvent) []DiscoveredToken {
+	tokens := make([]DiscoveredToken, 0, len(candidates))
+	for _, ev := range candidates {
+		tokens = append(tokens, DiscoveredToken{
+			TokenID:        ev.TokenID,
+			OwnerAddress:   ev.CreatorAddress,
+			AgentURI:       "",
+			MintedAt:       time.Time{}, // will be set to now by upsert
+			CreatorAddress: ev.CreatorAddress,
+			CreatedTx:      ev.TxHash,
+		})
+	}
+	return tokens
+}
+
+// resolveTokensFull verifies ownership and fetches agentURI for each token.
+// Used for small batches (incremental syncs).
+func (c *Client) resolveTokensFull(ctx context.Context, candidates []MintEvent) []DiscoveredToken {
 	// Fetch block timestamps
 	blockNums := make(map[uint64]bool)
 	mintBlocks := make(map[int64]uint64)
@@ -315,11 +351,7 @@ func (c *Client) resolveTokens(ctx context.Context, candidates []MintEvent) []Di
 	blockTimestamps := make(map[uint64]time.Time)
 	var headerMu sync.Mutex
 	var headerWg sync.WaitGroup
-	headerConcurrency := 10
-	if c.chainID == 8453 || c.chainID == 84532 {
-		headerConcurrency = 3
-	}
-	headerSem := make(chan struct{}, headerConcurrency)
+	headerSem := make(chan struct{}, 10)
 	for bn := range blockNums {
 		headerWg.Add(1)
 		go func(blockNum uint64) {
@@ -344,12 +376,7 @@ func (c *Client) resolveTokens(ctx context.Context, candidates []MintEvent) []Di
 	tokens := make([]DiscoveredToken, 0, len(candidates))
 	var tokensMu sync.Mutex
 	var verifyWg sync.WaitGroup
-	// Reduce concurrency for L2 chains to avoid RPC rate limits.
-	verifyConcurrency := 20
-	if c.chainID == 8453 || c.chainID == 84532 {
-		verifyConcurrency = 3
-	}
-	verifySem := make(chan struct{}, verifyConcurrency)
+	verifySem := make(chan struct{}, 20)
 	for _, ev := range candidates {
 		verifyWg.Add(1)
 		go func(mint MintEvent) {
