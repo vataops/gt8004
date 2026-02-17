@@ -94,7 +94,7 @@ func (j *Job) Stop() {
 // Falls back to full scan on the first run (no sync state).
 func (j *Job) Sync() {
 	for chainID, client := range j.registry.Clients() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
 		j.syncChain(ctx, chainID, client)
 		cancel()
 	}
@@ -153,8 +153,11 @@ func (j *Job) syncChain(ctx context.Context, chainID int, client *erc8004.Client
 	// Refresh reputation scores for all existing agents on this chain.
 	j.refreshReputation(ctx, chainID, client)
 
-	// Update sync state
-	if err := j.store.SetLastSyncedBlock(ctx, chainID, scannedTo); err != nil {
+	// Update sync state with a fresh context (the parent ctx may have expired
+	// after the long metadata fetch + upsert phase).
+	ssCtx, ssCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer ssCancel()
+	if err := j.store.SetLastSyncedBlock(ssCtx, chainID, scannedTo); err != nil {
 		j.logger.Error("failed to update sync state",
 			zap.Int("chain_id", chainID),
 			zap.Uint64("block", scannedTo),

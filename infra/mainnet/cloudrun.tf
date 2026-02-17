@@ -226,10 +226,6 @@ resource "google_cloud_run_v2_service" "discovery" {
         name  = "SCAN_SYNC_INTERVAL"
         value = tostring(var.scan_sync_interval)
       }
-      env {
-        name  = "RESCAN_CHAINS"
-        value = "8453"
-      }
     }
   }
 
