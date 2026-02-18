@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth";
 const navItems = [
   { href: "/explorer", label: "Explorer" },
   { href: "/create", label: "Create Agent" },
+  { href: "/dashboard", label: "Dashboard" },
 ];
 
 export function Navbar() {
@@ -30,14 +31,6 @@ export function Navbar() {
                 {item.label}
               </Link>
             ))}
-            {isConnected && (
-              <Link
-                href="/dashboard"
-                className="px-3 py-1.5 rounded-md text-sm text-zinc-400 hover:text-[#00FFE0] transition-colors"
-              >
-                Dashboard
-              </Link>
-            )}
           </nav>
         </div>
 

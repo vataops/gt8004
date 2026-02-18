@@ -90,7 +90,7 @@ export function ObservabilityTab({
           }
           sub={
             walletErrors
-              ? `${walletErrors.total_errors.toLocaleString()} total errors`
+              ? `${walletErrors.total_errors.toLocaleString()} total errors  ·  ! 402 excluded`
               : "Loading..."
           }
         />

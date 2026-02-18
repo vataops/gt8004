@@ -19,6 +19,7 @@ import {
 import { RequestsTab } from "./components/RequestsTab";
 import { RevenueTab } from "./components/RevenueTab";
 import { ObservabilityTab } from "./components/ObservabilityTab";
+import { NetworkOverview } from "./components/NetworkOverview";
 import { useWalletStats, useWalletDailyStats, useWalletErrors } from "@/lib/hooks";
 
 const AGENT_COLORS = ["#00FFE0", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#ec4899"];
@@ -154,12 +155,6 @@ function MyAgentsContent() {
   const { data: walletStats } = useWalletStats(walletAddress, auth, activeChainIds);
   const { data: walletDaily } = useWalletDailyStats(walletAddress, auth, 30, activeChainIds);
   const { data: walletErrors } = useWalletErrors(walletAddress, auth, activeChainIds);
-
-  useEffect(() => {
-    if (!authLoading && !walletAddress) {
-      router.replace("/login");
-    }
-  }, [authLoading, walletAddress, router]);
 
   const loadAgents = useCallback(async () => {
     if (!walletAddress) {
@@ -339,9 +334,9 @@ function MyAgentsContent() {
     { _: "rev", ...Object.fromEntries(chartAgents.map((a) => [a.key, a.revenue])) },
   ];
 
-  // Auth resolved but no wallet → redirect (useEffect handles it)
+  // No wallet → show public network overview
   if (!walletAddress && !authLoading) {
-    return null;
+    return <NetworkOverview />;
   }
 
   // Skeleton while: data loading, or auth still determining wallet state

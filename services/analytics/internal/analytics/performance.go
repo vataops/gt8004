@@ -107,8 +107,8 @@ func (pa *PerformanceAnalytics) GetPerformanceReport(ctx context.Context, agentD
 			COALESCE(percentile_cont(0.99) WITHIN GROUP (ORDER BY response_ms), 0) AS p99,
 			COALESCE(AVG(response_ms), 0) AS avg_ms,
 			COUNT(*) AS total,
-			COUNT(*) FILTER (WHERE status_code < 400) AS success,
-			COUNT(*) FILTER (WHERE status_code >= 400) AS errors
+			COUNT(*) FILTER (WHERE status_code < 400 OR status_code = 402) AS success,
+			COUNT(*) FILTER (WHERE status_code >= 400 AND status_code != 402) AS errors
 		FROM request_logs
 		WHERE agent_id = $1 AND created_at >= NOW() - ($2 || ' hours')::INTERVAL
 	`, agentDBID, fmt.Sprintf("%d", windowHours)).Scan(
@@ -142,7 +142,7 @@ func (pa *PerformanceAnalytics) GetPerformanceReport(ctx context.Context, agentD
 		SELECT
 			EXTRACT(HOUR FROM created_at) AS hour,
 			COALESCE(percentile_cont(0.95) WITHIN GROUP (ORDER BY response_ms), 0) AS p95,
-			COALESCE(AVG(CASE WHEN status_code >= 400 THEN 1.0 ELSE 0.0 END), 0) AS error_rate,
+			COALESCE(AVG(CASE WHEN status_code >= 400 AND status_code != 402 THEN 1.0 ELSE 0.0 END), 0) AS error_rate,
 			COUNT(*) AS requests
 		FROM request_logs
 		WHERE agent_id = $1 AND created_at >= NOW() - INTERVAL '24 hours'
@@ -180,8 +180,8 @@ func (pa *PerformanceAnalytics) GetPerformanceReport(ctx context.Context, agentD
 			COALESCE(percentile_cont(0.95) WITHIN GROUP (ORDER BY response_ms), 0) AS p95,
 			COALESCE(AVG(response_ms), 0) AS avg_ms,
 			COUNT(*) AS total,
-			COUNT(*) FILTER (WHERE status_code < 400) AS success,
-			COUNT(*) FILTER (WHERE status_code >= 400) AS errors
+			COUNT(*) FILTER (WHERE status_code < 400 OR status_code = 402) AS success,
+			COUNT(*) FILTER (WHERE status_code >= 400 AND status_code != 402) AS errors
 		FROM request_logs
 		WHERE agent_id = $1
 		  AND created_at >= NOW() - INTERVAL '48 hours'

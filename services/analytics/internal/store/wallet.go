@@ -63,11 +63,11 @@ func (s *Store) GetWalletStats(ctx context.Context, agentDBIDs []uuid.UUID) (*Wa
 
 	query := `
 		SELECT
-			COALESCE(SUM(CASE WHEN status_code < 400 THEN 1 ELSE 0 END), 0) as total_requests,
+			COALESCE(SUM(CASE WHEN status_code < 400 OR status_code = 402 THEN 1 ELSE 0 END), 0) as total_requests,
 			COALESCE(SUM(x402_amount), 0) as total_revenue,
 			COALESCE(AVG(response_ms), 0) as avg_response_ms,
 			COALESCE(
-				SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END)::float /
+				SUM(CASE WHEN status_code >= 400 AND status_code != 402 THEN 1 ELSE 0 END)::float /
 				NULLIF(COUNT(*), 0),
 				0
 			) as error_rate
@@ -115,11 +115,11 @@ func (s *Store) GetWalletDailyStats(ctx context.Context, agentDBIDs []uuid.UUID,
 	query := `
 		SELECT
 			DATE(created_at) as date,
-			COUNT(CASE WHEN status_code < 400 THEN 1 END) as requests,
+			COUNT(CASE WHEN status_code < 400 OR status_code = 402 THEN 1 END) as requests,
 			COALESCE(SUM(x402_amount), 0) as revenue,
 			COALESCE(AVG(response_ms), 0) as avg_response_ms,
 			COALESCE(
-				SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END)::float /
+				SUM(CASE WHEN status_code >= 400 AND status_code != 402 THEN 1 ELSE 0 END)::float /
 				NULLIF(COUNT(*), 0),
 				0
 			) as error_rate
@@ -173,9 +173,9 @@ func (s *Store) GetWalletErrors(ctx context.Context, agentDBIDs []uuid.UUID) (*W
 	// Total errors and error rate
 	totalQuery := `
 		SELECT
-			COUNT(CASE WHEN status_code >= 400 THEN 1 END) as total_errors,
+			COUNT(CASE WHEN status_code >= 400 AND status_code != 402 THEN 1 END) as total_errors,
 			COALESCE(
-				COUNT(CASE WHEN status_code >= 400 THEN 1 END)::float / NULLIF(COUNT(*), 0),
+				COUNT(CASE WHEN status_code >= 400 AND status_code != 402 THEN 1 END)::float / NULLIF(COUNT(*), 0),
 				0
 			) as error_rate
 		FROM request_logs
@@ -190,7 +190,7 @@ func (s *Store) GetWalletErrors(ctx context.Context, agentDBIDs []uuid.UUID) (*W
 	statusQuery := `
 		SELECT status_code, COUNT(*) as count
 		FROM request_logs
-		WHERE agent_id = ANY($1) AND status_code >= 400
+		WHERE agent_id = ANY($1) AND status_code >= 400 AND status_code != 402
 		GROUP BY status_code
 		ORDER BY count DESC
 		LIMIT 10
@@ -236,16 +236,16 @@ func (s *Store) GetWalletErrors(ctx context.Context, agentDBIDs []uuid.UUID) (*W
 		SELECT
 			rl.agent_id::text,
 			COALESCE(a.name, rl.agent_id::text) as agent_name,
-			COUNT(CASE WHEN rl.status_code >= 400 THEN 1 END) as error_count,
+			COUNT(CASE WHEN rl.status_code >= 400 AND rl.status_code != 402 THEN 1 END) as error_count,
 			COALESCE(
-				COUNT(CASE WHEN rl.status_code >= 400 THEN 1 END)::float / NULLIF(COUNT(*), 0),
+				COUNT(CASE WHEN rl.status_code >= 400 AND rl.status_code != 402 THEN 1 END)::float / NULLIF(COUNT(*), 0),
 				0
 			) as error_rate
 		FROM request_logs rl
 		LEFT JOIN agents a ON a.id = rl.agent_id
 		WHERE rl.agent_id = ANY($1)
 		GROUP BY rl.agent_id, a.name
-		HAVING COUNT(CASE WHEN rl.status_code >= 400 THEN 1 END) > 0
+		HAVING COUNT(CASE WHEN rl.status_code >= 400 AND rl.status_code != 402 THEN 1 END) > 0
 		ORDER BY error_count DESC
 	`
 	rows, err = s.pool.Query(ctx, agentQuery, agentDBIDs)

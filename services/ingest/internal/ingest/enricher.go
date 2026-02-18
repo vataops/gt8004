@@ -152,7 +152,7 @@ func (e *Enricher) Process(ctx context.Context, agentDBID uuid.UUID, chainID int
 			}
 			cs.requestCount++
 			cs.totalMs += float64(entry.ResponseMs)
-			if entry.StatusCode >= 400 {
+			if entry.StatusCode >= 400 && entry.StatusCode != 402 {
 				cs.errorCount++
 			}
 			if entry.X402Amount != nil {

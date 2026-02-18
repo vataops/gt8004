@@ -2064,6 +2064,7 @@ function ObservabilityTab({ recentLogs, chartData, stats }: ObservabilityTabProp
           <p className={`text-2xl font-bold mt-1 ${(stats?.error_rate ?? 0) > 0.05 ? "text-red-400" : "text-green-400"}`}>
             {stats?.error_rate != null ? `${(stats.error_rate * 100).toFixed(1)}%` : "—"}
           </p>
+          <p className="text-[10px] text-zinc-600 mt-1">! 402 excluded</p>
         </div>
         <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-4">
           <p className="text-xs text-zinc-500 uppercase tracking-wider">Total Requests</p>
@@ -2072,9 +2073,10 @@ function ObservabilityTab({ recentLogs, chartData, stats }: ObservabilityTabProp
         <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-4">
           <p className="text-xs text-zinc-500 uppercase tracking-wider">Recent Errors</p>
           <p className="text-2xl font-bold mt-1 text-red-400">
-            {recentLogs.filter((l) => l.status_code >= 400).length}
+            {recentLogs.filter((l) => l.status_code >= 400 && l.status_code !== 402).length}
             <span className="text-sm font-normal text-zinc-500 ml-1">/ {recentLogs.length}</span>
           </p>
+          <p className="text-[10px] text-zinc-600 mt-1">! 402 excluded</p>
         </div>
       </div>
 

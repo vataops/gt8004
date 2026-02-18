@@ -116,7 +116,7 @@ func (s *Store) GetReputationInputs(ctx context.Context, agentID uuid.UUID) (*Re
 		SELECT
 			COUNT(*) AS total,
 			CASE WHEN COUNT(*) > 0
-				THEN CAST(COUNT(*) FILTER (WHERE status_code >= 400) AS FLOAT) / COUNT(*)
+				THEN CAST(COUNT(*) FILTER (WHERE status_code >= 400 AND status_code != 402) AS FLOAT) / COUNT(*)
 				ELSE 0
 			END AS error_rate,
 			COALESCE(AVG(response_ms), 0) AS avg_response_ms
