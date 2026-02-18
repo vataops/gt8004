@@ -70,9 +70,11 @@ contracts/credit/artifacts/
 *.signing_key
 **/key.json
 
+# Bot
+bot/
+
 # Logs
 *.log
-bot/logs/
 
 # Terraform
 **/.terraform/
