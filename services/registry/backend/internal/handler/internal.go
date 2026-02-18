@@ -21,7 +21,6 @@ func (h *Handler) InternalGetAgent(c *gin.Context) {
 		"id":              agent.ID,
 		"agent_id":        agent.AgentID,
 		"origin_endpoint": agent.OriginEndpoint,
-		"gateway_enabled": agent.GatewayEnabled,
 	})
 }
 

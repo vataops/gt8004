@@ -80,7 +80,6 @@ export interface ServiceStatus {
   open: {
     total_requests: number;
     total_revenue_usdc: number;
-    gateway_enabled: boolean;
     reputation_score: number;
   };
   lite?: {
@@ -136,16 +135,6 @@ export class GT8004Client {
     if (params.min_reputation) query.set('min_reputation', String(params.min_reputation));
     if (params.sort) query.set('sort', params.sort);
     return this.request(`/v1/agents/search?${query.toString()}`);
-  }
-
-  /** Enable the API gateway for the authenticated agent. */
-  async enableGateway(agentId: string): Promise<{ gateway_enabled: boolean }> {
-    return this.request(`/v1/agents/${agentId}/gateway/enable`, { method: 'POST' });
-  }
-
-  /** Disable the API gateway for the authenticated agent. */
-  async disableGateway(agentId: string): Promise<{ gateway_enabled: boolean }> {
-    return this.request(`/v1/agents/${agentId}/gateway/disable`, { method: 'POST' });
   }
 
   /** Get agent stats. */

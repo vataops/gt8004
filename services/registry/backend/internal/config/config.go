@@ -50,9 +50,6 @@ type Config struct {
 	GT8004TokenID  int64  `mapstructure:"GT8004_TOKEN_ID"`
 	GT8004AgentURI string `mapstructure:"GT8004_AGENT_URI"`
 
-	// Gateway
-	GatewayBaseURL string `mapstructure:"GATEWAY_BASE_URL"`
-
 	// Internal API shared secret (service-to-service auth)
 	InternalSecret string `mapstructure:"INTERNAL_SECRET"`
 }
@@ -81,10 +78,6 @@ func Load() (*Config, error) {
 	cfg.RedisURL = viper.GetString("REDIS_URL")
 	cfg.GT8004TokenID = viper.GetInt64("GT8004_TOKEN_ID")
 	cfg.GT8004AgentURI = viper.GetString("GT8004_AGENT_URI")
-	cfg.GatewayBaseURL = viper.GetString("GATEWAY_BASE_URL")
-	if cfg.GatewayBaseURL == "" {
-		cfg.GatewayBaseURL = "http://localhost:8080"
-	}
 	cfg.InternalSecret = viper.GetString("INTERNAL_SECRET")
 
 	return cfg, nil

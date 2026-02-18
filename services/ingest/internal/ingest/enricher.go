@@ -2,7 +2,6 @@ package ingest
 
 import (
 	"context"
-	"strings"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -83,9 +82,6 @@ func (e *Enricher) Process(ctx context.Context, agentDBID uuid.UUID, chainID int
 	var totalRevenue float64
 
 	sourceStr := "sdk"
-	if strings.HasPrefix(batch.SDKVersion, "gateway") {
-		sourceStr = "gateway"
-	}
 
 	custStats := make(map[string]*customerStats)
 

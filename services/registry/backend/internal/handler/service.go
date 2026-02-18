@@ -42,8 +42,7 @@ type RegisterServiceRequest struct {
 	WalletAddress  string `json:"wallet_address" binding:"required"`
 
 	// Service-level settings
-	GatewayEnabled *bool  `json:"gateway_enabled"`
-	Tier           string `json:"tier"`
+	Tier string `json:"tier"`
 	Pricing        *Pricing `json:"pricing"`
 }
 
@@ -108,8 +107,6 @@ func (h *Handler) RegisterService(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tier: must be open or lite"})
 		return
 	}
-
-	gatewayEnabled := req.GatewayEnabled != nil && *req.GatewayEnabled
 
 	// Resolve chain-specific client
 	chainID := *req.ChainID
@@ -179,11 +176,6 @@ func (h *Handler) RegisterService(c *gin.Context) {
 			originEndpoint = meta.URL
 		}
 	}
-	if gatewayEnabled && originEndpoint == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "gateway mode requires a service endpoint in on-chain metadata"})
-		return
-	}
-
 	// Extract protocols from metadata
 	var protocols []string
 	services := meta.Services
@@ -205,9 +197,8 @@ func (h *Handler) RegisterService(c *gin.Context) {
 		Name:           meta.Name,
 		OriginEndpoint: originEndpoint,
 		Protocols:      protocols,
-		Category:       meta.Type, // Use Type as category
-		GatewayEnabled: gatewayEnabled,
-		Status:         "active",
+		Category: meta.Type, // Use Type as category
+		Status:   "active",
 		CurrentTier:    tier,
 		ERC8004TokenID: req.ERC8004TokenID,
 		ChainID:        chainID,
@@ -274,7 +265,6 @@ func (h *Handler) GetService(c *gin.Context) {
 		"open": gin.H{
 			"total_requests":     agent.TotalRequests,
 			"total_revenue_usdc": agent.TotalRevenueUSDC,
-			"gateway_enabled":    agent.GatewayEnabled,
 			"reputation_score":   agent.ReputationScore,
 		},
 	}

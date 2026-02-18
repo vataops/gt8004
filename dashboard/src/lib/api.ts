@@ -108,7 +108,6 @@ export interface Agent {
   total_revenue_usdc: number;
   total_customers: number;
   avg_response_ms: number;
-  gateway_enabled: boolean;
   evm_address?: string;
   reputation_score?: number;
   erc8004_token_id?: number;
@@ -127,8 +126,6 @@ export interface RegisterRequest {
   wallet_address: string;
 
   // Service-level settings
-  gateway_enabled?: boolean;
-  origin_endpoint?: string; // Only required if gateway_enabled is true
   tier?: string;
   pricing?: { model: string; amount: number; currency: string };
 }
@@ -675,20 +672,6 @@ export const openApi = {
     const params = chainIds?.length ? `?chain_ids=${chainIds.join(",")}` : "";
     return openFetcher<WalletErrors>(`/v1/wallet/${address}/errors${params}`, auth);
   },
-
-  // Gateway (API key or wallet owner)
-  enableGateway: (agentId: string, auth: string | { walletAddress: string }) =>
-    openFetcherPost<{ gateway_enabled: boolean; gateway_url: string }>(
-      `/v1/agents/${agentId}/gateway/enable`,
-      {},
-      auth
-    ),
-  disableGateway: (agentId: string, auth: string | { walletAddress: string }) =>
-    openFetcherPost<{ gateway_enabled: boolean; origin_endpoint: string }>(
-      `/v1/agents/${agentId}/gateway/disable`,
-      {},
-      auth
-    ),
 
   // API key management (API key or wallet owner)
   getAPIKey: (agentId: string, auth: string | { walletAddress: string }) =>

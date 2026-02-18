@@ -96,7 +96,6 @@ func (h *Handler) AgentHealth(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":   "ok",
 		"agent_id": agent.AgentID,
-		"gateway":  agent.GatewayEnabled,
 	})
 }
 

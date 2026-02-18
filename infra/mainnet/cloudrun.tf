@@ -306,14 +306,6 @@ resource "google_cloud_run_v2_service" "ingest" {
         name  = "MAX_BODY_SIZE_BYTES"
         value = "51200"
       }
-      env {
-        name  = "RATE_LIMIT"
-        value = tostring(var.ingest_rate_limit)
-      }
-      env {
-        name  = "RATE_BURST"
-        value = tostring(var.ingest_rate_burst)
-      }
     }
   }
 

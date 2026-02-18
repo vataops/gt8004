@@ -46,18 +46,6 @@ variable "ingest_workers" {
   default     = 4
 }
 
-variable "ingest_rate_limit" {
-  description = "Ingest rate limit (requests/second per IP)"
-  type        = number
-  default     = 10
-}
-
-variable "ingest_rate_burst" {
-  description = "Ingest rate limit burst size"
-  type        = number
-  default     = 100
-}
-
 variable "gt8004_token_id" {
   description = "ERC-8004 token ID for registry service"
   type        = number

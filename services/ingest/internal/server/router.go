@@ -53,8 +53,5 @@ func NewRouter(h *handler.Handler) *gin.Engine {
 	// SDK batch log ingestion (authenticated)
 	r.POST("/v1/ingest", middleware.APIKeyAuth(h.Store()), h.IngestLogs)
 
-	// Gateway proxy (public, rate-limited)
-	r.Any("/gateway/:slug/*path", h.GatewayProxy)
-
 	return r
 }

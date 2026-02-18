@@ -9,8 +9,6 @@ type Config struct {
 	IngestWorkers    int    `mapstructure:"INGEST_WORKERS"`
 	IngestBufferSize int    `mapstructure:"INGEST_BUFFER_SIZE"`
 	MaxBodySizeBytes int    `mapstructure:"MAX_BODY_SIZE_BYTES"`
-	RateLimit        int    `mapstructure:"RATE_LIMIT"`
-	RateBurst        int    `mapstructure:"RATE_BURST"`
 }
 
 func Load() (*Config, error) {
@@ -22,8 +20,6 @@ func Load() (*Config, error) {
 	viper.SetDefault("INGEST_WORKERS", 4)
 	viper.SetDefault("INGEST_BUFFER_SIZE", 1000)
 	viper.SetDefault("MAX_BODY_SIZE_BYTES", 51200)
-	viper.SetDefault("RATE_LIMIT", 10)
-	viper.SetDefault("RATE_BURST", 100)
 
 	cfg := &Config{}
 	cfg.Port = viper.GetInt("PORT")
@@ -32,8 +28,6 @@ func Load() (*Config, error) {
 	cfg.IngestWorkers = viper.GetInt("INGEST_WORKERS")
 	cfg.IngestBufferSize = viper.GetInt("INGEST_BUFFER_SIZE")
 	cfg.MaxBodySizeBytes = viper.GetInt("MAX_BODY_SIZE_BYTES")
-	cfg.RateLimit = viper.GetInt("RATE_LIMIT")
-	cfg.RateBurst = viper.GetInt("RATE_BURST")
 
 	return cfg, nil
 }

@@ -14,7 +14,6 @@ import (
 	"github.com/GT8004/gt8004-ingest/internal/config"
 	"github.com/GT8004/gt8004-ingest/internal/handler"
 	"github.com/GT8004/gt8004-ingest/internal/ingest"
-	"github.com/GT8004/gt8004-ingest/internal/proxy"
 	"github.com/GT8004/gt8004-ingest/internal/server"
 	"github.com/GT8004/gt8004-ingest/internal/store"
 )
@@ -46,12 +45,8 @@ func main() {
 	worker := ingest.NewWorker(enricher, cfg.IngestWorkers, cfg.IngestBufferSize, logger)
 	worker.Start()
 
-	// Proxy and rate limiter
-	p := proxy.NewProxy(logger)
-	rateLimiter := proxy.NewRateLimiter(float64(cfg.RateLimit), cfg.RateBurst)
-
 	// Handler and router
-	h := handler.New(dbStore, worker, p, rateLimiter, logger)
+	h := handler.New(dbStore, worker, logger)
 	router := server.NewRouter(h)
 
 	srv := &http.Server{

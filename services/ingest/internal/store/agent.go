@@ -35,30 +35,6 @@ func (s *Store) ValidateAPIKey(ctx context.Context, keyHash string) (*APIKeyAuth
 	return auth, nil
 }
 
-// Agent holds the fields needed by the gateway proxy.
-type Agent struct {
-	ID             uuid.UUID
-	AgentID        string
-	Name           string
-	OriginEndpoint string
-	GatewayEnabled bool
-	ChainID        int
-}
-
-// GetAgentBySlug resolves an agent slug to its full record for proxying.
-func (s *Store) GetAgentBySlug(ctx context.Context, slug string) (*Agent, error) {
-	a := &Agent{}
-	err := s.pool.QueryRow(ctx, `
-		SELECT id, agent_id, name, origin_endpoint, gateway_enabled, COALESCE(chain_id, 0)
-		FROM agents
-		WHERE agent_id = $1 AND status = 'active'
-	`, slug).Scan(&a.ID, &a.AgentID, &a.Name, &a.OriginEndpoint, &a.GatewayEnabled, &a.ChainID)
-	if err != nil {
-		return nil, fmt.Errorf("get agent by slug: %w", err)
-	}
-	return a, nil
-}
-
 // UpdateAgentStats increments request count and revenue on the agents table.
 func (s *Store) UpdateAgentStats(ctx context.Context, id uuid.UUID, requests int, revenue float64) error {
 	_, err := s.pool.Exec(ctx, `

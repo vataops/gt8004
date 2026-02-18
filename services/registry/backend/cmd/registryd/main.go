@@ -82,7 +82,6 @@ func main() {
 		erc8004Registry,
 		redisCache,
 		logger,
-		cfg.GatewayBaseURL,
 	)
 	srv := server.New(cfg, h, logger)
 

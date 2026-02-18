@@ -111,8 +111,6 @@ func NewRouter(cfg *config.Config, h *handler.Handler, logger *zap.Logger) *gin.
 	ownerAuth := v1.Group("")
 	ownerAuth.Use(WalletOwnerAuthMiddleware(h))
 	{
-		ownerAuth.POST("/agents/:agent_id/gateway/enable", h.EnableGateway)
-		ownerAuth.POST("/agents/:agent_id/gateway/disable", h.DisableGateway)
 		ownerAuth.GET("/agents/:agent_id/api-key", h.GetAPIKey)
 		ownerAuth.POST("/agents/:agent_id/api-key/regenerate", h.RegenerateAPIKey)
 	}

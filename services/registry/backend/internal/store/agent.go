@@ -19,7 +19,6 @@ type Agent struct {
 	PricingModel     string     `json:"pricing_model,omitempty"`
 	PricingAmount    float64    `json:"pricing_amount,omitempty"`
 	PricingCurrency  string     `json:"pricing_currency,omitempty"`
-	GatewayEnabled   bool       `json:"gateway_enabled"`
 	Status           string     `json:"status"`
 	EVMAddress       string     `json:"evm_address,omitempty"`
 	ReputationScore  float64    `json:"reputation_score"`
@@ -50,7 +49,7 @@ type Agent struct {
 const agentSelectCols = `
 	id, agent_id, name, origin_endpoint, gt8004_endpoint, protocols, category,
 	COALESCE(pricing_model, ''), COALESCE(pricing_amount, 0), COALESCE(pricing_currency, 'USDC'),
-	gateway_enabled, status, COALESCE(evm_address, ''), reputation_score,
+	status, COALESCE(evm_address, ''), reputation_score,
 	total_requests, COALESCE(total_revenue_usdc, 0), total_customers, avg_response_ms,
 	created_at, updated_at,
 	COALESCE(current_tier, 'open'), tier_updated_at,
@@ -65,7 +64,7 @@ func scanAgent(scan func(dest ...any) error) (*Agent, error) {
 	err := scan(
 		&a.ID, &a.AgentID, &a.Name, &a.OriginEndpoint, &a.GT8004Endpoint,
 		&a.Protocols, &a.Category, &a.PricingModel, &a.PricingAmount, &a.PricingCurrency,
-		&a.GatewayEnabled, &a.Status, &a.EVMAddress, &a.ReputationScore,
+		&a.Status, &a.EVMAddress, &a.ReputationScore,
 		&a.TotalRequests, &a.TotalRevenueUSDC, &a.TotalCustomers, &a.AvgResponseMs,
 		&a.CreatedAt, &a.UpdatedAt,
 		&a.CurrentTier, &a.TierUpdatedAt,
@@ -88,15 +87,15 @@ func (s *Store) CreateAgent(ctx context.Context, agent *Agent) error {
 	}
 	err := s.pool.QueryRow(ctx, `
 		INSERT INTO agents (agent_id, name, origin_endpoint, gt8004_endpoint, protocols, category,
-			pricing_model, pricing_currency, gateway_enabled, status, current_tier,
+			pricing_model, pricing_currency, status, current_tier,
 			erc8004_token_id, chain_id, agent_uri, capabilities, identity_registry,
 			evm_address, verified_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
 		RETURNING id, created_at, updated_at
 	`,
 		agent.AgentID, agent.Name, agent.OriginEndpoint, agent.GT8004Endpoint,
 		agent.Protocols, agent.Category, agent.PricingModel, agent.PricingCurrency,
-		agent.GatewayEnabled, agent.Status, agent.CurrentTier,
+		agent.Status, agent.CurrentTier,
 		agent.ERC8004TokenID, agent.ChainID, agent.AgentURI, agent.Capabilities, agent.IdentityRegistry,
 		agent.EVMAddress, agent.VerifiedAt,
 	).Scan(&agent.ID, &agent.CreatedAt, &agent.UpdatedAt)
@@ -161,18 +160,6 @@ func (s *Store) UpdateAgentStats(ctx context.Context, id uuid.UUID, requests int
 	`, id, requests, revenue)
 	if err != nil {
 		return fmt.Errorf("update agent stats: %w", err)
-	}
-	return nil
-}
-
-// SetGatewayEnabled enables or disables the gateway for an agent.
-func (s *Store) SetGatewayEnabled(ctx context.Context, id uuid.UUID, enabled bool) error {
-	_, err := s.pool.Exec(ctx, `
-		UPDATE agents SET gateway_enabled = $1, updated_at = NOW()
-		WHERE id = $2
-	`, enabled, id)
-	if err != nil {
-		return fmt.Errorf("set gateway enabled: %w", err)
 	}
 	return nil
 }
@@ -324,7 +311,7 @@ func (s *Store) GetAgentsByEVMAddress(ctx context.Context, evmAddress string) ([
 func (s *Store) DeregisterAgent(ctx context.Context, id uuid.UUID) error {
 	_, err := s.pool.Exec(ctx, `
 		UPDATE agents
-		SET status = 'deregistered', gateway_enabled = FALSE, updated_at = NOW()
+		SET status = 'deregistered', updated_at = NOW()
 		WHERE id = $1
 	`, id)
 	if err != nil {

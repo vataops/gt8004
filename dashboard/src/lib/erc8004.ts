@@ -192,45 +192,6 @@ interface ServiceEntry {
 }
 
 /**
- * Build a new agentURI with the gateway endpoint replacing the original service endpoint.
- * Preserves all other metadata fields (name, description, etc.).
- */
-export function buildGatewayMetadata(currentUri: string, gatewayUrl: string): string | null {
-  const meta = decodeDataUri(currentUri);
-  if (!meta) return null;
-
-  const services = (meta.services || meta.endpoints) as ServiceEntry[] | undefined;
-  if (services?.length) {
-    for (const svc of services) {
-      if (svc.endpoint) {
-        svc.endpoint = gatewayUrl;
-      }
-    }
-  }
-
-  return encodeDataUri(meta);
-}
-
-/**
- * Restore the original endpoint in the agentURI (when disabling gateway).
- */
-export function restoreOriginalMetadata(currentUri: string, originalEndpoint: string): string | null {
-  const meta = decodeDataUri(currentUri);
-  if (!meta) return null;
-
-  const services = (meta.services || meta.endpoints) as ServiceEntry[] | undefined;
-  if (services?.length) {
-    for (const svc of services) {
-      if (svc.endpoint) {
-        svc.endpoint = originalEndpoint;
-      }
-    }
-  }
-
-  return encodeDataUri(meta);
-}
-
-/**
  * Build updated metadata with A2A endpoint added when services array is empty.
  * Returns null if services already exist or metadata can't be decoded.
  */

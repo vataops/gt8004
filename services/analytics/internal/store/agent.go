@@ -21,7 +21,6 @@ type Agent struct {
 	PricingModel     string     `json:"pricing_model,omitempty"`
 	PricingAmount    float64    `json:"pricing_amount,omitempty"`
 	PricingCurrency  string     `json:"pricing_currency,omitempty"`
-	GatewayEnabled   bool       `json:"gateway_enabled"`
 	Status           string     `json:"status"`
 	EVMAddress       string     `json:"evm_address,omitempty"`
 	ReputationScore  float64    `json:"reputation_score"`
@@ -49,7 +48,7 @@ type Agent struct {
 const agentSelectCols = `
 	id, agent_id, name, origin_endpoint, gt8004_endpoint, protocols, category,
 	COALESCE(pricing_model, ''), COALESCE(pricing_amount, 0), COALESCE(pricing_currency, 'USDC'),
-	gateway_enabled, status, COALESCE(evm_address, ''), reputation_score,
+	status, COALESCE(evm_address, ''), reputation_score,
 	total_requests, COALESCE(total_revenue_usdc, 0), total_customers, avg_response_ms,
 	created_at, updated_at,
 	COALESCE(current_tier, 'open'), tier_updated_at,
@@ -63,7 +62,7 @@ func scanAgent(scan func(dest ...any) error) (*Agent, error) {
 	err := scan(
 		&a.ID, &a.AgentID, &a.Name, &a.OriginEndpoint, &a.GT8004Endpoint,
 		&a.Protocols, &a.Category, &a.PricingModel, &a.PricingAmount, &a.PricingCurrency,
-		&a.GatewayEnabled, &a.Status, &a.EVMAddress, &a.ReputationScore,
+		&a.Status, &a.EVMAddress, &a.ReputationScore,
 		&a.TotalRequests, &a.TotalRevenueUSDC, &a.TotalCustomers, &a.AvgResponseMs,
 		&a.CreatedAt, &a.UpdatedAt,
 		&a.CurrentTier, &a.TierUpdatedAt,
@@ -150,7 +149,7 @@ func (s *Store) GetActiveAgentsByCategory(ctx context.Context, category string) 
 	rows, err := s.pool.Query(ctx, `
 		SELECT id, agent_id, name, origin_endpoint, gt8004_endpoint, protocols, category,
 			COALESCE(pricing_model, ''), COALESCE(pricing_amount, 0), COALESCE(pricing_currency, 'USDC'),
-			gateway_enabled, status, COALESCE(evm_address, ''), reputation_score,
+			status, COALESCE(evm_address, ''), reputation_score,
 			total_requests, COALESCE(total_revenue_usdc, 0), total_customers, avg_response_ms,
 			COALESCE(current_tier, 'open') AS current_tier,
 			created_at, updated_at
@@ -168,7 +167,7 @@ func (s *Store) GetActiveAgentsByCategory(ctx context.Context, category string) 
 		if err := rows.Scan(
 			&a.ID, &a.AgentID, &a.Name, &a.OriginEndpoint, &a.GT8004Endpoint,
 			&a.Protocols, &a.Category, &a.PricingModel, &a.PricingAmount, &a.PricingCurrency,
-			&a.GatewayEnabled, &a.Status, &a.EVMAddress, &a.ReputationScore,
+			&a.Status, &a.EVMAddress, &a.ReputationScore,
 			&a.TotalRequests, &a.TotalRevenueUSDC, &a.TotalCustomers, &a.AvgResponseMs,
 			&a.CurrentTier,
 			&a.CreatedAt, &a.UpdatedAt,
