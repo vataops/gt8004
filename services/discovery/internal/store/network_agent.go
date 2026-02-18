@@ -132,7 +132,7 @@ func (s *Store) ListNetworkAgents(ctx context.Context, chainIDs []int, search, o
 	if sort == "oldest" {
 		orderDir = "ASC"
 	}
-	orderCol := "token_id"
+	orderCol := "created_at"
 	if sort == "reputation" {
 		orderCol = "reputation_score"
 		orderDir = "DESC"
