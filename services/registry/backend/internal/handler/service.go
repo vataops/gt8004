@@ -129,6 +129,12 @@ func (h *Handler) RegisterService(c *gin.Context) {
 		return
 	}
 	if !strings.EqualFold(owner, req.WalletAddress) {
+		h.logger.Warn("ownership mismatch",
+			zap.Int64("token_id", *req.ERC8004TokenID),
+			zap.Int("chain_id", chainID),
+			zap.String("on_chain_owner", owner),
+			zap.String("wallet_address", req.WalletAddress),
+		)
 		c.JSON(http.StatusForbidden, gin.H{"error": "wallet does not own this token"})
 		return
 	}
