@@ -57,7 +57,7 @@ func (h *Handler) VerifyToken(c *gin.Context) {
 	chainID := h.resolveChainID(c)
 	client, err := h.erc8004Registry.GetClient(chainID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported chain_id"})
 		return
 	}
 
@@ -72,7 +72,6 @@ func (h *Handler) VerifyToken(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"exists":   false,
 			"token_id": tokenID,
-			"error":    err.Error(),
 		})
 		return
 	}
@@ -102,7 +101,7 @@ func (h *Handler) ListTokensByOwner(c *gin.Context) {
 	chainID := h.resolveChainID(c)
 	client, err := h.erc8004Registry.GetClient(chainID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported chain_id"})
 		return
 	}
 
@@ -114,7 +113,7 @@ func (h *Handler) ListTokensByOwner(c *gin.Context) {
 
 	tokens, err := client.GetTokensByOwner(c.Request.Context(), address)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"tokens": []any{}, "error": err.Error()})
+		c.JSON(http.StatusOK, gin.H{"tokens": []any{}})
 		return
 	}
 
@@ -139,7 +138,7 @@ func (h *Handler) GetReputationSummary(c *gin.Context) {
 	chainID := h.resolveChainID(c)
 	client, err := h.erc8004Registry.GetClient(chainID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported chain_id"})
 		return
 	}
 
@@ -176,7 +175,7 @@ func (h *Handler) GetReputationFeedbacks(c *gin.Context) {
 	chainID := h.resolveChainID(c)
 	client, err := h.erc8004Registry.GetClient(chainID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported chain_id"})
 		return
 	}
 

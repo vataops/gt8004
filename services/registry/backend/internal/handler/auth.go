@@ -12,7 +12,7 @@ import (
 func (h *Handler) AuthChallenge(c *gin.Context) {
 	var req identity.ChallengeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 
@@ -29,14 +29,14 @@ func (h *Handler) AuthChallenge(c *gin.Context) {
 func (h *Handler) AuthVerify(c *gin.Context) {
 	var req identity.VerifyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 
 	info, err := h.identity.VerifySignature(req)
 	if err != nil {
 		h.logger.Warn("auth verification failed", zap.Error(err), zap.String("agent", req.AgentID))
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "verification failed"})
 		return
 	}
 
@@ -59,7 +59,7 @@ func (h *Handler) WalletLogin(c *gin.Context) {
 		Signature string `json:"signature" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 

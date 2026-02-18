@@ -360,6 +360,8 @@ export interface CustomerIntelligence {
 export interface AnalyticsRevenueSummary {
   total_revenue: number;
   payment_count: number;
+  required_count: number;
+  conversion_rate: number;
   avg_per_request: number;
   arpu: number;
 }

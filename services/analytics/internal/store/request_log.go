@@ -49,6 +49,7 @@ type AgentStats struct {
 	WeekRequests     int64   `json:"week_requests"`
 	MonthRequests    int64   `json:"month_requests"`
 	TotalRevenueUSDC float64 `json:"total_revenue_usdc"`
+	PaidCount        int64   `json:"paid_count"`
 	AvgResponseMs    float64 `json:"avg_response_ms"`
 	ErrorRate        float64 `json:"error_rate"`
 }
@@ -110,6 +111,7 @@ func (s *Store) GetAgentStats(ctx context.Context, agentDBID uuid.UUID) (*AgentS
 			COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE - INTERVAL '7 days') AS week_requests,
 			COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE - INTERVAL '30 days') AS month_requests,
 			COALESCE(SUM(x402_amount), 0) AS total_revenue_usdc,
+			COUNT(*) FILTER (WHERE x402_amount IS NOT NULL AND x402_amount > 0) AS paid_count,
 			COALESCE(AVG(response_ms), 0) AS avg_response_ms,
 			CASE
 				WHEN COUNT(*) > 0
@@ -124,6 +126,7 @@ func (s *Store) GetAgentStats(ctx context.Context, agentDBID uuid.UUID) (*AgentS
 		&stats.WeekRequests,
 		&stats.MonthRequests,
 		&stats.TotalRevenueUSDC,
+		&stats.PaidCount,
 		&stats.AvgResponseMs,
 		&stats.ErrorRate,
 	)

@@ -106,7 +106,7 @@ func (s *Store) CreateAgent(ctx context.Context, agent *Agent) error {
 }
 
 func (s *Store) GetAgentByID(ctx context.Context, agentID string) (*Agent, error) {
-	row := s.pool.QueryRow(ctx, `SELECT `+agentSelectCols+` FROM agents WHERE agent_id = $1`, agentID)
+	row := s.pool.QueryRow(ctx, `SELECT `+agentSelectCols+` FROM agents WHERE agent_id = $1 AND status = 'active'`, agentID)
 	a, err := scanAgent(row.Scan)
 	if err != nil {
 		return nil, fmt.Errorf("get agent by id: %w", err)

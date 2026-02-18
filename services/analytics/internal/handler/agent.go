@@ -78,10 +78,12 @@ func (h *Handler) AgentDailyStats(c *gin.Context) {
 // ---------- Analytics Report ----------
 
 type AnalyticsRevenueSummary struct {
-	TotalRevenue  float64 `json:"total_revenue"`
-	PaymentCount  int64   `json:"payment_count"`
-	AvgPerRequest float64 `json:"avg_per_request"`
-	ARPU          float64 `json:"arpu"`
+	TotalRevenue   float64 `json:"total_revenue"`
+	PaymentCount   int64   `json:"payment_count"`
+	RequiredCount  int64   `json:"required_count"`
+	ConversionRate float64 `json:"conversion_rate"`
+	AvgPerRequest  float64 `json:"avg_per_request"`
+	ARPU           float64 `json:"arpu"`
 }
 
 type AnalyticsReportResponse struct {
@@ -184,6 +186,7 @@ func (h *Handler) AnalyticsReport(c *gin.Context) {
 	revSummary := &AnalyticsRevenueSummary{}
 	if agentStats != nil {
 		revSummary.TotalRevenue = agentStats.TotalRevenueUSDC
+		revSummary.PaymentCount = agentStats.PaidCount
 		if agentStats.TotalRequests > 0 {
 			revSummary.AvgPerRequest = agentStats.TotalRevenueUSDC / float64(agentStats.TotalRequests)
 		}
@@ -192,7 +195,11 @@ func (h *Handler) AnalyticsReport(c *gin.Context) {
 		revSummary.ARPU = revSummary.TotalRevenue / float64(customerIntel.TotalCustomers)
 	}
 	if healthMetrics != nil {
-		revSummary.PaymentCount = healthMetrics.PaymentCount
+		revSummary.RequiredCount = healthMetrics.PaymentCount
+		total := revSummary.RequiredCount + revSummary.PaymentCount
+		if total > 0 {
+			revSummary.ConversionRate = float64(revSummary.PaymentCount) / float64(total)
+		}
 	}
 
 	report := AnalyticsReportResponse{
