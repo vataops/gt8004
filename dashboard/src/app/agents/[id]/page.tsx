@@ -333,8 +333,8 @@ function DeregisterSection({
     setError("");
 
     try {
-      // If using wallet, get signature
-      if (walletAddress && !apiKey) {
+      // Prefer wallet auth (more reliable); fall back to API key
+      if (walletAddress) {
         console.log("[deregister] wallet auth", { agentId, walletAddress });
 
         // Get challenge (use walletAddress so VerifySignature can match the signer)
@@ -351,10 +351,10 @@ function DeregisterSection({
           challenge,
           signature
         });
-      } else {
+      } else if (apiKey) {
         console.log("[deregister] api key auth", { agentId });
         // Deregister with API key
-        await openApi.deregisterAgent(agentId, apiKey!);
+        await openApi.deregisterAgent(agentId, apiKey);
       }
 
       window.location.href = "/dashboard";
