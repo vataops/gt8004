@@ -187,19 +187,17 @@ func (h *Handler) AnalyticsReport(c *gin.Context) {
 	if agentStats != nil {
 		revSummary.TotalRevenue = agentStats.TotalRevenueUSDC
 		revSummary.PaymentCount = agentStats.PaidCount
+		revSummary.RequiredCount = agentStats.RequiredCount
 		if agentStats.TotalRequests > 0 {
 			revSummary.AvgPerRequest = agentStats.TotalRevenueUSDC / float64(agentStats.TotalRequests)
 		}
-	}
-	if customerIntel != nil && customerIntel.TotalCustomers > 0 {
-		revSummary.ARPU = revSummary.TotalRevenue / float64(customerIntel.TotalCustomers)
-	}
-	if healthMetrics != nil {
-		revSummary.RequiredCount = healthMetrics.PaymentCount
 		total := revSummary.RequiredCount + revSummary.PaymentCount
 		if total > 0 {
 			revSummary.ConversionRate = float64(revSummary.PaymentCount) / float64(total)
 		}
+	}
+	if customerIntel != nil && customerIntel.TotalCustomers > 0 {
+		revSummary.ARPU = revSummary.TotalRevenue / float64(customerIntel.TotalCustomers)
 	}
 
 	report := AnalyticsReportResponse{
