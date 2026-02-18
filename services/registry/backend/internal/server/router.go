@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -39,6 +40,7 @@ func securityHeaders() gin.HandlerFunc {
 		c.Header("X-Content-Type-Options", "nosniff")
 		c.Header("X-Frame-Options", "DENY")
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
+		c.Header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		c.Next()
 	}
 }
@@ -56,8 +58,9 @@ func NewRouter(cfg *config.Config, h *handler.Handler, logger *zap.Logger) *gin.
 
 	v1 := r.Group("/v1")
 
-	// Auth (public)
+	// Auth (public, rate-limited)
 	auth := v1.Group("/auth")
+	auth.Use(RateLimitMiddleware(20, time.Minute))
 	{
 		auth.POST("/challenge", h.AuthChallenge)
 		auth.POST("/verify", h.AuthVerify)

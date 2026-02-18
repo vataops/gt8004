@@ -2,10 +2,13 @@ package server
 
 import (
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -21,7 +24,12 @@ const (
 
 func APIKeyAuthMiddleware(h *handler.Handler) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
+		// Prefer X-Forwarded-Authorization (set by the API Gateway before
+		// overwriting Authorization with the GCP identity token).
+		authHeader := c.GetHeader("X-Forwarded-Authorization")
+		if authHeader == "" {
+			authHeader = c.GetHeader("Authorization")
+		}
 		if authHeader == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing authorization header"})
 			return
@@ -60,8 +68,12 @@ func WalletOwnerAuthMiddleware(h *handler.Handler) gin.HandlerFunc {
 			zap.String("X-Wallet-Address", c.GetHeader("X-Wallet-Address")),
 			zap.String("agent_id_param", c.Param("agent_id")))
 
-		// 1) Try API key
-		if authHeader := c.GetHeader("Authorization"); authHeader != "" {
+		// 1) Try API key (prefer forwarded header from API Gateway)
+		authHeader := c.GetHeader("X-Forwarded-Authorization")
+		if authHeader == "" {
+			authHeader = c.GetHeader("Authorization")
+		}
+		if authHeader != "" {
 			h.Logger().Info("WalletOwnerAuth - Trying API key auth")
 			parts := strings.SplitN(authHeader, " ", 2)
 			if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
@@ -111,16 +123,95 @@ func WalletOwnerAuthMiddleware(h *handler.Handler) gin.HandlerFunc {
 }
 
 // InternalAuthMiddleware validates the shared secret for service-to-service calls.
+// The secret is required — if empty, all internal requests are rejected.
 func InternalAuthMiddleware(secret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if secret == "" {
-			// No secret configured — allow (dev mode)
-			c.Next()
+			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"error": "internal auth not configured"})
 			return
 		}
 		token := c.GetHeader("X-Internal-Secret")
-		if token == "" || token != secret {
+		if token == "" || subtle.ConstantTimeCompare([]byte(token), []byte(secret)) != 1 {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			return
+		}
+		c.Next()
+	}
+}
+
+// ipRateLimiter tracks request counts per IP within a sliding window.
+type ipRateLimiter struct {
+	mu       sync.Mutex
+	requests map[string][]time.Time
+	limit    int
+	window   time.Duration
+}
+
+func newIPRateLimiter(limit int, window time.Duration) *ipRateLimiter {
+	rl := &ipRateLimiter{
+		requests: make(map[string][]time.Time),
+		limit:    limit,
+		window:   window,
+	}
+	go rl.cleanup()
+	return rl
+}
+
+func (rl *ipRateLimiter) allow(ip string) bool {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+
+	now := time.Now()
+	cutoff := now.Add(-rl.window)
+
+	// Remove expired entries
+	reqs := rl.requests[ip]
+	valid := reqs[:0]
+	for _, t := range reqs {
+		if t.After(cutoff) {
+			valid = append(valid, t)
+		}
+	}
+
+	if len(valid) >= rl.limit {
+		rl.requests[ip] = valid
+		return false
+	}
+	rl.requests[ip] = append(valid, now)
+	return true
+}
+
+func (rl *ipRateLimiter) cleanup() {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+	for range ticker.C {
+		rl.mu.Lock()
+		cutoff := time.Now().Add(-rl.window)
+		for ip, reqs := range rl.requests {
+			valid := reqs[:0]
+			for _, t := range reqs {
+				if t.After(cutoff) {
+					valid = append(valid, t)
+				}
+			}
+			if len(valid) == 0 {
+				delete(rl.requests, ip)
+			} else {
+				rl.requests[ip] = valid
+			}
+		}
+		rl.mu.Unlock()
+	}
+}
+
+// RateLimitMiddleware limits requests per IP address.
+// limit: max requests, window: time window.
+func RateLimitMiddleware(limit int, window time.Duration) gin.HandlerFunc {
+	limiter := newIPRateLimiter(limit, window)
+	return func(c *gin.Context) {
+		ip := c.ClientIP()
+		if !limiter.allow(ip) {
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": "rate limit exceeded"})
 			return
 		}
 		c.Next()

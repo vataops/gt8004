@@ -19,7 +19,7 @@ export default function RegisterPage() {
 function RegisterPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login, walletAddress: storedWallet } = useAuth();
+  const { login, walletLogin, connectWallet: authConnectWallet, walletAddress: storedWallet } = useAuth();
 
   const [phase, setPhase] = useState<string>("wallet");
   const [error, setError] = useState("");
@@ -143,6 +143,7 @@ function RegisterPageInner() {
     try {
       const addr = await connectWallet();
       setWalletAddress(addr);
+      authConnectWallet(addr); // persist in auth context + localStorage
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to connect wallet");
     } finally {
@@ -197,10 +198,19 @@ function RegisterPageInner() {
   // --- Continue to dashboard ---
   const handleContinue = async () => {
     try {
-      await login(apiKey);
+      // Use walletLogin to store both API key and wallet address in auth context.
+      // login() calls fetchMe which goes through the API gateway — walletLogin
+      // avoids this extra round-trip by setting the agent data directly.
+      const me = await openApi.getWalletAgents(walletAddress);
+      const agentData = me.agents.find((a) => a.agent_id === registeredAgentId);
+      if (agentData) {
+        walletLogin(apiKey, agentData, walletAddress);
+      } else {
+        await login(apiKey);
+      }
       router.push(`/agents/${registeredAgentId}`);
     } catch {
-      router.push("/login");
+      router.push(`/agents/${registeredAgentId}`);
     }
   };
 

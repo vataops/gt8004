@@ -128,6 +128,32 @@ func (s *Store) UpdateAgentTotalCustomers(ctx context.Context, agentDBID uuid.UU
 	return nil
 }
 
+// GetAgentDBIDsByEVMAddress returns DB IDs of active agents owned by a wallet address.
+func (s *Store) GetAgentDBIDsByEVMAddress(ctx context.Context, evmAddress string) ([]uuid.UUID, []int, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT id, COALESCE(chain_id, 0)
+		FROM agents
+		WHERE LOWER(evm_address) = LOWER($1) AND status = 'active'
+	`, evmAddress)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get agent db ids by evm address: %w", err)
+	}
+	defer rows.Close()
+
+	var ids []uuid.UUID
+	var chains []int
+	for rows.Next() {
+		var id uuid.UUID
+		var chainID int
+		if err := rows.Scan(&id, &chainID); err != nil {
+			return nil, nil, fmt.Errorf("scan agent id: %w", err)
+		}
+		ids = append(ids, id)
+		chains = append(chains, chainID)
+	}
+	return ids, chains, nil
+}
+
 // GetAgentEVMAddress resolves agent slug to its DB UUID and owner EVM address.
 func (s *Store) GetAgentEVMAddress(ctx context.Context, agentID string) (uuid.UUID, string, error) {
 	var dbID uuid.UUID

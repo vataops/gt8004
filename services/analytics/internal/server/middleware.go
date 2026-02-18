@@ -15,8 +15,12 @@ import (
 // Wallet address is only trusted when it matches a registered agent's EVM address.
 func OwnerAuthMiddleware(s *store.Store) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 1) Try API key (Authorization: Bearer <key>)
-		if authHeader := c.GetHeader("Authorization"); authHeader != "" {
+		// 1) Try API key (prefer X-Forwarded-Authorization from API Gateway)
+		authHeader := c.GetHeader("X-Forwarded-Authorization")
+		if authHeader == "" {
+			authHeader = c.GetHeader("Authorization")
+		}
+		if authHeader != "" {
 			parts := strings.SplitN(authHeader, " ", 2)
 			if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
 				hash := sha256.Sum256([]byte(parts[1]))

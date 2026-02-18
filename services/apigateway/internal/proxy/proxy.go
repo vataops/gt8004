@@ -84,6 +84,13 @@ func ProxyTo(targetURL string, logger *zap.Logger) gin.HandlerFunc {
 		req.URL.Host = target.Host
 		req.URL.Scheme = target.Scheme
 
+		// Forward the original Authorization header so backend services can
+		// perform API-key auth. The GCP identity token overwrites Authorization
+		// for Cloud Run service-to-service IAM, so we preserve the original.
+		if orig := req.Header.Get("Authorization"); orig != "" {
+			req.Header.Set("X-Forwarded-Authorization", orig)
+		}
+
 		// Add GCP identity token for Cloud Run service-to-service auth
 		if token := getIdentityToken(audience); token != "" {
 			req.Header.Set("Authorization", "Bearer "+token)

@@ -2,12 +2,10 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -123,76 +121,24 @@ func (h *Handler) WalletErrors(c *gin.Context) {
 
 // getWalletAgentIDs fetches agent DB IDs for a wallet address.
 // When chainFilter is non-nil, only agents on those chain IDs are returned.
-// Uses cache with 5-minute TTL to avoid repeated calls to registry service.
+// Queries the shared agents table directly (same DB) instead of calling the
+// registry service over HTTP, which avoids Cloud Run auth issues.
 func (h *Handler) getWalletAgentIDs(ctx context.Context, address string, chainFilter map[int]struct{}) ([]uuid.UUID, error) {
-	if h.registryURL == "" {
-		return nil, fmt.Errorf("REGISTRY_URL not configured")
-	}
-
-	// Build cache key including chain filter for correctness
-	cacheKey := "wallet_agents:" + address
-	if chainFilter != nil {
-		parts := make([]string, 0, len(chainFilter))
-		for id := range chainFilter {
-			parts = append(parts, strconv.Itoa(id))
-		}
-		cacheKey += ":chains=" + strings.Join(parts, ",")
-	}
-
-	if cached := h.cache.Get(ctx, cacheKey); cached != nil {
-		var ids []uuid.UUID
-		if err := json.Unmarshal(cached, &ids); err == nil {
-			return ids, nil
-		}
-	}
-
-	// Call registry service GET /v1/agents/wallet/:address
-	registryURL := h.registryURL + "/v1/agents/wallet/" + address
-	req, err := http.NewRequestWithContext(ctx, "GET", registryURL, nil)
+	allIDs, chainIDs, err := h.store.GetAgentDBIDsByEVMAddress(ctx, address)
 	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
+		return nil, fmt.Errorf("get wallet agents: %w", err)
 	}
 
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("call registry service: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("registry service returned %d", resp.StatusCode)
+	if chainFilter == nil {
+		return allIDs, nil
 	}
 
-	var result struct {
-		Agents []struct {
-			ID      string `json:"id"`       // DB ID (UUID)
-			ChainID int    `json:"chain_id"` // chain the agent is registered on
-		} `json:"agents"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
-	}
-
-	// Extract UUIDs, filtering by chain_id when specified
-	ids := make([]uuid.UUID, 0, len(result.Agents))
-	for _, a := range result.Agents {
-		if chainFilter != nil {
-			if _, ok := chainFilter[a.ChainID]; !ok {
-				continue
-			}
-		}
-		id, err := uuid.Parse(a.ID)
-		if err == nil {
+	// Filter by chain_id
+	ids := make([]uuid.UUID, 0, len(allIDs))
+	for i, id := range allIDs {
+		if _, ok := chainFilter[chainIDs[i]]; ok {
 			ids = append(ids, id)
 		}
 	}
-
-	// Cache for 5 minutes
-	if data, err := json.Marshal(ids); err == nil {
-		h.cache.Set(ctx, cacheKey, data, 5*time.Minute)
-	}
-
 	return ids, nil
 }

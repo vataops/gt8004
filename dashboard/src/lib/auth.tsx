@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const me = await fetchMe(key);
       setApiKey(key);
       setAgent(me);
-      localStorage.setItem("gt8004_api_key", key);
+      sessionStorage.setItem("gt8004_api_key", key);
     },
     [fetchMe]
   );
@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setApiKey(key);
     setAgent(agentData);
     setWalletAddress(walletAddr);
-    localStorage.setItem("gt8004_api_key", key);
+    sessionStorage.setItem("gt8004_api_key", key);
     localStorage.setItem("gt8004_wallet_address", walletAddr);
   }, []);
 
@@ -76,13 +76,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setApiKey(null);
     setAgent(null);
     setWalletAddress(null);
-    localStorage.removeItem("gt8004_api_key");
+    sessionStorage.removeItem("gt8004_api_key");
     localStorage.removeItem("gt8004_wallet_address");
   }, []);
 
   useEffect(() => {
     const storedWallet = localStorage.getItem("gt8004_wallet_address");
-    const stored = localStorage.getItem("gt8004_api_key");
+    const stored = sessionStorage.getItem("gt8004_api_key");
 
     if (storedWallet) {
       setWalletAddress(storedWallet);
@@ -99,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAgent(me);
       })
       .catch(() => {
-        localStorage.removeItem("gt8004_api_key");
+        sessionStorage.removeItem("gt8004_api_key");
       })
       .finally(() => setLoading(false));
   }, [fetchMe]);
