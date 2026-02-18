@@ -137,6 +137,26 @@ func (s *Store) GetAgentByTokenID(ctx context.Context, tokenID int64, chainID ..
 	return a, nil
 }
 
+// ReactivateAgent updates a deregistered agent back to active status with fresh metadata.
+func (s *Store) ReactivateAgent(ctx context.Context, agent *Agent) error {
+	err := s.pool.QueryRow(ctx, `
+		UPDATE agents
+		SET name = $2, origin_endpoint = $3, gt8004_endpoint = $4, protocols = $5, category = $6,
+			status = 'active', current_tier = $7, agent_uri = $8, evm_address = $9,
+			identity_registry = $10, verified_at = $11, updated_at = NOW()
+		WHERE agent_id = $1
+		RETURNING id, created_at, updated_at
+	`,
+		agent.AgentID, agent.Name, agent.OriginEndpoint, agent.GT8004Endpoint,
+		agent.Protocols, agent.Category, agent.CurrentTier, agent.AgentURI,
+		agent.EVMAddress, agent.IdentityRegistry, agent.VerifiedAt,
+	).Scan(&agent.ID, &agent.CreatedAt, &agent.UpdatedAt)
+	if err != nil {
+		return fmt.Errorf("reactivate agent: %w", err)
+	}
+	return nil
+}
+
 func (s *Store) LinkERC8004(ctx context.Context, id uuid.UUID, tokenID int64, chainID int, agentURI, registry, evmAddress string) error {
 	_, err := s.pool.Exec(ctx, `
 		UPDATE agents

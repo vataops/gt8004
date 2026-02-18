@@ -89,7 +89,7 @@ type RegisterServiceResponse struct {
 func (h *Handler) RegisterService(c *gin.Context) {
 	var req RegisterServiceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 
@@ -117,14 +117,15 @@ func (h *Handler) RegisterService(c *gin.Context) {
 
 	erc8004Client, err := h.erc8004Registry.GetClient(chainID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported chain_id"})
 		return
 	}
 
 	// Verify on-chain ownership via RPC call
 	owner, err := erc8004Client.VerifyOwnership(c.Request.Context(), *req.ERC8004TokenID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "token not found on-chain: " + err.Error()})
+		h.logger.Warn("token verification failed", zap.Error(err), zap.Int64("token_id", *req.ERC8004TokenID))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "token not found on-chain"})
 		return
 	}
 	if !strings.EqualFold(owner, req.WalletAddress) {
@@ -132,14 +133,18 @@ func (h *Handler) RegisterService(c *gin.Context) {
 		return
 	}
 
-	// Check for duplicate token ID on the same chain (only active agents)
+	// Check for duplicate token ID on the same chain
 	existing, _ := h.store.GetAgentByTokenID(c.Request.Context(), *req.ERC8004TokenID, chainID)
-	if existing != nil && existing.Status != "deregistered" {
-		c.JSON(http.StatusConflict, gin.H{
-			"error":    "token already linked to another agent",
-			"agent_id": existing.AgentID,
-		})
-		return
+	reactivate := false
+	if existing != nil {
+		if existing.Status != "deregistered" {
+			c.JSON(http.StatusConflict, gin.H{
+				"error":    "token already linked to another agent",
+				"agent_id": existing.AgentID,
+			})
+			return
+		}
+		reactivate = true
 	}
 
 	// Get agent URI from contract
@@ -217,10 +222,21 @@ func (h *Handler) RegisterService(c *gin.Context) {
 
 	agent.GT8004Endpoint = fmt.Sprintf("/v1/agents/%s", agentID)
 
-	if err := h.store.CreateAgent(c.Request.Context(), agent); err != nil {
-		h.logger.Error("failed to create agent", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to register service"})
-		return
+	if reactivate {
+		// Re-activate the previously deregistered agent
+		if err := h.store.ReactivateAgent(c.Request.Context(), agent); err != nil {
+			h.logger.Error("failed to reactivate agent", zap.Error(err))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to register service"})
+			return
+		}
+		// Revoke old keys before issuing a new one
+		_ = h.store.RevokeAPIKeys(c.Request.Context(), agent.ID)
+	} else {
+		if err := h.store.CreateAgent(c.Request.Context(), agent); err != nil {
+			h.logger.Error("failed to create agent", zap.Error(err))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to register service"})
+			return
+		}
 	}
 
 	rawKey, err := h.store.CreateAPIKey(c.Request.Context(), agent.ID)
@@ -294,7 +310,7 @@ func (h *Handler) UpdateTier(c *gin.Context) {
 
 	var req UpdateTierRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 
@@ -401,7 +417,7 @@ func (h *Handler) LinkERC8004(c *gin.Context) {
 
 	var req LinkERC8004Request
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 
@@ -426,7 +442,8 @@ func (h *Handler) LinkERC8004(c *gin.Context) {
 	}
 	info, err := h.identity.VerifySignature(verifyReq)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "signature verification failed: " + err.Error()})
+		h.logger.Warn("signature verification failed", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "signature verification failed"})
 		return
 	}
 
@@ -436,14 +453,15 @@ func (h *Handler) LinkERC8004(c *gin.Context) {
 	if h.erc8004Registry != nil {
 		erc8004Client, err := h.erc8004Registry.GetClient(chainID)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported chain_id"})
 			return
 		}
 
 		// Verify on-chain ownership
 		owner, err := erc8004Client.VerifyOwnership(c.Request.Context(), req.ERC8004TokenID)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "token not found on-chain: " + err.Error()})
+			h.logger.Warn("token verification failed", zap.Error(err), zap.Int64("token_id", req.ERC8004TokenID))
+			c.JSON(http.StatusBadRequest, gin.H{"error": "token not found on-chain"})
 			return
 		}
 		if !strings.EqualFold(owner, info.EVMAddress) {
