@@ -253,6 +253,9 @@ func (h *Handler) RegisterService(c *gin.Context) {
 		h.cache.Del(c.Request.Context(), fmt.Sprintf("wallet:%s", strings.ToLower(agent.EVMAddress)))
 	}
 
+	// Trigger immediate Discovery sync for this token (fire-and-forget)
+	h.triggerDiscoverySync(chainID, *req.ERC8004TokenID)
+
 	c.JSON(http.StatusCreated, RegisterServiceResponse{
 		AgentID:        agentID,
 		GT8004Endpoint: agent.GT8004Endpoint,

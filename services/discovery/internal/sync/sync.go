@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -124,6 +125,62 @@ func (j *Job) BackfillAll() {
 // Stop signals the sync job to stop.
 func (j *Job) Stop() {
 	close(j.stopCh)
+}
+
+// SyncSingleToken fetches on-chain data for a single token and upserts it.
+// Used for immediate sync after registration (bypasses periodic scan interval).
+func (j *Job) SyncSingleToken(ctx context.Context, chainID int, tokenID int64) error {
+	client, err := j.registry.GetClient(chainID)
+	if err != nil {
+		return fmt.Errorf("unsupported chain_id %d: %w", chainID, err)
+	}
+
+	owner, err := client.VerifyOwnership(ctx, tokenID)
+	if err != nil {
+		return fmt.Errorf("verify ownership: %w", err)
+	}
+
+	agentURI, _ := client.GetAgentURI(ctx, tokenID)
+
+	agent := &store.NetworkAgent{
+		ChainID:      chainID,
+		TokenID:      tokenID,
+		OwnerAddress: owner,
+		AgentURI:     agentURI,
+	}
+
+	if agentURI != "" {
+		j.fetchMetadata(agent)
+	}
+
+	score, count, repErr := client.GetReputationSummary(ctx, tokenID)
+	if repErr == nil && count > 0 {
+		agent.ReputationScore = score
+		agent.ReputationCount = int(count)
+	}
+
+	existing, existErr := j.store.GetNetworkAgent(ctx, chainID, tokenID)
+	if existErr != nil {
+		newVal, _ := json.Marshal(map[string]interface{}{
+			"owner_address": agent.OwnerAddress,
+			"agent_uri":     agent.AgentURI,
+			"name":          agent.Name,
+		})
+		_ = j.store.InsertNetworkAgentHistory(ctx, chainID, tokenID, "created", nil, newVal)
+	} else {
+		j.recordChanges(ctx, existing, agent)
+	}
+
+	if err := j.store.UpsertNetworkAgent(ctx, agent); err != nil {
+		return fmt.Errorf("upsert network agent: %w", err)
+	}
+
+	j.logger.Info("single token synced",
+		zap.Int("chain_id", chainID),
+		zap.Int64("token_id", tokenID),
+		zap.String("name", agent.Name),
+	)
+	return nil
 }
 
 // Sync discovers new tokens from all configured chains and upserts them.

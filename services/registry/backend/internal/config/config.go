@@ -52,6 +52,9 @@ type Config struct {
 
 	// Internal API shared secret (service-to-service auth)
 	InternalSecret string `mapstructure:"INTERNAL_SECRET"`
+
+	// Discovery service URL for single-token sync trigger
+	DiscoveryURL string `mapstructure:"DISCOVERY_URL"`
 }
 
 func Load() (*Config, error) {
@@ -79,6 +82,7 @@ func Load() (*Config, error) {
 	cfg.GT8004TokenID = viper.GetInt64("GT8004_TOKEN_ID")
 	cfg.GT8004AgentURI = viper.GetString("GT8004_AGENT_URI")
 	cfg.InternalSecret = viper.GetString("INTERNAL_SECRET")
+	cfg.DiscoveryURL = viper.GetString("DISCOVERY_URL")
 
 	return cfg, nil
 }

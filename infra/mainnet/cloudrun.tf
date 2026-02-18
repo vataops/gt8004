@@ -86,6 +86,10 @@ resource "google_cloud_run_v2_service" "registry" {
         name  = "INTERNAL_SECRET"
         value = var.internal_secret
       }
+      env {
+        name  = "DISCOVERY_URL"
+        value = google_cloud_run_v2_service.discovery.uri
+      }
     }
   }
 
@@ -229,6 +233,14 @@ resource "google_cloud_run_v2_service" "discovery" {
       env {
         name  = "SCAN_SYNC_INTERVAL"
         value = tostring(var.scan_sync_interval)
+      }
+      env {
+        name  = "BASE_RPC_URL"
+        value = var.base_rpc_url
+      }
+      env {
+        name  = "INTERNAL_SECRET"
+        value = var.internal_secret
       }
     }
   }

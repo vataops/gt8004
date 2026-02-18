@@ -34,6 +34,12 @@ variable "identity_registry_rpc" {
   default     = "https://ethereum-rpc.publicnode.com"
 }
 
+variable "base_rpc_url" {
+  description = "Base chain RPC endpoint URL"
+  type        = string
+  sensitive   = true
+}
+
 variable "scan_sync_interval" {
   description = "Discovery service on-chain sync interval (seconds)"
   type        = number

@@ -77,8 +77,8 @@ func main() {
 	syncJob.Start()
 
 	// Handler and router
-	h := handler.New(db, logger)
-	router := server.NewRouter(h)
+	h := handler.New(db, logger, syncJob)
+	router := server.NewRouter(h, cfg.InternalSecret)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.Port),

@@ -65,6 +65,8 @@ services:
       IDENTITY_REGISTRY_RPC: ${IDENTITY_REGISTRY_RPC:-https://sepolia.base.org}
       GT8004_TOKEN_ID: ${GT8004_TOKEN_ID:-0}
       GT8004_AGENT_URI: ${GT8004_AGENT_URI:-https://api.gt8004.network}
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-secret}
+      DISCOVERY_URL: http://discovery:8080
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
       interval: 5s
@@ -111,6 +113,7 @@ services:
       DATABASE_URL: postgres://gt8004:gt8004@postgres:5432/gt8004?sslmode=disable
       NETWORK_MODE: ${NETWORK_MODE:-testnet}
       SCAN_SYNC_INTERVAL: 300
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-dev-secret}
     depends_on:
       postgres:
         condition: service_healthy

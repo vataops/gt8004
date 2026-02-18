@@ -1,6 +1,7 @@
 package server
 
 import (
+	"crypto/subtle"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -42,7 +43,23 @@ func securityHeaders() gin.HandlerFunc {
 	}
 }
 
-func NewRouter(h *handler.Handler) *gin.Engine {
+// InternalAuthMiddleware validates the shared secret for service-to-service calls.
+func InternalAuthMiddleware(secret string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if secret == "" {
+			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"error": "internal auth not configured"})
+			return
+		}
+		token := c.GetHeader("X-Internal-Secret")
+		if token == "" || subtle.ConstantTimeCompare([]byte(token), []byte(secret)) != 1 {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			return
+		}
+		c.Next()
+	}
+}
+
+func NewRouter(h *handler.Handler, internalSecret string) *gin.Engine {
 	r := gin.New()
 	r.Use(corsMiddleware(), securityHeaders(), gin.Logger(), gin.Recovery())
 
@@ -56,6 +73,13 @@ func NewRouter(h *handler.Handler) *gin.Engine {
 	v1.GET("/network/agents", h.ListNetworkAgents)
 	v1.GET("/network/agents/:chain_id/:token_id", h.GetNetworkAgent)
 	v1.GET("/network/stats", h.GetNetworkStats)
+
+	// Internal API (service-to-service, shared-secret auth)
+	internal := r.Group("/internal")
+	internal.Use(InternalAuthMiddleware(internalSecret))
+	{
+		internal.POST("/sync-token", h.InternalSyncToken)
+	}
 
 	return r
 }

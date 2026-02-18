@@ -22,9 +22,13 @@ var SupportedNetworks map[int]NetworkConfig
 func init() {
 	switch os.Getenv("NETWORK_MODE") {
 	case "mainnet":
+		baseRPC := os.Getenv("BASE_RPC_URL")
+		if baseRPC == "" {
+			baseRPC = "https://base-rpc.publicnode.com"
+		}
 		SupportedNetworks = map[int]NetworkConfig{
 			1:    {ChainID: 1, RegistryAddr: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432", ReputationAddr: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63", RegistryRPC: "https://ethereum-rpc.publicnode.com", DeployBlock: 24339900},
-			8453: {ChainID: 8453, RegistryAddr: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432", ReputationAddr: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63", RegistryRPC: "https://base-mainnet.g.allthatnode.com/full/evm/bb40f9a9787943609ab44a09f41352a5", DeployBlock: 41000000},
+			8453: {ChainID: 8453, RegistryAddr: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432", ReputationAddr: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63", RegistryRPC: baseRPC, DeployBlock: 41000000},
 		}
 	default: // "testnet" or unset
 		SupportedNetworks = map[int]NetworkConfig{
@@ -39,6 +43,7 @@ type Config struct {
 	LogLevel         string `mapstructure:"LOG_LEVEL"`
 	DatabaseURL      string `mapstructure:"DATABASE_URL"`
 	ScanSyncInterval int    `mapstructure:"SCAN_SYNC_INTERVAL"`
+	InternalSecret   string `mapstructure:"INTERNAL_SECRET"`
 }
 
 func Load() (*Config, error) {
@@ -53,6 +58,7 @@ func Load() (*Config, error) {
 	cfg.LogLevel = viper.GetString("LOG_LEVEL")
 	cfg.DatabaseURL = viper.GetString("DATABASE_URL")
 	cfg.ScanSyncInterval = viper.GetInt("SCAN_SYNC_INTERVAL")
+	cfg.InternalSecret = viper.GetString("INTERNAL_SECRET")
 
 	return cfg, nil
 }

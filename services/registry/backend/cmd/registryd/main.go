@@ -82,6 +82,8 @@ func main() {
 		erc8004Registry,
 		redisCache,
 		logger,
+		cfg.DiscoveryURL,
+		cfg.InternalSecret,
 	)
 	srv := server.New(cfg, h, logger)
 
