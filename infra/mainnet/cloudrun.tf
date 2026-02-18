@@ -90,6 +90,10 @@ resource "google_cloud_run_v2_service" "registry" {
         name  = "DISCOVERY_URL"
         value = google_cloud_run_v2_service.discovery.uri
       }
+      env {
+        name  = "BASE_RPC_URL"
+        value = var.base_rpc_url
+      }
     }
   }
 
