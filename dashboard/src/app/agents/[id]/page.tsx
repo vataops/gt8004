@@ -1400,20 +1400,24 @@ function AnalyticsTab({ stats, chartData, thisWeekRequests, totalCustomers, anal
           <p className="text-2xl font-bold mt-1 text-emerald-400">
             {rev ? `$${rev.total_revenue.toFixed(2)}` : "—"}
           </p>
-          <div className="mt-2 space-y-1">
-            <div className="flex justify-between text-xs">
-              <span className="text-zinc-500">402 Required</span>
-              <span className="text-amber-400">{rev?.required_count ?? 0}</span>
+          {rev && ((rev.required_count ?? 0) > 0 || (rev.payment_count ?? 0) > 0) ? (
+            <div className="mt-2 space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-zinc-500">402 Required</span>
+                <span className="text-amber-400">{rev.required_count ?? 0}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-zinc-500">Paid</span>
+                <span className="text-emerald-400">{rev.payment_count ?? 0}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-zinc-500">Conversion</span>
+                <span className="text-white">{rev.conversion_rate ? `${(rev.conversion_rate * 100).toFixed(1)}%` : "—"}</span>
+              </div>
             </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-zinc-500">Paid</span>
-              <span className="text-emerald-400">{rev?.payment_count ?? 0}</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-zinc-500">Conversion</span>
-              <span className="text-white">{rev ? `${(rev.conversion_rate * 100).toFixed(1)}%` : "—"}</span>
-            </div>
-          </div>
+          ) : (
+            <p className="text-xs text-zinc-500 mt-1">{rev?.payment_count ?? 0} payments</p>
+          )}
         </div>
         <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-4">
           <p className="text-xs text-zinc-500 uppercase tracking-wider">Customers</p>

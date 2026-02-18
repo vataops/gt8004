@@ -1,6 +1,5 @@
 import json
 import logging
-import time as _time
 import uuid
 from contextlib import asynccontextmanager
 
@@ -165,124 +164,6 @@ class MCPPaymentMiddleware:
         return "localhost"
 
 
-class GT8004ASGIMiddleware:
-    """ASGI middleware that logs ALL HTTP requests including x402 402 responses.
-
-    Must be the outermost wrapper to capture requests that MCPPaymentMiddleware
-    intercepts before they reach FastAPI/GT8004Middleware.
-    """
-
-    _BODY_LIMIT = 16384
-    _EXCLUDE_PATHS = {"/health", "/healthz", "/readyz", "/_health", "/mcp/sse"}
-
-    def __init__(self, app: ASGIApp, logger):
-        self.app = app
-        self.logger = logger
-
-    async def __call__(self, scope: Scope, receive: Receive, send: Send):
-        if scope["type"] != "http":
-            return await self.app(scope, receive, send)
-
-        path = scope.get("path", "")
-        if path in self._EXCLUDE_PATHS:
-            return await self.app(scope, receive, send)
-
-        start = _time.time()
-        method = scope.get("method", "")
-
-        # Extract headers
-        raw_headers: dict[str, str] = {}
-        for key, value in scope.get("headers", []):
-            raw_headers[key.decode("latin-1")] = value.decode("latin-1")
-
-        # Capture request body (passthrough — inner app also reads it)
-        request_body = bytearray()
-
-        async def receive_wrapper():
-            msg = await receive()
-            chunk = msg.get("body", b"")
-            if len(request_body) < self._BODY_LIMIT:
-                request_body.extend(chunk[: self._BODY_LIMIT - len(request_body)])
-            return msg
-
-        # Capture response status + body
-        status_code = 0
-        response_body = bytearray()
-
-        async def send_wrapper(message):
-            nonlocal status_code
-            if message["type"] == "http.response.start":
-                status_code = message.get("status", 0)
-            elif message["type"] == "http.response.body":
-                chunk = message.get("body", b"")
-                if len(response_body) < self._BODY_LIMIT:
-                    response_body.extend(chunk[: self._BODY_LIMIT - len(response_body)])
-            await send(message)
-
-        try:
-            await self.app(scope, receive_wrapper, send_wrapper)
-        finally:
-            elapsed = (_time.time() - start) * 1000
-
-            req_str = None
-            if request_body:
-                try:
-                    req_str = bytes(request_body).decode("utf-8", errors="ignore")
-                except Exception:
-                    pass
-
-            resp_str = None
-            if response_body:
-                try:
-                    resp_str = bytes(response_body).decode("utf-8", errors="ignore")
-                except Exception:
-                    pass
-
-            from gt8004.types import RequestLogEntry
-            from gt8004.middleware._extract import extract_tool_name, extract_x402_payment
-
-            tool_name = extract_tool_name(self.logger.protocol, req_str, path)
-            x402 = extract_x402_payment(raw_headers.get("x-payment"))
-
-            client = scope.get("client")
-            hdr = {
-                k: v
-                for k, v in {
-                    "user-agent": raw_headers.get("user-agent"),
-                    "content-type": raw_headers.get("content-type"),
-                    "referer": raw_headers.get("referer"),
-                }.items()
-                if v is not None
-            }
-
-            entry = RequestLogEntry(
-                request_id=str(uuid.uuid4()),
-                method=method,
-                path=path,
-                status_code=status_code,
-                response_ms=elapsed,
-                tool_name=tool_name,
-                protocol=self.logger.protocol,
-                request_body=req_str,
-                request_body_size=len(request_body) if request_body else None,
-                response_body=resp_str,
-                response_body_size=len(response_body) if response_body else None,
-                headers=hdr or None,
-                ip_address=client[0] if client else None,
-                user_agent=raw_headers.get("user-agent"),
-                content_type=raw_headers.get("content-type"),
-                x402_amount=x402["x402_amount"],
-                x402_tx_hash=x402["x402_tx_hash"],
-                x402_token=x402["x402_token"],
-                x402_payer=x402["x402_payer"],
-            )
-
-            try:
-                await self.logger.log(entry)
-            except Exception:
-                logging.warning("GT8004 ASGI logging failed", exc_info=True)
-
-
 # ── A2A Internal Proxy ──
 
 
@@ -445,7 +326,10 @@ if settings.x402_pay_to:
 
 # GT8004 logging wraps OUTSIDE x402 — captures ALL requests including 402s
 if _mcp_logger:
-    app = GT8004ASGIMiddleware(app, _mcp_logger)
+    from gt8004.middleware.asgi import GT8004ASGIMiddleware
+    app = GT8004ASGIMiddleware(app, _mcp_logger, exclude_paths={
+        "/health", "/healthz", "/readyz", "/_health", "/mcp/sse",
+    })
 
 
 if __name__ == "__main__":

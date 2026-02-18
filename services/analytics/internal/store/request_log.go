@@ -115,7 +115,7 @@ func (s *Store) GetAgentStats(ctx context.Context, agentDBID uuid.UUID) (*AgentS
 			COALESCE(AVG(response_ms), 0) AS avg_response_ms,
 			CASE
 				WHEN COUNT(*) > 0
-				THEN CAST(COUNT(*) FILTER (WHERE status_code >= 400) AS FLOAT) / COUNT(*)
+				THEN CAST(COUNT(*) FILTER (WHERE status_code >= 400 AND status_code != 402) AS FLOAT) / COUNT(*)
 				ELSE 0
 			END AS error_rate
 		FROM request_logs
@@ -159,7 +159,7 @@ func (s *Store) GetDailyStats(ctx context.Context, agentDBID uuid.UUID, days int
 			DATE(created_at) AS date,
 			COUNT(*) AS requests,
 			COALESCE(SUM(x402_amount), 0) AS revenue,
-			COUNT(*) FILTER (WHERE status_code >= 400) AS errors,
+			COUNT(*) FILTER (WHERE status_code >= 400 AND status_code != 402) AS errors,
 			COUNT(DISTINCT ip_address) FILTER (WHERE ip_address IS NOT NULL) AS unique_customers,
 			COALESCE(AVG(response_ms), 0) AS avg_response_ms,
 			COALESCE(percentile_cont(0.95) WITHIN GROUP (ORDER BY response_ms), 0) AS p95_response_ms
@@ -276,7 +276,7 @@ func (s *Store) GetProtocolBreakdown(ctx context.Context, agentDBID uuid.UUID, d
 			END AS percentage,
 			COALESCE(AVG(response_ms), 0) AS avg_response_ms,
 			CASE WHEN COUNT(*) > 0
-				THEN CAST(COUNT(*) FILTER (WHERE status_code >= 400) AS FLOAT) / COUNT(*)
+				THEN CAST(COUNT(*) FILTER (WHERE status_code >= 400 AND status_code != 402) AS FLOAT) / COUNT(*)
 				ELSE 0
 			END AS error_rate,
 			COALESCE(percentile_cont(0.95) WITHIN GROUP (ORDER BY response_ms), 0) AS p95_response_ms
@@ -331,7 +331,7 @@ func (s *Store) GetToolUsageRanking(ctx context.Context, agentDBID uuid.UUID, da
 			COALESCE(AVG(response_ms), 0) AS avg_response_ms,
 			COALESCE(percentile_cont(0.95) WITHIN GROUP (ORDER BY response_ms), 0) AS p95_response_ms,
 			CASE WHEN COUNT(*) > 0
-				THEN CAST(COUNT(*) FILTER (WHERE status_code >= 400) AS FLOAT) / COUNT(*)
+				THEN CAST(COUNT(*) FILTER (WHERE status_code >= 400 AND status_code != 402) AS FLOAT) / COUNT(*)
 				ELSE 0
 			END AS error_rate,
 			COALESCE(SUM(x402_amount), 0) AS revenue
@@ -385,7 +385,7 @@ func (s *Store) GetHealthMetrics(ctx context.Context, agentDBID uuid.UUID, windo
 	err := s.pool.QueryRow(ctx, `
 		SELECT
 			COUNT(*) AS total,
-			COUNT(*) FILTER (WHERE status_code >= 400) AS errors,
+			COUNT(*) FILTER (WHERE status_code >= 400 AND status_code != 402) AS errors,
 			COUNT(*) FILTER (WHERE status_code = 402) AS payments,
 			COUNT(*) FILTER (WHERE status_code IN (408, 504) OR response_ms > 30000) AS timeouts
 		FROM request_logs
@@ -496,7 +496,7 @@ func (s *Store) GetDailyProtocolStats(ctx context.Context, agentDBID uuid.UUID, 
 			COALESCE(source, 'sdk') AS source,
 			COALESCE(protocol, 'http') AS protocol,
 			COUNT(*) AS requests,
-			COUNT(*) FILTER (WHERE status_code >= 400) AS errors,
+			COUNT(*) FILTER (WHERE status_code >= 400 AND status_code != 402) AS errors,
 			COALESCE(SUM(x402_amount), 0) AS revenue
 		FROM request_logs
 		WHERE agent_id = $1 AND created_at >= CURRENT_DATE - $2 * INTERVAL '1 day'
@@ -541,7 +541,7 @@ func (s *Store) GetMCPToolBreakdown(ctx context.Context, agentDBID uuid.UUID, da
 			COUNT(*) AS call_count,
 			COALESCE(AVG(response_ms), 0) AS avg_response_ms,
 			CASE WHEN COUNT(*) > 0
-				THEN CAST(COUNT(*) FILTER (WHERE status_code >= 400) AS FLOAT) / COUNT(*)
+				THEN CAST(COUNT(*) FILTER (WHERE status_code >= 400 AND status_code != 402) AS FLOAT) / COUNT(*)
 				ELSE 0
 			END AS error_rate,
 			COALESCE(SUM(x402_amount), 0) AS revenue
@@ -599,7 +599,7 @@ func (s *Store) GetA2APartnerBreakdown(ctx context.Context, agentDBID uuid.UUID,
 			COALESCE(SUM(x402_amount), 0) AS revenue,
 			COALESCE(AVG(response_ms), 0) AS avg_response_ms,
 			CASE WHEN COUNT(*) > 0
-				THEN CAST(COUNT(*) FILTER (WHERE status_code >= 400) AS FLOAT) / COUNT(*)
+				THEN CAST(COUNT(*) FILTER (WHERE status_code >= 400 AND status_code != 402) AS FLOAT) / COUNT(*)
 				ELSE 0
 			END AS error_rate,
 			MAX(created_at) AS last_seen_at
@@ -660,7 +660,7 @@ func (s *Store) GetA2AEndpointStats(ctx context.Context, agentDBID uuid.UUID, da
 			COUNT(*) AS call_count,
 			COALESCE(AVG(response_ms), 0) AS avg_response_ms,
 			CASE WHEN COUNT(*) > 0
-				THEN CAST(COUNT(*) FILTER (WHERE status_code >= 400) AS FLOAT) / COUNT(*)
+				THEN CAST(COUNT(*) FILTER (WHERE status_code >= 400 AND status_code != 402) AS FLOAT) / COUNT(*)
 				ELSE 0
 			END AS error_rate,
 			COALESCE(SUM(x402_amount), 0) AS revenue
@@ -761,7 +761,7 @@ func (s *Store) GetCustomerToolUsage(ctx context.Context, agentDBID uuid.UUID, c
 			COUNT(*) AS call_count,
 			COALESCE(AVG(response_ms), 0) AS avg_response_ms,
 			CASE WHEN COUNT(*) > 0
-				THEN CAST(COUNT(*) FILTER (WHERE status_code >= 400) AS FLOAT) / COUNT(*)
+				THEN CAST(COUNT(*) FILTER (WHERE status_code >= 400 AND status_code != 402) AS FLOAT) / COUNT(*)
 				ELSE 0
 			END AS error_rate,
 			COALESCE(SUM(x402_amount), 0) AS revenue
@@ -801,7 +801,7 @@ func (s *Store) GetCustomerDailyStats(ctx context.Context, agentDBID uuid.UUID, 
 			DATE(created_at) AS date,
 			COUNT(*) AS requests,
 			COALESCE(SUM(x402_amount), 0) AS revenue,
-			COUNT(*) FILTER (WHERE status_code >= 400) AS errors,
+			COUNT(*) FILTER (WHERE status_code >= 400 AND status_code != 402) AS errors,
 			0 AS unique_customers
 		FROM request_logs
 		WHERE agent_id = $1 AND ip_address = $2
@@ -1067,7 +1067,7 @@ func (s *Store) GetAgentErrorRate(ctx context.Context, agentDBID uuid.UUID) (flo
 	err := s.pool.QueryRow(ctx, `
 		SELECT
 			COUNT(*) AS total,
-			COUNT(*) FILTER (WHERE status_code >= 400) AS errors
+			COUNT(*) FILTER (WHERE status_code >= 400 AND status_code != 402) AS errors
 		FROM request_logs
 		WHERE agent_id = $1 AND created_at >= NOW() - INTERVAL '30 days'
 	`, agentDBID).Scan(&total, &errors)
