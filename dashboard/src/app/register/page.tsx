@@ -70,10 +70,10 @@ function RegisterPageInner() {
       setSelectedNetwork(networkEntry.key);
     }
 
-    // Auto-register the token
+    // Auto-register the token (pass chainId directly to avoid stale selectedNetwork state)
     setAutoRegisterAttempted(true);
     const token = { token_id: parseInt(qTokenId, 10), agent_uri: qAgentUri || "" };
-    handleSelectToken(token);
+    handleSelectToken(token, chainId);
   }, [searchParams, walletAddress, autoRegisterAttempted]); // Added dependencies
 
   // --- Fetch tokens when wallet connects or network changes ---
@@ -152,7 +152,7 @@ function RegisterPageInner() {
   };
 
   // --- ERC-8004: Select token and register immediately ---
-  const handleSelectToken = async (token: { token_id: number; agent_uri: string }) => {
+  const handleSelectToken = async (token: { token_id: number; agent_uri: string }, overrideChainId?: number) => {
     setSelectedToken(token);
     setTokenId(String(token.token_id));
     setError("");
@@ -161,9 +161,10 @@ function RegisterPageInner() {
     try {
       // Register with just token ID and chain - backend verifies ownership via RPC
       const network = NETWORKS[selectedNetwork];
+      const chainId = overrideChainId ?? network.chainId;
       const req: RegisterRequest = {
         erc8004_token_id: parseInt(String(token.token_id), 10),
-        chain_id: network.chainId,
+        chain_id: chainId,
         wallet_address: walletAddress,
       };
       const res = await openApi.registerAgent(req);
