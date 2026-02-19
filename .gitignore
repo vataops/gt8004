@@ -63,12 +63,23 @@ contracts/escrow/broadcast/
 contracts/credit/build/
 contracts/credit/artifacts/
 
-# Keys (never commit)
+# Keys & Certificates (never commit)
 *.sk
 *.skey
 *.vkey
 *.signing_key
 **/key.json
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+credentials.json
+service-account*.json
+id_rsa
+id_ed25519
+id_ecdsa
 
 # Bot
 bot/
