@@ -28,7 +28,6 @@ jobs:
           - { name: analytics, dockerfile: services/analytics/Dockerfile, context: "." }
           - { name: discovery, dockerfile: services/discovery/Dockerfile, context: "." }
           - { name: ingest, dockerfile: services/ingest/Dockerfile, context: "." }
-          - { name: dashboard, dockerfile: dashboard/Dockerfile, context: "./dashboard" }
     steps:
       - uses: actions/checkout@v4
 
@@ -61,18 +60,9 @@ jobs:
           IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${{ matrix.service.name }}"
           TAG="${GITHUB_SHA::7}"
 
-          BUILD_ARGS=""
-          if [ "${{ matrix.service.name }}" = "dashboard" ]; then
-            BUILD_ARGS="--build-arg NEXT_PUBLIC_OPEN_API_URL=${API_URL} --build-arg NEXT_PUBLIC_NETWORK_MODE=${NETWORK_MODE}"
-            if [ "${NETWORK_MODE}" = "mainnet" ]; then
-              BUILD_ARGS="${BUILD_ARGS} --build-arg NEXT_PUBLIC_ETHERSCAN_API_KEY=${{ secrets.ETHERSCAN_API_KEY }}"
-            fi
-          fi
-
           docker build \
             --platform linux/amd64 \
             -f ${{ matrix.service.dockerfile }} \
-            ${BUILD_ARGS} \
             -t "${IMAGE}:${TAG}" \
             -t "${IMAGE}:latest" \
             ${{ matrix.service.context }}
@@ -90,7 +80,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [apigateway, registry, analytics, discovery, ingest, dashboard]
+        service: [apigateway, registry, analytics, discovery, ingest]
     steps:
       - id: auth
         uses: google-github-actions/auth@v2
@@ -119,26 +109,3 @@ jobs:
             --region="${REGION}" \
             --project="${PROJECT_ID}"
 
-  # ── Refresh Firebase Hosting CDN ──────────────────
-  hosting:
-    name: Refresh Firebase Hosting
-    needs: deploy
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-
-      - id: auth
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-      - name: Deploy Firebase Hosting
-        run: |
-          if [ "${{ github.ref_name }}" = "main" ]; then
-            SITE="vataops-gt8004-mainnet"
-          else
-            SITE="vataops-gt8004"
-          fi
-          npx firebase-tools deploy --only "hosting:${SITE}" --project vataops --non-interactive
