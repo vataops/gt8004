@@ -316,6 +316,12 @@ function MyAgentsContent() {
   const totalRevenue = agents.reduce((sum, a) => sum + a.total_revenue, 0);
   const totalEndpoints = Object.keys(healthStatus).length;
   const healthyEndpoints = Object.values(healthStatus).filter(s => s === "healthy").length;
+
+  // Today's stats from daily time-series
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayEntry = walletDaily?.stats?.find((s) => s.date === todayStr);
+  const todayRequests = todayEntry?.requests ?? 0;
+  const todayRevenue = todayEntry?.revenue ?? 0;
   // Chart data: each agent as a segment in the stacked bar
   const chartAgents = agents.map((a, i) => ({
     key: `a${i}`,
@@ -362,8 +368,8 @@ function MyAgentsContent() {
           </div>
         </div>
         {/* Stat cards skeleton */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          {[...Array(4)].map((_, i) => (
+        <div className="grid grid-cols-6 gap-4 mb-6">
+          {[...Array(6)].map((_, i) => (
             <div key={i} className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-4">
               <div className="h-3 w-20 bg-[#1a1a1a] rounded animate-pulse mb-3" />
               <div className="h-6 w-12 bg-[#1a1a1a] rounded animate-pulse" />
@@ -431,14 +437,16 @@ function MyAgentsContent() {
       {activeTab === "overview" && (
         <div>
           {/* Stats */}
-          <div className="grid grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-6 gap-4 mb-6">
             <StatCard label="Total Agents" value={totalAgents} />
             <StatCard
               label="Healthy Endpoints"
               value={totalEndpoints > 0 ? `${healthyEndpoints} / ${totalEndpoints}` : "—"}
             />
             <StatCard label="Total Requests" value={totalRequests.toLocaleString()} />
+            <StatCard label="Today Requests" value={todayRequests.toLocaleString()} />
             <StatCard label="Total Revenue" value={`$${totalRevenue.toFixed(2)}`} sub="USDC" />
+            <StatCard label="Today Revenue" value={`$${todayRevenue.toFixed(2)}`} sub="USDC" />
           </div>
 
           {/* Breakdown Charts */}
