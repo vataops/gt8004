@@ -53,6 +53,7 @@ func main() {
 			ReputationAddr: nc.ReputationAddr,
 			RegistryRPC:    nc.RegistryRPC,
 			DeployBlock:    nc.DeployBlock,
+			ResolveWorkers: cfg.ResolveWorkers,
 		}
 	}
 	erc8004Registry := erc8004.NewRegistry(networkConfigs, logger)
@@ -73,7 +74,12 @@ func main() {
 	}
 
 	// Network agent sync job
-	syncJob := netsync.NewJob(db, erc8004Registry, logger, time.Duration(cfg.ScanSyncInterval)*time.Second)
+	syncJob := netsync.NewJob(db, erc8004Registry, logger, time.Duration(cfg.ScanSyncInterval)*time.Second, netsync.JobConfig{
+		BackfillInterval:   time.Duration(cfg.BackfillInterval) * time.Second,
+		BackfillWorkers:    cfg.BackfillWorkers,
+		BackfillBatchSize:  cfg.BackfillBatchSize,
+		ReputationInterval: time.Duration(cfg.ReputationInterval) * time.Second,
+	})
 	syncJob.Start()
 
 	// Handler and router

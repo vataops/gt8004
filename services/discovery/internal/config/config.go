@@ -44,6 +44,17 @@ type Config struct {
 	DatabaseURL      string `mapstructure:"DATABASE_URL"`
 	ScanSyncInterval int    `mapstructure:"SCAN_SYNC_INTERVAL"`
 	InternalSecret   string `mapstructure:"INTERNAL_SECRET"`
+
+	// Backfill tuning
+	BackfillInterval  int `mapstructure:"BACKFILL_INTERVAL"`   // seconds between backfill cycles (default 1800 = 30min)
+	BackfillWorkers   int `mapstructure:"BACKFILL_WORKERS"`    // concurrent backfill goroutines (default 3)
+	BackfillBatchSize int `mapstructure:"BACKFILL_BATCH_SIZE"` // tokens per backfill cycle (default 200)
+
+	// Reputation tuning
+	ReputationInterval int `mapstructure:"REPUTATION_INTERVAL"` // seconds between reputation refresh (default 3600 = 1hr)
+
+	// RPC concurrency
+	ResolveWorkers int `mapstructure:"RESOLVE_WORKERS"` // concurrent resolve goroutines for ownership+URI (default 10)
 }
 
 func Load() (*Config, error) {
@@ -52,6 +63,11 @@ func Load() (*Config, error) {
 	viper.SetDefault("PORT", 8080)
 	viper.SetDefault("LOG_LEVEL", "debug")
 	viper.SetDefault("SCAN_SYNC_INTERVAL", 3600)
+	viper.SetDefault("BACKFILL_INTERVAL", 1800)
+	viper.SetDefault("BACKFILL_WORKERS", 3)
+	viper.SetDefault("BACKFILL_BATCH_SIZE", 200)
+	viper.SetDefault("REPUTATION_INTERVAL", 3600)
+	viper.SetDefault("RESOLVE_WORKERS", 10)
 
 	cfg := &Config{}
 	cfg.Port = viper.GetInt("PORT")
@@ -59,6 +75,11 @@ func Load() (*Config, error) {
 	cfg.DatabaseURL = viper.GetString("DATABASE_URL")
 	cfg.ScanSyncInterval = viper.GetInt("SCAN_SYNC_INTERVAL")
 	cfg.InternalSecret = viper.GetString("INTERNAL_SECRET")
+	cfg.BackfillInterval = viper.GetInt("BACKFILL_INTERVAL")
+	cfg.BackfillWorkers = viper.GetInt("BACKFILL_WORKERS")
+	cfg.BackfillBatchSize = viper.GetInt("BACKFILL_BATCH_SIZE")
+	cfg.ReputationInterval = viper.GetInt("REPUTATION_INTERVAL")
+	cfg.ResolveWorkers = viper.GetInt("RESOLVE_WORKERS")
 
 	return cfg, nil
 }

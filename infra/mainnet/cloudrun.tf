@@ -246,6 +246,26 @@ resource "google_cloud_run_v2_service" "discovery" {
         name  = "INTERNAL_SECRET"
         value = var.internal_secret
       }
+      env {
+        name  = "BACKFILL_INTERVAL"
+        value = tostring(var.backfill_interval)
+      }
+      env {
+        name  = "BACKFILL_WORKERS"
+        value = tostring(var.backfill_workers)
+      }
+      env {
+        name  = "BACKFILL_BATCH_SIZE"
+        value = tostring(var.backfill_batch_size)
+      }
+      env {
+        name  = "REPUTATION_INTERVAL"
+        value = tostring(var.reputation_interval)
+      }
+      env {
+        name  = "RESOLVE_WORKERS"
+        value = tostring(var.resolve_workers)
+      }
     }
   }
 

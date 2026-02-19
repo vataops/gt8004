@@ -17,11 +17,12 @@ import (
 
 // Client manages ERC-8004 identity and reputation registry interactions.
 type Client struct {
-	chainID      int
-	registryAddr string
-	registryRPC  string
-	deployBlock  uint64
-	logger       *zap.Logger
+	chainID        int
+	registryAddr   string
+	registryRPC    string
+	deployBlock    uint64
+	resolveWorkers int
+	logger         *zap.Logger
 
 	ethClient      *ethclient.Client
 	contractAddr   common.Address
@@ -35,6 +36,7 @@ type Config struct {
 	ReputationAddr string
 	RegistryRPC    string
 	DeployBlock    uint64 // block number at which the registry was deployed; scan starts here
+	ResolveWorkers int    // concurrent goroutines for ownership+URI resolution (default 10)
 }
 
 // OwnedToken represents a single ERC-8004 token owned by an address.
@@ -53,12 +55,17 @@ var (
 )
 
 func NewClient(cfg Config, logger *zap.Logger) *Client {
+	resolveWorkers := cfg.ResolveWorkers
+	if resolveWorkers <= 0 {
+		resolveWorkers = 10
+	}
 	c := &Client{
-		chainID:      cfg.ChainID,
-		registryAddr: cfg.RegistryAddr,
-		registryRPC:  cfg.RegistryRPC,
-		deployBlock:  cfg.DeployBlock,
-		logger:       logger,
+		chainID:        cfg.ChainID,
+		registryAddr:   cfg.RegistryAddr,
+		registryRPC:    cfg.RegistryRPC,
+		deployBlock:    cfg.DeployBlock,
+		resolveWorkers: resolveWorkers,
+		logger:         logger,
 	}
 
 	if cfg.RegistryRPC != "" && cfg.RegistryAddr != "" {
@@ -445,7 +452,7 @@ func (c *Client) resolveTokensFull(ctx context.Context, candidates []MintEvent) 
 	tokens := make([]DiscoveredToken, 0, len(candidates))
 	var tokensMu sync.Mutex
 	var verifyWg sync.WaitGroup
-	verifySem := make(chan struct{}, 20)
+	verifySem := make(chan struct{}, c.resolveWorkers)
 	for _, ev := range candidates {
 		verifyWg.Add(1)
 		go func(mint MintEvent) {

@@ -43,7 +43,37 @@ variable "base_rpc_url" {
 variable "scan_sync_interval" {
   description = "Discovery service on-chain sync interval (seconds)"
   type        = number
-  default     = 300
+  default     = 3600
+}
+
+variable "backfill_interval" {
+  description = "Discovery backfill loop interval (seconds)"
+  type        = number
+  default     = 1800
+}
+
+variable "backfill_workers" {
+  description = "Concurrent backfill goroutines"
+  type        = number
+  default     = 3
+}
+
+variable "backfill_batch_size" {
+  description = "Tokens per backfill cycle"
+  type        = number
+  default     = 200
+}
+
+variable "reputation_interval" {
+  description = "Reputation refresh interval (seconds)"
+  type        = number
+  default     = 3600
+}
+
+variable "resolve_workers" {
+  description = "Concurrent resolve goroutines for ownership+URI"
+  type        = number
+  default     = 10
 }
 
 variable "ingest_workers" {

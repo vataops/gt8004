@@ -41,6 +41,14 @@ var ipfsGateways = []string{
 	"https://ipfs.io/ipfs/",
 }
 
+// JobConfig holds tuning parameters for the sync job.
+type JobConfig struct {
+	BackfillInterval  time.Duration
+	BackfillWorkers   int
+	BackfillBatchSize int
+	ReputationInterval time.Duration
+}
+
 // Job periodically discovers all ERC-8004 tokens on-chain and upserts them
 // into the network_agents table.
 type Job struct {
@@ -49,22 +57,31 @@ type Job struct {
 	logger   *zap.Logger
 	interval time.Duration
 	stopCh   chan struct{}
+
+	backfillInterval  time.Duration
+	backfillWorkers   int
+	backfillBatchSize int
+	reputationInterval time.Duration
 }
 
 // NewJob creates a new sync job.
-func NewJob(s *store.Store, registry *erc8004.Registry, logger *zap.Logger, interval time.Duration) *Job {
+func NewJob(s *store.Store, registry *erc8004.Registry, logger *zap.Logger, interval time.Duration, jcfg JobConfig) *Job {
 	return &Job{
-		store:    s,
-		registry: registry,
-		logger:   logger,
-		interval: interval,
-		stopCh:   make(chan struct{}),
+		store:              s,
+		registry:           registry,
+		logger:             logger,
+		interval:           interval,
+		stopCh:             make(chan struct{}),
+		backfillInterval:   jcfg.BackfillInterval,
+		backfillWorkers:    jcfg.BackfillWorkers,
+		backfillBatchSize:  jcfg.BackfillBatchSize,
+		reputationInterval: jcfg.ReputationInterval,
 	}
 }
 
-// Start begins the periodic sync loop and a faster backfill loop in background goroutines.
+// Start begins the periodic sync loop, backfill loop, and reputation loop in background goroutines.
 func (j *Job) Start() {
-	// Main sync loop (full scan + backfill + reputation).
+	// Main sync loop (full scan + backfill only, reputation separated).
 	go func() {
 		ticker := time.NewTicker(j.interval)
 		defer ticker.Stop()
@@ -85,9 +102,8 @@ func (j *Job) Start() {
 		}
 	}()
 
-	// Dedicated backfill loop — runs more frequently to populate missing metadata.
+	// Dedicated backfill loop — runs on configurable interval to populate missing metadata.
 	go func() {
-		const backfillInterval = 5 * time.Minute
 		// Wait a bit before the first backfill-only pass so the initial full
 		// sync can finish its own backfill pass first.
 		select {
@@ -96,10 +112,10 @@ func (j *Job) Start() {
 			return
 		}
 
-		ticker := time.NewTicker(backfillInterval)
+		ticker := time.NewTicker(j.backfillInterval)
 		defer ticker.Stop()
 
-		j.logger.Info("backfill loop started", zap.Duration("interval", backfillInterval))
+		j.logger.Info("backfill loop started", zap.Duration("interval", j.backfillInterval))
 
 		for {
 			select {
@@ -111,6 +127,31 @@ func (j *Job) Start() {
 			}
 		}
 	}()
+
+	// Dedicated reputation refresh loop — separate from main sync to reduce RPC load.
+	go func() {
+		// Wait for initial sync to complete before first reputation pass.
+		select {
+		case <-time.After(5 * time.Minute):
+		case <-j.stopCh:
+			return
+		}
+
+		ticker := time.NewTicker(j.reputationInterval)
+		defer ticker.Stop()
+
+		j.logger.Info("reputation loop started", zap.Duration("interval", j.reputationInterval))
+
+		for {
+			select {
+			case <-ticker.C:
+				j.RefreshAllReputation()
+			case <-j.stopCh:
+				j.logger.Info("reputation loop stopped")
+				return
+			}
+		}
+	}()
 }
 
 // BackfillAll runs backfill for all configured chains.
@@ -118,6 +159,15 @@ func (j *Job) BackfillAll() {
 	for chainID, client := range j.registry.Clients() {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 		j.backfillAgentURIs(ctx, chainID, client)
+		cancel()
+	}
+}
+
+// RefreshAllReputation refreshes reputation scores for all configured chains.
+func (j *Job) RefreshAllReputation() {
+	for chainID, client := range j.registry.Clients() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		j.refreshReputation(ctx, chainID, client)
 		cancel()
 	}
 }
@@ -247,8 +297,7 @@ func (j *Job) syncChain(ctx context.Context, chainID int, client *erc8004.Client
 	// Backfill agentURI for tokens saved without metadata (from lite resolve).
 	j.backfillAgentURIs(ctx, chainID, client)
 
-	// Refresh reputation scores for all existing agents on this chain.
-	j.refreshReputation(ctx, chainID, client)
+	// Reputation refresh runs on its own separate loop (see Start()).
 
 	// Update sync state with a fresh context (the parent ctx may have expired
 	// after the long metadata fetch + upsert phase).
@@ -266,7 +315,7 @@ func (j *Job) syncChain(ctx context.Context, chainID int, client *erc8004.Client
 // backfillAgentURIs fetches agentURI for tokens saved without metadata (from lite resolve).
 // Processes up to 500 tokens per cycle using 5 concurrent workers.
 func (j *Job) backfillAgentURIs(ctx context.Context, chainID int, client *erc8004.Client) {
-	tokens, err := j.store.ListTokensMissingURI(ctx, chainID, 500)
+	tokens, err := j.store.ListTokensMissingURI(ctx, chainID, j.backfillBatchSize)
 	if err != nil {
 		j.logger.Error("failed to list tokens missing URI", zap.Int("chain_id", chainID), zap.Error(err))
 		return
@@ -284,7 +333,7 @@ func (j *Job) backfillAgentURIs(ctx context.Context, chainID int, client *erc800
 	defer fillCancel()
 
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, 5) // 5 concurrent workers
+	sem := make(chan struct{}, j.backfillWorkers)
 	filled := int64(0)
 
 	for _, tokenID := range tokens {
@@ -346,7 +395,7 @@ func (j *Job) refreshReputation(ctx context.Context, chainID int, client *erc800
 	defer repCancel()
 
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, 5)
+	sem := make(chan struct{}, j.backfillWorkers)
 	updated := int64(0)
 	for _, tid := range tokenIDs {
 		wg.Add(1)
