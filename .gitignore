@@ -87,3 +87,4 @@ bot/
 *.tfvars
 !*.tfvars.example
 .terraform.lock.hcl
+agent-gt8004/

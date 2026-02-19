@@ -505,9 +505,15 @@ function MyAgentsContent() {
                         <AgentAvatar imageUrl={agent.image_url} />
                         <div className="min-w-0">
                           <div>
-                            <span className="font-medium text-gray-100">
-                              {agent.name}
-                            </span>
+                            {agent.registered ? (
+                              <Link href={`/agents/${agent.agent_id}`} className="font-medium text-gray-100 hover:text-[#00FFE0] transition-colors">
+                                {agent.name}
+                              </Link>
+                            ) : (
+                              <span className="font-medium text-gray-100">
+                                {agent.name}
+                              </span>
+                            )}
                             {agent.token_id !== null &&
                               !agent.name.startsWith("Agent #") && (
                                 <span className="text-zinc-500 ml-1.5">
