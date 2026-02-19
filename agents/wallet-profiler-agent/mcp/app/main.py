@@ -325,6 +325,11 @@ async def health():
 
 app.mount("/mcp", mcp_app)
 
+# Fix: Base mainnet USDC contract name() returns "USD Coin", not "USDC"
+from fastapi_x402.networks import NETWORK_CONFIGS
+if "base" in NETWORK_CONFIGS and "usdc" in NETWORK_CONFIGS["base"].assets:
+    NETWORK_CONFIGS["base"].assets["usdc"].eip712_name = "USD Coin"
+
 # Wrap the entire ASGI app with x402 payment middleware
 if settings.x402_pay_to:
     app = MCPPaymentMiddleware(

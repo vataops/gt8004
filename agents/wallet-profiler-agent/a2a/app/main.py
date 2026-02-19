@@ -60,6 +60,10 @@ if settings.gt8004_agent_id and settings.gt8004_api_key:
     app.add_middleware(GT8004Middleware, logger=_a2a_logger)
 
 if settings.x402_pay_to:
+    # Fix: Base mainnet USDC contract name() returns "USD Coin", not "USDC"
+    from fastapi_x402.networks import NETWORK_CONFIGS
+    if "base" in NETWORK_CONFIGS and "usdc" in NETWORK_CONFIGS["base"].assets:
+        NETWORK_CONFIGS["base"].assets["usdc"].eip712_name = "USD Coin"
     from fastapi_x402 import init_x402
     init_x402(app, pay_to=settings.x402_pay_to, network=settings.x402_network)
     logging.info(f"x402 payment enabled: {settings.x402_price} USDC to {settings.x402_pay_to}")
