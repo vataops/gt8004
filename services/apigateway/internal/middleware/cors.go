@@ -5,10 +5,11 @@ import (
 )
 
 var allowedOrigins = map[string]bool{
-	"https://gt8004.xyz":     true,
-	"https://www.gt8004.xyz": true,
-	"http://localhost:3000":   true,
-	"http://localhost:8080":   true,
+	"https://gt8004.xyz":          true,
+	"https://www.gt8004.xyz":      true,
+	"https://gt8004.vercel.app":   true,
+	"http://localhost:3000":        true,
+	"http://localhost:8080":        true,
 }
 
 // CORS adds CORS headers to responses
