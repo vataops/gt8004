@@ -13,14 +13,19 @@ import (
 var discoveryHTTPClient = &http.Client{Timeout: 10 * time.Second}
 
 // triggerDiscoverySync fires a non-blocking request to the Discovery service
-// to immediately sync a specific token. Errors are logged but never propagated
-// — registration must succeed even if this notification fails.
+// to sync a specific token after a short delay. The delay gives on-chain state
+// time to propagate across RPC nodes before the Discovery service reads it.
+// Errors are logged but never propagated — registration must succeed even if
+// this notification fails.
 func (h *Handler) triggerDiscoverySync(chainID int, tokenID int64) {
 	if h.discoveryURL == "" {
 		return
 	}
 
 	go func() {
+		// Wait for on-chain state to propagate across RPC nodes.
+		time.Sleep(2 * time.Minute)
+
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 

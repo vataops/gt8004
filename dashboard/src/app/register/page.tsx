@@ -223,6 +223,73 @@ function RegisterPageInner() {
     setTimeout(() => setCopied(""), 2000);
   };
 
+  // --- Framework tabs for SDK integration ---
+  const [selectedFramework, setSelectedFramework] = useState<"mcp" | "a2a" | "flask">("mcp");
+
+  const frameworkTabs = {
+    mcp: {
+      label: "MCP",
+      sublabel: "FastMCP",
+      install: "pip install 'gt8004-sdk[mcp] @ git+https://github.com/vataops/gt8004-sdk.git'",
+      code: `from fastmcp import FastMCP
+from gt8004 import GT8004Logger
+from gt8004.middleware.mcp import GT8004MCPMiddleware
+
+logger = GT8004Logger(
+    agent_id="${registeredAgentId}",
+    api_key="${apiKey}",
+    protocol="mcp"
+)
+logger.transport.start_auto_flush()
+
+mcp = FastMCP("my-server")
+mcp.add_middleware(GT8004MCPMiddleware(logger))
+
+@mcp.tool()
+def search(query: str) -> str:
+    return "results..."
+# Automatically logs tool_name="search", protocol="mcp"`,
+    },
+    a2a: {
+      label: "A2A",
+      sublabel: "FastAPI",
+      install: "pip install 'gt8004-sdk[fastapi] @ git+https://github.com/vataops/gt8004-sdk.git'",
+      code: `from fastapi import FastAPI
+from gt8004 import GT8004Logger
+from gt8004.middleware.fastapi import GT8004Middleware
+
+logger = GT8004Logger(
+    agent_id="${registeredAgentId}",
+    api_key="${apiKey}",
+    protocol="a2a"
+)
+logger.transport.start_auto_flush()
+
+app = FastAPI()
+app.add_middleware(GT8004Middleware, logger=logger)
+# Automatically extracts skill_id from A2A request bodies`,
+    },
+    flask: {
+      label: "Flask",
+      sublabel: "Django",
+      install: "pip install 'gt8004-sdk @ git+https://github.com/vataops/gt8004-sdk.git'",
+      code: `from flask import Flask
+from gt8004 import GT8004Logger
+from gt8004.middleware.flask import GT8004FlaskMiddleware
+
+logger = GT8004Logger(
+    agent_id="${registeredAgentId}",
+    api_key="${apiKey}"
+)
+logger.transport.start_auto_flush()
+
+app = Flask(__name__)
+app.wsgi_app = GT8004FlaskMiddleware(app.wsgi_app, logger)`,
+    },
+  };
+
+  const currentFramework = frameworkTabs[selectedFramework];
+
   const stepInfo = getStepInfo();
   const currentNetwork = NETWORKS[selectedNetwork];
 
@@ -256,61 +323,73 @@ function RegisterPageInner() {
 
           {/* SDK Setup Instructions */}
           <div className="space-y-6">
-            {/* Step 1: Install SDK */}
-            <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-5">
-              <h3 className="text-sm font-semibold text-gray-300 mb-3">Step 1: Install SDK</h3>
-              <div className="bg-[#0a0a0a] rounded-md p-3 border border-[#1a1a1a] relative group">
-                <code className="text-sm font-mono text-gray-300">
-                  pip install git+https://github.com/vataops/gt8004-sdk.git
-                </code>
-                <button
-                  onClick={() => copyToClipboard("pip install git+https://github.com/vataops/gt8004-sdk.git", "install")}
-                  className="absolute top-2 right-2 px-2 py-1 rounded bg-[#1a1a1a] hover:bg-[#00FFE0]/10 hover:text-[#00FFE0] text-xs text-zinc-400 opacity-0 group-hover:opacity-100 transition-all"
-                >
-                  {copied === "install" ? "Copied!" : "Copy"}
-                </button>
+            {/* Framework Tabs */}
+            <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg overflow-hidden">
+              <div className="flex border-b border-[#1a1a1a]">
+                {(Object.keys(frameworkTabs) as Array<keyof typeof frameworkTabs>).map((key) => (
+                  <button
+                    key={key}
+                    onClick={() => setSelectedFramework(key)}
+                    className={`flex-1 px-4 py-3 text-sm font-medium transition-colors relative ${
+                      selectedFramework === key
+                        ? "text-[#00FFE0] bg-[#00FFE0]/5"
+                        : "text-zinc-500 hover:text-zinc-300 hover:bg-[#1a1a1a]/50"
+                    }`}
+                  >
+                    <span>{frameworkTabs[key].label}</span>
+                    <span className="text-xs text-zinc-600 ml-1.5">/ {frameworkTabs[key].sublabel}</span>
+                    {selectedFramework === key && (
+                      <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#00FFE0]" />
+                    )}
+                  </button>
+                ))}
               </div>
-            </div>
 
-            {/* Step 2: Integration Code */}
-            <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-5">
-              <h3 className="text-sm font-semibold text-gray-300 mb-3">Step 2: Add to Your Agent Code</h3>
-              <div className="bg-[#0a0a0a] rounded-md p-3 border border-[#1a1a1a] relative group">
-                <pre className="text-xs font-mono text-gray-300 overflow-x-auto">
-{`from gt8004 import GT8004Logger
+              <div className="p-5 space-y-4">
+                {/* Step 1: Install */}
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-300 mb-2">Step 1: Install SDK</h3>
+                  <div className="bg-[#0a0a0a] rounded-md p-3 border border-[#1a1a1a] relative group">
+                    <code className="text-sm font-mono text-gray-300 break-all">
+                      {currentFramework.install}
+                    </code>
+                    <button
+                      onClick={() => copyToClipboard(currentFramework.install, "install")}
+                      className="absolute top-2 right-2 px-2 py-1 rounded bg-[#1a1a1a] hover:bg-[#00FFE0]/10 hover:text-[#00FFE0] text-xs text-zinc-400 opacity-0 group-hover:opacity-100 transition-all"
+                    >
+                      {copied === "install" ? "Copied!" : "Copy"}
+                    </button>
+                  </div>
+                </div>
 
-logger = GT8004Logger(
-    agent_id="${registeredAgentId}",
-    api_key="${apiKey}"
-)
+                {/* Step 2: Integration Code */}
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-300 mb-2">Step 2: Add to Your Agent Code</h3>
+                  <div className="bg-[#0a0a0a] rounded-md p-3 border border-[#1a1a1a] relative group">
+                    <pre className="text-xs font-mono text-gray-300 overflow-x-auto">
+                      {currentFramework.code}
+                    </pre>
+                    <button
+                      onClick={() => copyToClipboard(currentFramework.code, "code")}
+                      className="absolute top-2 right-2 px-2 py-1 rounded bg-[#1a1a1a] hover:bg-[#00FFE0]/10 hover:text-[#00FFE0] text-xs text-zinc-400 opacity-0 group-hover:opacity-100 transition-all"
+                    >
+                      {copied === "code" ? "Copied!" : "Copy"}
+                    </button>
+                  </div>
+                </div>
+              </div>
 
-# FastAPI example
-from fastapi import FastAPI
-app = FastAPI()
-
-@app.middleware("http")
-async def gt8004_middleware(request, call_next):
-    return await logger.middleware(request, call_next)`}
-                </pre>
-                <button
-                  onClick={() => copyToClipboard(`from gt8004 import GT8004Logger
-
-logger = GT8004Logger(
-    agent_id="${registeredAgentId}",
-    api_key="${apiKey}"
-)
-
-# FastAPI example
-from fastapi import FastAPI
-app = FastAPI()
-
-@app.middleware("http")
-async def gt8004_middleware(request, call_next):
-    return await logger.middleware(request, call_next)`, "code")}
-                  className="absolute top-2 right-2 px-2 py-1 rounded bg-[#1a1a1a] hover:bg-[#00FFE0]/10 hover:text-[#00FFE0] text-xs text-zinc-400 opacity-0 group-hover:opacity-100 transition-all"
+              {/* SDK Link */}
+              <div className="px-5 pb-4">
+                <a
+                  href="https://github.com/vataops/gt8004-sdk"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-[#00FFE0] transition-colors"
                 >
-                  {copied === "code" ? "Copied!" : "Copy"}
-                </button>
+                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                  vataops/gt8004-sdk
+                </a>
               </div>
             </div>
 
