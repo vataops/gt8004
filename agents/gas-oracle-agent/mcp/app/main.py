@@ -27,7 +27,10 @@ class MCPPaymentMiddleware:
     JSON-RPC body, and only requires payment for tools/call method.
     """
 
-    def __init__(self, app: ASGIApp, pay_to: str, network: str, price: str):
+    def __init__(
+        self, app: ASGIApp, pay_to: str, network: str, price: str,
+        cdp_api_key_id: str = "", cdp_api_key_secret: str = "",
+    ):
         self.app = app
         self.pay_to = pay_to
         self.network = network
@@ -39,7 +42,14 @@ class MCPPaymentMiddleware:
         self.asset_extra = {"name": asset.eip712_name, "version": asset.eip712_version}
 
         from fastapi_x402.facilitator import UnifiedFacilitatorClient
-        self.facilitator = UnifiedFacilitatorClient("https://x402.org/facilitator")
+        if cdp_api_key_id and cdp_api_key_secret:
+            self.facilitator = UnifiedFacilitatorClient(
+                "https://api.cdp.coinbase.com",
+                cdp_api_key_id=cdp_api_key_id,
+                cdp_api_key_secret=cdp_api_key_secret,
+            )
+        else:
+            self.facilitator = UnifiedFacilitatorClient("https://x402.org/facilitator")
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
         if scope["type"] != "http" or scope.get("method") != "POST":
@@ -322,6 +332,8 @@ if settings.x402_pay_to:
         pay_to=settings.x402_pay_to,
         network=settings.x402_network,
         price=settings.x402_price,
+        cdp_api_key_id=settings.cdp_api_key_id,
+        cdp_api_key_secret=settings.cdp_api_key_secret,
     )
 
 # GT8004 logging wraps OUTSIDE x402 — captures ALL requests including 402s

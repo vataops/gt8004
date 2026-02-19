@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     x402_network: str = "base"
     x402_price: str = "0.01"
 
+    # x402 Facilitator (CDP production)
+    cdp_api_key_id: str = ""
+    cdp_api_key_secret: str = ""
+
     # Internal MCP↔A2A communication
     internal_api_key: str = ""
 
