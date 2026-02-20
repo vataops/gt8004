@@ -4,10 +4,10 @@ import { Suspense, useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useNetworkAgents, useNetworkStats, useOverview } from "@/lib/hooks";
 import { StatCard } from "@/components/StatCard";
-import { NETWORKS, NETWORK_LIST } from "@/lib/networks";
+import { NETWORKS, NETWORK_LIST, resolveImageUrl } from "@/lib/networks";
 import { AgentAvatar } from "@/components/RobotIcon";
 import { openApi } from "@/lib/api";
-import type { NetworkAgent } from "@/lib/api";
+import type { NetworkAgent, AgentMetadata } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 // Chain ID → display name
@@ -37,6 +37,11 @@ type PlatformData = {
   total_customers: number;
   protocols: string[];
   reputation_score?: number;
+  // Fallback fields for agents not yet synced to discovery
+  name?: string;
+  agent_uri?: string;
+  evm_address?: string;
+  created_at?: string;
 };
 
 export default function ExplorerPage() {
@@ -135,6 +140,10 @@ function ExplorerContent() {
                 total_customers: a.total_customers,
                 protocols: a.protocols || [],
                 reputation_score: a.reputation_score,
+                name: a.name,
+                agent_uri: a.agent_uri,
+                evm_address: a.evm_address,
+                created_at: a.created_at,
               },
             });
           }
@@ -164,7 +173,42 @@ function ExplorerContent() {
         return openApi.getNetworkAgent(Number(cid), Number(tid)).catch(() => null);
       })
     ).then((results) => {
-      setPlatformAgents(results.filter((r): r is NetworkAgent => r !== null));
+      const agents: NetworkAgent[] = [];
+      entries.forEach(([key, pd], i) => {
+        if (results[i]) {
+          agents.push(results[i]!);
+        } else if (pd.agent_uri) {
+          // Construct stub for agents not yet synced to discovery
+          const [cid, tid] = key.split("-");
+          let metadata: AgentMetadata = {};
+          try {
+            const uri = pd.agent_uri;
+            if (uri.startsWith("data:application/json;base64,")) {
+              metadata = JSON.parse(atob(uri.slice("data:application/json;base64,".length)));
+            } else if (uri.startsWith("data:application/json,")) {
+              metadata = JSON.parse(uri.slice("data:application/json,".length));
+            } else if (uri.startsWith("{")) {
+              metadata = JSON.parse(uri);
+            }
+          } catch { /* ignore parse errors */ }
+          agents.push({
+            id: pd.agent_id,
+            chain_id: Number(cid),
+            token_id: Number(tid),
+            owner_address: pd.evm_address || "",
+            agent_uri: pd.agent_uri,
+            name: pd.name || metadata.name || "",
+            description: metadata.description || "",
+            image_url: resolveImageUrl(metadata.image) || "",
+            metadata,
+            creator_address: pd.evm_address || "",
+            created_tx: "",
+            created_at: pd.created_at || "",
+            synced_at: "",
+          });
+        }
+      });
+      setPlatformAgents(agents);
     });
   }, [platformOnly, platformMap]);
 
