@@ -43,7 +43,7 @@ variable "base_rpc_url" {
 variable "scan_sync_interval" {
   description = "Discovery service on-chain sync interval (seconds)"
   type        = number
-  default     = 3600
+  default     = 1800
 }
 
 variable "backfill_interval" {

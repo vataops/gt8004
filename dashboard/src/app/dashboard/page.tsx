@@ -110,6 +110,7 @@ interface AgentRow {
   parsed_services: ParsedService[];
   image_url: string;
   origin_endpoint: string;
+  sdk_connected_at: string | null;
 }
 
 export default function MyAgentsPage() {
@@ -228,6 +229,7 @@ function MyAgentsContent() {
           parsed_services: parseAgentURIServiceEntries(token.agent_uri),
           image_url: imageUrl,
           origin_endpoint: platformAgent?.origin_endpoint || "",
+          sdk_connected_at: platformAgent?.sdk_connected_at ?? null,
         });
       }
 
@@ -255,6 +257,7 @@ function MyAgentsContent() {
             parsed_services: parseAgentURIServiceEntries(agent.agent_uri || ""),
             image_url: parseAgentURIImage(agent.agent_uri || ""),
             origin_endpoint: agent.origin_endpoint || "",
+            sdk_connected_at: agent.sdk_connected_at ?? null,
           });
         }
       }
@@ -526,7 +529,7 @@ function MyAgentsContent() {
                               On-chain only
                             </span>
                           )}
-                          {agent.services.length > 0 && (
+                          {(agent.services.length > 0 || agent.registered) && (
                             <div className="flex flex-wrap gap-1 mt-1">
                               {agent.services.map((svc, i) => {
                                 const n = svc.toUpperCase();
@@ -541,6 +544,19 @@ function MyAgentsContent() {
                                   </span>
                                 );
                               })}
+                              {agent.registered && (
+                                <span
+                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                    agent.sdk_connected_at
+                                      ? "bg-emerald-900/30 text-emerald-400"
+                                      : "bg-zinc-800/50 text-zinc-600"
+                                  }`}
+                                  title={agent.sdk_connected_at ? `SDK connected ${new Date(agent.sdk_connected_at).toLocaleDateString()}` : "SDK not connected"}
+                                >
+                                  <span className={`w-1.5 h-1.5 rounded-full ${agent.sdk_connected_at ? "bg-emerald-400" : "bg-zinc-600"}`} />
+                                  SDK
+                                </span>
+                              )}
                             </div>
                           )}
                         </div>

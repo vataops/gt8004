@@ -62,7 +62,7 @@ func Load() (*Config, error) {
 
 	viper.SetDefault("PORT", 8080)
 	viper.SetDefault("LOG_LEVEL", "debug")
-	viper.SetDefault("SCAN_SYNC_INTERVAL", 3600)
+	viper.SetDefault("SCAN_SYNC_INTERVAL", 1800)
 	viper.SetDefault("BACKFILL_INTERVAL", 1800)
 	viper.SetDefault("BACKFILL_WORKERS", 3)
 	viper.SetDefault("BACKFILL_BATCH_SIZE", 200)
