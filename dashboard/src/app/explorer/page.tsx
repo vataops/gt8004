@@ -139,20 +139,12 @@ function ExplorerContent() {
             });
           }
         }
-        // Verify each candidate exists on-chain via discovery service
-        const verified = await Promise.all(
-          candidates.map(({ key }) => {
-            const [cid, tid] = key.split("-");
-            return openApi
-              .getNetworkAgent(Number(cid), Number(tid))
-              .then(() => true)
-              .catch(() => false);
-          })
-        );
+        // Platform-registered agents are already verified during registration,
+        // so trust them directly without re-checking the discovery DB.
         const map = new Map<string, PlatformData>();
-        candidates.forEach((c, i) => {
-          if (verified[i]) map.set(c.key, c.data);
-        });
+        for (const c of candidates) {
+          map.set(c.key, c.data);
+        }
         setPlatformMap(map);
       })
       .catch(() => {});
