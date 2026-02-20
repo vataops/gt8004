@@ -127,10 +127,14 @@ function RegisterPageInner() {
 
         if (cancelled) return;
 
-        // Build set of already registered token IDs for this chain
+        // Build set of already registered token IDs for this chain (active only)
         const registered = new Set<number>();
         for (const agent of agentsResp.agents || []) {
-          if (agent.chain_id === network.chainId && agent.erc8004_token_id != null) {
+          if (
+            agent.chain_id === network.chainId &&
+            agent.erc8004_token_id != null &&
+            agent.status === "active"
+          ) {
             registered.add(agent.erc8004_token_id);
           }
         }
