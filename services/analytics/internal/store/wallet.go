@@ -112,22 +112,43 @@ func (s *Store) GetWalletDailyStats(ctx context.Context, agentDBIDs []uuid.UUID,
 		return []WalletDailyStats{}, nil
 	}
 
+	// Revenue comes from revenue_entries (verified=true only), not from
+	// request_logs.x402_amount which is unverified claimed amounts.
 	query := `
+		WITH req AS (
+			SELECT
+				DATE(created_at) AS date,
+				COUNT(CASE WHEN status_code < 400 OR status_code = 402 THEN 1 END) AS requests,
+				COALESCE(AVG(response_ms), 0) AS avg_response_ms,
+				COALESCE(
+					SUM(CASE WHEN status_code >= 400 AND status_code != 402 THEN 1 ELSE 0 END)::float /
+					NULLIF(COUNT(*), 0),
+					0
+				) AS error_rate
+			FROM request_logs
+			WHERE agent_id = ANY($1)
+			  AND created_at >= NOW() - INTERVAL '1 day' * $2
+			GROUP BY DATE(created_at)
+		),
+		rev AS (
+			SELECT
+				DATE(created_at) AS date,
+				COALESCE(SUM(amount), 0) AS revenue
+			FROM revenue_entries
+			WHERE agent_id = ANY($1)
+			  AND verified = TRUE
+			  AND created_at >= NOW() - INTERVAL '1 day' * $2
+			GROUP BY DATE(created_at)
+		)
 		SELECT
-			DATE(created_at) as date,
-			COUNT(CASE WHEN status_code < 400 OR status_code = 402 THEN 1 END) as requests,
-			COALESCE(SUM(x402_amount), 0) as revenue,
-			COALESCE(AVG(response_ms), 0) as avg_response_ms,
-			COALESCE(
-				SUM(CASE WHEN status_code >= 400 AND status_code != 402 THEN 1 ELSE 0 END)::float /
-				NULLIF(COUNT(*), 0),
-				0
-			) as error_rate
-		FROM request_logs
-		WHERE agent_id = ANY($1)
-		  AND created_at >= NOW() - INTERVAL '1 day' * $2
-		GROUP BY DATE(created_at)
-		ORDER BY date DESC
+			req.date,
+			req.requests,
+			COALESCE(rev.revenue, 0) AS revenue,
+			req.avg_response_ms,
+			req.error_rate
+		FROM req
+		LEFT JOIN rev ON rev.date = req.date
+		ORDER BY req.date DESC
 	`
 
 	rows, err := s.pool.Query(ctx, query, agentDBIDs, days)

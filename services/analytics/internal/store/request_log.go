@@ -157,19 +157,40 @@ func (s *Store) GetDailyStats(ctx context.Context, agentDBID uuid.UUID, days int
 		days = 30
 	}
 
+	// Revenue from revenue_entries (verified=true only), joined by date.
 	rows, err := s.pool.Query(ctx, `
+		WITH req AS (
+			SELECT
+				DATE(created_at) AS date,
+				COUNT(*) AS requests,
+				COUNT(*) FILTER (WHERE status_code >= 400 AND status_code != 402) AS errors,
+				COUNT(DISTINCT ip_address) FILTER (WHERE ip_address IS NOT NULL) AS unique_customers,
+				COALESCE(AVG(response_ms), 0) AS avg_response_ms,
+				COALESCE(percentile_cont(0.95) WITHIN GROUP (ORDER BY response_ms), 0) AS p95_response_ms
+			FROM request_logs
+			WHERE agent_id = $1 AND created_at >= CURRENT_DATE - $2 * INTERVAL '1 day'
+			GROUP BY DATE(created_at)
+		),
+		rev AS (
+			SELECT
+				DATE(created_at) AS date,
+				COALESCE(SUM(amount), 0) AS revenue
+			FROM revenue_entries
+			WHERE agent_id = $1 AND verified = TRUE
+			  AND created_at >= CURRENT_DATE - $2 * INTERVAL '1 day'
+			GROUP BY DATE(created_at)
+		)
 		SELECT
-			DATE(created_at) AS date,
-			COUNT(*) AS requests,
-			COALESCE(SUM(x402_amount), 0) AS revenue,
-			COUNT(*) FILTER (WHERE status_code >= 400 AND status_code != 402) AS errors,
-			COUNT(DISTINCT ip_address) FILTER (WHERE ip_address IS NOT NULL) AS unique_customers,
-			COALESCE(AVG(response_ms), 0) AS avg_response_ms,
-			COALESCE(percentile_cont(0.95) WITHIN GROUP (ORDER BY response_ms), 0) AS p95_response_ms
-		FROM request_logs
-		WHERE agent_id = $1 AND created_at >= CURRENT_DATE - $2 * INTERVAL '1 day'
-		GROUP BY DATE(created_at)
-		ORDER BY date
+			req.date,
+			req.requests,
+			COALESCE(rev.revenue, 0) AS revenue,
+			req.errors,
+			req.unique_customers,
+			req.avg_response_ms,
+			req.p95_response_ms
+		FROM req
+		LEFT JOIN rev ON rev.date = req.date
+		ORDER BY req.date
 	`, agentDBID, days)
 	if err != nil {
 		return nil, fmt.Errorf("get daily stats: %w", err)
