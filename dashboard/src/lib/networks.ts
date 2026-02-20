@@ -43,7 +43,7 @@ const MAINNET_NETWORKS: Record<string, NetworkConfig> = {
     chainId: 8453,
     name: "Base",
     shortName: "Base",
-    rpcUrl: "https://base.drpc.org",
+    rpcUrl: "https://base-mainnet.g.allthatnode.com/full/evm/06d54f74f4224ec8bf89101ed0046d5f",
     contractAddress: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
     reputationAddress: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63",
     blockExplorer: "https://basescan.org",

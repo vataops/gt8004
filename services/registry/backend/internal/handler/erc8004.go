@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
 	"github.com/GT8004/gt8004/internal/erc8004"
 )
@@ -86,6 +87,8 @@ func (h *Handler) VerifyToken(c *gin.Context) {
 
 // ListTokensByOwner handles GET /v1/erc8004/tokens/:address
 // Returns all ERC-8004 tokens owned by the given address.
+// Uses the discovery-synced network_agents table (fast DB query) with
+// an on-chain RPC fallback when the DB returns no results.
 func (h *Handler) ListTokensByOwner(c *gin.Context) {
 	address := c.Param("address")
 	if address == "" || !strings.HasPrefix(address, "0x") || len(address) != 42 {
@@ -93,21 +96,36 @@ func (h *Handler) ListTokensByOwner(c *gin.Context) {
 		return
 	}
 
-	if h.erc8004Registry == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "ERC-8004 not configured"})
-		return
-	}
-
 	chainID := h.resolveChainID(c)
-	client, err := h.erc8004Registry.GetClient(chainID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported chain_id"})
-		return
-	}
 
 	cacheKey := fmt.Sprintf("erc8004:tokens:%s:%d", address, chainID)
 	if cached := h.cache.Get(c.Request.Context(), cacheKey); cached != nil {
 		c.Data(http.StatusOK, "application/json", cached)
+		return
+	}
+
+	// Fast path: query discovery-synced DB
+	dbTokens, err := h.store.GetNetworkTokensByOwner(c.Request.Context(), address, chainID)
+	if err != nil {
+		h.logger.Warn("DB token lookup failed, falling back to RPC", zap.Error(err))
+	}
+
+	if len(dbTokens) > 0 {
+		resp := gin.H{"tokens": dbTokens}
+		data, _ := json.Marshal(resp)
+		h.cache.Set(c.Request.Context(), cacheKey, data, 5*time.Minute)
+		c.Data(http.StatusOK, "application/json", data)
+		return
+	}
+
+	// Slow path: on-chain RPC fallback (for tokens not yet synced by discovery)
+	if h.erc8004Registry == nil {
+		c.JSON(http.StatusOK, gin.H{"tokens": []any{}})
+		return
+	}
+	client, err := h.erc8004Registry.GetClient(chainID)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"tokens": []any{}})
 		return
 	}
 
@@ -119,7 +137,7 @@ func (h *Handler) ListTokensByOwner(c *gin.Context) {
 
 	resp := gin.H{"tokens": tokens}
 	data, _ := json.Marshal(resp)
-	h.cache.Set(c.Request.Context(), cacheKey, data, 30*time.Minute)
+	h.cache.Set(c.Request.Context(), cacheKey, data, 5*time.Minute)
 	c.Data(http.StatusOK, "application/json", data)
 }
 

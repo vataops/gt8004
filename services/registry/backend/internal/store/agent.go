@@ -351,6 +351,37 @@ func (s *Store) UpdateAgentTotalCustomers(ctx context.Context, agentDBID uuid.UU
 	return nil
 }
 
+// NetworkToken represents an on-chain ERC-8004 token from the discovery sync.
+type NetworkToken struct {
+	TokenID  int64  `json:"token_id"`
+	AgentURI string `json:"agent_uri"`
+}
+
+// GetNetworkTokensByOwner returns on-chain tokens owned by the given address
+// from the network_agents table (populated by the Discovery service).
+func (s *Store) GetNetworkTokensByOwner(ctx context.Context, ownerAddr string, chainID int) ([]NetworkToken, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT token_id, COALESCE(agent_uri, '')
+		FROM network_agents
+		WHERE LOWER(owner_address) = LOWER($1) AND chain_id = $2
+		ORDER BY token_id
+	`, ownerAddr, chainID)
+	if err != nil {
+		return nil, fmt.Errorf("get network tokens by owner: %w", err)
+	}
+	defer rows.Close()
+
+	var tokens []NetworkToken
+	for rows.Next() {
+		var t NetworkToken
+		if err := rows.Scan(&t.TokenID, &t.AgentURI); err != nil {
+			return nil, fmt.Errorf("scan network token: %w", err)
+		}
+		tokens = append(tokens, t)
+	}
+	return tokens, nil
+}
+
 // ReconcileERC8004 clears erc8004 fields for agents whose tokens
 // no longer exist in the network_agents (on-chain discovery) table.
 func (s *Store) ReconcileERC8004(ctx context.Context) (int64, error) {

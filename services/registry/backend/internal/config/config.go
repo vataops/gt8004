@@ -23,7 +23,7 @@ func init() {
 	case "mainnet":
 		baseRPC := os.Getenv("BASE_RPC_URL")
 		if baseRPC == "" {
-			baseRPC = "https://base-rpc.publicnode.com"
+			baseRPC = "https://base-mainnet.g.allthatnode.com/full/evm/06d54f74f4224ec8bf89101ed0046d5f"
 		}
 		SupportedNetworks = map[int]NetworkConfig{
 			1:    {ChainID: 1, RegistryAddr: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432", ReputationAddr: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63", RegistryRPC: "https://ethereum-rpc.publicnode.com"},
