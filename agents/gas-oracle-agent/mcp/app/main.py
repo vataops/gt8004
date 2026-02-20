@@ -236,7 +236,7 @@ async def about() -> str:
         "- optimize(use_case): Gas optimization strategies for a use case\n"
         "- compare(chains): Side-by-side chain gas fee comparison\n"
         "- mechanics(topic): Deep dive into gas mechanics\n\n"
-        "Payment: x402 protocol, $0.01 USDC on Base per tool call"
+        "Payment: x402 protocol, $1.00 USDC on Base per tool call"
     )
 
 
