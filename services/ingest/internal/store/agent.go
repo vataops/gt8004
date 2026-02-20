@@ -35,12 +35,13 @@ func (s *Store) ValidateAPIKey(ctx context.Context, keyHash string) (*APIKeyAuth
 	return auth, nil
 }
 
-// UpdateAgentStats increments request count and revenue on the agents table.
+// UpdateAgentStats increments request count, revenue, and recomputes avg response time.
 func (s *Store) UpdateAgentStats(ctx context.Context, id uuid.UUID, requests int, revenue float64) error {
 	_, err := s.pool.Exec(ctx, `
 		UPDATE agents
 		SET total_requests = total_requests + $2,
 			total_revenue_usdc = total_revenue_usdc + $3,
+			avg_response_ms = COALESCE((SELECT AVG(response_ms) FROM request_logs WHERE agent_id = $1), 0),
 			updated_at = NOW()
 		WHERE id = $1
 	`, id, requests, revenue)

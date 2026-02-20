@@ -191,9 +191,8 @@ func (h *Handler) AnalyticsReport(c *gin.Context) {
 		if agentStats.TotalRequests > 0 {
 			revSummary.AvgPerRequest = agentStats.TotalRevenueUSDC / float64(agentStats.TotalRequests)
 		}
-		total := revSummary.RequiredCount + revSummary.PaymentCount
-		if total > 0 {
-			revSummary.ConversionRate = float64(revSummary.PaymentCount) / float64(total)
+		if revSummary.RequiredCount > 0 {
+			revSummary.ConversionRate = float64(revSummary.PaymentCount) / float64(revSummary.RequiredCount)
 		}
 	}
 	if customerIntel != nil && customerIntel.TotalCustomers > 0 {
