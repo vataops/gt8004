@@ -57,3 +57,26 @@ func (s *Store) UpdateRevenueVerified(ctx context.Context, entryID int64, verifi
 	}
 	return nil
 }
+
+// UpdateRevenueVerifiedAndIncrAgentRevenue atomically marks a revenue entry as
+// verified and increments agents.total_revenue_usdc by the verified amount.
+// This ensures revenue is only counted after on-chain confirmation.
+func (s *Store) UpdateRevenueVerifiedAndIncrAgentRevenue(ctx context.Context, entryID int64, chainID int, verifiedAt time.Time) error {
+	_, err := s.pool.Exec(ctx, `
+		WITH updated AS (
+			UPDATE revenue_entries
+			SET verified = true, chain_id = $2, verified_at = $3
+			WHERE id = $1
+			RETURNING agent_id, amount
+		)
+		UPDATE agents
+		SET total_revenue_usdc = total_revenue_usdc + updated.amount,
+			updated_at = NOW()
+		FROM updated
+		WHERE agents.id = updated.agent_id
+	`, entryID, chainID, verifiedAt)
+	if err != nil {
+		return fmt.Errorf("update revenue verified and incr agent revenue: %w", err)
+	}
+	return nil
+}

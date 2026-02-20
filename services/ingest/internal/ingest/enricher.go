@@ -168,8 +168,9 @@ func (e *Enricher) Process(ctx context.Context, agentDBID uuid.UUID, chainID int
 		return err
 	}
 
-	// Update agent aggregate stats
-	if err := e.store.UpdateAgentStats(ctx, agentDBID, len(batch.Entries), totalRevenue); err != nil {
+	// Update agent aggregate stats — revenue is NOT counted here; it is
+	// incremented only after on-chain verification in verifier.go.
+	if err := e.store.UpdateAgentStats(ctx, agentDBID, len(batch.Entries), 0); err != nil {
 		e.logger.Error("failed to update agent stats",
 			zap.Error(err), zap.String("batch_id", batch.BatchID))
 		return err

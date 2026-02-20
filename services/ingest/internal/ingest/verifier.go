@@ -143,8 +143,9 @@ func (v *Verifier) VerifyPayment(ctx context.Context, entryID int64, txHash stri
 		return
 	}
 
-	// Update DB
-	if err := v.store.UpdateRevenueVerified(ctx, entryID, true, chainID, time.Now()); err != nil {
+	// Mark verified and increment agent's total_revenue_usdc atomically.
+	// Revenue is only counted after on-chain confirmation.
+	if err := v.store.UpdateRevenueVerifiedAndIncrAgentRevenue(ctx, entryID, chainID, time.Now()); err != nil {
 		v.logger.Error("failed to update revenue verification",
 			zap.Int64("entry_id", entryID), zap.Error(err))
 		return
