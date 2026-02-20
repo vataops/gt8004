@@ -260,6 +260,47 @@ func (c *Client) GetTokensByOwner(ctx context.Context, ownerAddr string) ([]Owne
 	return tokens, nil
 }
 
+// GetRecentTokensByOwner scans only the last recentBlocks blocks for Transfer
+// events to ownerAddr, then verifies ownership. This is a lightweight fallback
+// (1-2 RPC calls) intended to catch freshly minted tokens not yet synced by
+// the discovery service.
+func (c *Client) GetRecentTokensByOwner(ctx context.Context, ownerAddr string, recentBlocks uint64) ([]OwnedToken, error) {
+	if c.ethClient == nil {
+		return nil, fmt.Errorf("ethclient not initialised")
+	}
+
+	currentBlock, err := c.ethClient.BlockNumber(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get block number: %w", err)
+	}
+
+	var startBlock uint64
+	if currentBlock > recentBlocks {
+		startBlock = currentBlock - recentBlocks
+	}
+
+	addr := common.HexToAddress(ownerAddr)
+	paddedTo := common.BytesToHash(common.LeftPadBytes(addr.Bytes(), 32))
+
+	candidateIDs, err := c.filterTransferLogs(ctx, paddedTo,
+		new(big.Int).SetUint64(startBlock), new(big.Int).SetUint64(currentBlock))
+	if err != nil {
+		return nil, err
+	}
+
+	ownerLower := strings.ToLower(addr.Hex())
+	tokens := make([]OwnedToken, 0, len(candidateIDs))
+	for _, tid := range candidateIDs {
+		currentOwner, err := c.VerifyOwnership(ctx, tid)
+		if err != nil || currentOwner != ownerLower {
+			continue
+		}
+		agentURI, _ := c.GetAgentURI(ctx, tid)
+		tokens = append(tokens, OwnedToken{TokenID: tid, AgentURI: agentURI})
+	}
+	return tokens, nil
+}
+
 // filterTransferLogs queries Transfer event logs for tokens sent to a specific address.
 func (c *Client) filterTransferLogs(ctx context.Context, paddedTo common.Hash, fromBlock, toBlock *big.Int) ([]int64, error) {
 	query := ethereum.FilterQuery{

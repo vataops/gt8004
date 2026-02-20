@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/GT8004/gt8004/internal/erc8004"
+	"github.com/GT8004/gt8004/internal/store"
 )
 
 // defaultChainID is Base Sepolia.
@@ -110,26 +111,35 @@ func (h *Handler) ListTokensByOwner(c *gin.Context) {
 		h.logger.Warn("DB token lookup failed", zap.Error(err))
 	}
 
-	// If DB has results, verify against on-chain balanceOf (1 cheap RPC call).
-	// When on-chain balance exceeds DB count, a new token was minted but not
-	// yet synced — fall through to full RPC scan. Otherwise return DB results.
+	// If DB has results, check if on-chain balance matches.
+	// When new tokens were minted but not yet synced, do a quick scan of
+	// recent blocks (~50K, 1 RPC call) to supplement — NOT the full 2M-block scan.
 	if len(dbTokens) > 0 && h.erc8004Registry != nil {
-		if client, err := h.erc8004Registry.GetClient(chainID); err == nil {
-			if balance, err := client.BalanceOf(c.Request.Context(), address); err == nil {
-				if balance <= int64(len(dbTokens)) {
-					// DB is up-to-date, return fast
-					resp := gin.H{"tokens": dbTokens}
-					data, _ := json.Marshal(resp)
-					h.cache.Set(c.Request.Context(), cacheKey, data, 5*time.Minute)
-					c.Data(http.StatusOK, "application/json", data)
-					return
+		client, clientErr := h.erc8004Registry.GetClient(chainID)
+		if clientErr == nil {
+			balance, balErr := client.BalanceOf(c.Request.Context(), address)
+			if balErr == nil && balance > int64(len(dbTokens)) {
+				// Newly minted tokens not yet synced — scan recent blocks only
+				recent, _ := client.GetRecentTokensByOwner(c.Request.Context(), address, 50000)
+				if len(recent) > 0 {
+					dbSet := make(map[int64]bool, len(dbTokens))
+					for _, t := range dbTokens {
+						dbSet[t.TokenID] = true
+					}
+					for _, t := range recent {
+						if !dbSet[t.TokenID] {
+							dbTokens = append(dbTokens, store.NetworkToken{
+								TokenID:  t.TokenID,
+								AgentURI: t.AgentURI,
+							})
+						}
+					}
 				}
-				h.logger.Info("on-chain balance exceeds DB count, falling through to RPC scan",
-					zap.Int64("balance", balance), zap.Int("db_count", len(dbTokens)))
 			}
 		}
-	} else if len(dbTokens) > 0 {
-		// No RPC available, return DB results
+	}
+
+	if len(dbTokens) > 0 {
 		resp := gin.H{"tokens": dbTokens}
 		data, _ := json.Marshal(resp)
 		h.cache.Set(c.Request.Context(), cacheKey, data, 5*time.Minute)
@@ -137,22 +147,21 @@ func (h *Handler) ListTokensByOwner(c *gin.Context) {
 		return
 	}
 
-	// Slow path: full on-chain RPC scan (DB empty or stale)
+	// Slow path: full on-chain RPC scan (DB completely empty)
 	if h.erc8004Registry == nil {
 		c.JSON(http.StatusOK, gin.H{"tokens": []any{}})
 		return
 	}
 	client, err := h.erc8004Registry.GetClient(chainID)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"tokens": dbTokens})
+		c.JSON(http.StatusOK, gin.H{"tokens": []any{}})
 		return
 	}
 
 	tokens, err := client.GetTokensByOwner(c.Request.Context(), address)
 	if err != nil {
 		h.logger.Warn("RPC token scan failed", zap.Error(err))
-		// Return whatever DB had
-		c.JSON(http.StatusOK, gin.H{"tokens": dbTokens})
+		c.JSON(http.StatusOK, gin.H{"tokens": []any{}})
 		return
 	}
 
