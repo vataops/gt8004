@@ -4,6 +4,7 @@ import { useState } from "react";
 import { connectWallet } from "@/lib/wallet";
 import { encodeDataUri, registerNewAgent } from "@/lib/erc8004";
 import { NETWORKS } from "@/lib/networks";
+import { openApi } from "@/lib/api";
 
 import { StepBasicInfo, validateBasicInfo } from "./components/StepBasicInfo";
 import { StepServices, type ServiceEntry, emptyService } from "./components/StepServices";
@@ -160,6 +161,12 @@ export default function CreateAgentPage() {
     setSubmitting(false);
     setMintResults(results);
     setDone(true);
+
+    // Trigger discovery sync for each minted token (fire-and-forget)
+    for (const r of results) {
+      const net = NETWORKS[r.networkKey];
+      if (net) openApi.notifyMint(net.chainId, r.tokenId).catch(() => {});
+    }
   };
 
   // Success view

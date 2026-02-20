@@ -89,6 +89,7 @@ func NewRouter(cfg *config.Config, h *handler.Handler, logger *zap.Logger) *gin.
 
 	// === Agent Routes (backwards compatible) ===
 	v1.POST("/agents/register", h.RegisterService)
+	v1.POST("/agents/notify-mint", h.NotifyMint)
 	v1.GET("/agents/search", h.SearchAgents)
 	v1.GET("/agents/wallet/:address", h.ListWalletAgents)
 

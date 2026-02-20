@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
 
@@ -67,4 +68,21 @@ func (h *Handler) triggerDiscoverySync(chainID int, tokenID int64) {
 			zap.Int64("token_id", tokenID),
 		)
 	}()
+}
+
+// NotifyMint is a public endpoint that triggers discovery sync after an
+// on-chain mint. The frontend calls this right after a successful mint so
+// the token appears in the explorer without waiting for the next poll cycle.
+func (h *Handler) NotifyMint(c *gin.Context) {
+	var req struct {
+		ChainID int   `json:"chain_id" binding:"required"`
+		TokenID int64 `json:"token_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "chain_id and token_id are required"})
+		return
+	}
+
+	h.triggerDiscoverySync(req.ChainID, req.TokenID)
+	c.JSON(http.StatusOK, gin.H{"status": "sync scheduled"})
 }

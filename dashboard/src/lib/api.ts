@@ -616,6 +616,8 @@ export const openApi = {
   // Registration (no auth)
   registerAgent: (req: RegisterRequest) =>
     openFetcherPost<RegisterResponse>("/v1/agents/register", req),
+  notifyMint: (chainId: number, tokenId: number) =>
+    openFetcherPost<{ status: string }>("/v1/agents/notify-mint", { chain_id: chainId, token_id: tokenId }),
 
   // ERC-8004 Identity (no auth)
   getChallenge: (agentId: string) =>
