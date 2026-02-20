@@ -8,6 +8,36 @@ import { useAuth } from "@/lib/auth";
 import { connectWallet, signChallenge } from "@/lib/wallet";
 import { NETWORKS, NETWORK_LIST, DEFAULT_NETWORK } from "@/lib/networks";
 
+/** Extract agent name from on-chain agentURI (data: URI or raw JSON). */
+function parseAgentURIName(uri: string): string {
+  if (!uri) return "";
+  let json: string | null = null;
+  if (uri.startsWith("data:application/json;base64,")) {
+    try { json = atob(uri.slice("data:application/json;base64,".length)); } catch { return ""; }
+  } else if (uri.startsWith("data:application/json,")) {
+    json = uri.slice("data:application/json,".length);
+  } else if (uri.startsWith("{")) {
+    json = uri;
+  }
+  if (!json) return "";
+  try { return (JSON.parse(json) as { name?: string }).name || ""; } catch { return ""; }
+}
+
+/** Extract image URL from on-chain agentURI metadata. */
+function parseAgentURIImage(uri: string): string {
+  if (!uri) return "";
+  let json: string | null = null;
+  if (uri.startsWith("data:application/json;base64,")) {
+    try { json = atob(uri.slice("data:application/json;base64,".length)); } catch { return ""; }
+  } else if (uri.startsWith("data:application/json,")) {
+    json = uri.slice("data:application/json,".length);
+  } else if (uri.startsWith("{")) {
+    json = uri;
+  }
+  if (!json) return "";
+  try { return (JSON.parse(json) as { image?: string }).image || ""; } catch { return ""; }
+}
+
 export default function RegisterPage() {
   return (
     <Suspense fallback={<p className="text-zinc-500">Loading...</p>}>
@@ -73,7 +103,7 @@ function RegisterPageInner() {
     // Auto-register the token (pass chainId directly to avoid stale selectedNetwork state)
     setAutoRegisterAttempted(true);
     const token = { token_id: parseInt(qTokenId, 10), agent_uri: qAgentUri || "" };
-    handleSelectToken(token, chainId);
+    handleRegister(token, chainId);
   }, [searchParams, walletAddress, autoRegisterAttempted]); // Added dependencies
 
   // --- Fetch tokens when wallet connects or network changes ---
@@ -151,8 +181,15 @@ function RegisterPageInner() {
     }
   };
 
-  // --- ERC-8004: Select token and register immediately ---
-  const handleSelectToken = async (token: { token_id: number; agent_uri: string }, overrideChainId?: number) => {
+  // --- ERC-8004: Select token (no API call, just highlight the card) ---
+  const handleSelectToken = (token: { token_id: number; agent_uri: string }) => {
+    setSelectedToken(token);
+    setTokenId(String(token.token_id));
+    setError("");
+  };
+
+  // --- ERC-8004: Register the selected token ---
+  const handleRegister = async (token: { token_id: number; agent_uri: string }, overrideChainId?: number) => {
     setSelectedToken(token);
     setTokenId(String(token.token_id));
     setError("");
@@ -193,8 +230,6 @@ function RegisterPageInner() {
       setLoading(false);
     }
   };
-
-  // Registration is now handled directly in handleSelectToken
 
   // --- Continue to dashboard ---
   const handleContinue = async () => {
@@ -502,36 +537,90 @@ app.wsgi_app = GT8004FlaskMiddleware(app.wsgi_app, logger)`,
                 </div>
               ) : ownedTokens.length > 0 ? (
                 <div className="space-y-2">
-                  <p className="text-xs text-zinc-500 mb-2">
+                  <p className="text-xs text-zinc-500 mb-3">
                     {ownedTokens.length} unregistered agent{ownedTokens.length !== 1 ? "s" : ""} found on {currentNetwork?.shortName}
                   </p>
-                  {ownedTokens.map((token) => (
-                    <button
-                      key={token.token_id}
-                      onClick={() => handleSelectToken(token)}
-                      className="w-full text-left p-4 rounded-lg border border-[#1f1f1f] bg-[#0f0f0f] hover:border-[#00FFE0]/50 hover:bg-[#00FFE0]/5 transition-colors group"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm font-medium text-white">
-                              Agent #{token.token_id}
-                            </span>
+                  {ownedTokens.map((token) => {
+                    const agentName = parseAgentURIName(token.agent_uri);
+                    const agentImage = parseAgentURIImage(token.agent_uri);
+                    const isSelected = selectedToken?.token_id === token.token_id;
+                    return (
+                      <button
+                        key={token.token_id}
+                        onClick={() => handleSelectToken(token)}
+                        className={`w-full text-left p-4 rounded-lg border transition-colors group ${
+                          isSelected
+                            ? "border-[#00FFE0]/60 bg-[#00FFE0]/5 ring-1 ring-[#00FFE0]/20"
+                            : "border-[#1f1f1f] bg-[#0f0f0f] hover:border-[#00FFE0]/30 hover:bg-[#00FFE0]/3"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          {/* Avatar */}
+                          <div className="flex-shrink-0 w-10 h-10 rounded-full overflow-hidden border border-[#2a2a2a] bg-[#1a1a1a] flex items-center justify-center">
+                            {agentImage ? (
+                              <img
+                                src={agentImage}
+                                alt={agentName || `Agent #${token.token_id}`}
+                                className="w-full h-full object-cover"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                              />
+                            ) : (
+                              <span className="text-lg text-zinc-600 select-none">
+                                {agentName ? agentName[0].toUpperCase() : "#"}
+                              </span>
+                            )}
                           </div>
-                          {token.agent_uri ? (
-                            <p className="text-xs font-mono text-zinc-400 truncate">
-                              {token.agent_uri}
-                            </p>
-                          ) : (
-                            <p className="text-xs text-zinc-600 italic">No agent URI set</p>
-                          )}
+
+                          {/* Info */}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold text-white truncate">
+                                {agentName || `Agent #${token.token_id}`}
+                              </span>
+                              <span className="text-xs text-zinc-600 flex-shrink-0">
+                                #{token.token_id}
+                              </span>
+                            </div>
+                            {!token.agent_uri && (
+                              <p className="text-xs text-zinc-600 italic mt-0.5">No agent URI set</p>
+                            )}
+                          </div>
+
+                          {/* Selection indicator */}
+                          <div className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                            isSelected
+                              ? "border-[#00FFE0] bg-[#00FFE0]"
+                              : "border-zinc-700 group-hover:border-zinc-500"
+                          }`}>
+                            {isSelected && (
+                              <svg className="w-3 h-3 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
                         </div>
-                        <span className="text-zinc-600 group-hover:text-[#00FFE0] transition-colors ml-3">
-                          &rarr;
-                        </span>
-                      </div>
+                      </button>
+                    );
+                  })}
+
+                  {/* Register button */}
+                  <div className="pt-3">
+                    <button
+                      onClick={() => selectedToken && handleRegister(selectedToken)}
+                      disabled={!selectedToken || loading}
+                      className={`w-full py-3 rounded-md text-sm font-semibold transition-all ${
+                        selectedToken && !loading
+                          ? "bg-[#00FFE0] text-black hover:shadow-[0_0_20px_rgba(0,255,224,0.4)]"
+                          : "bg-[#1a1a1a] text-zinc-600 cursor-not-allowed"
+                      }`}
+                    >
+                      {loading
+                        ? "Registering..."
+                        : selectedToken
+                          ? `Register ${parseAgentURIName(selectedToken.agent_uri) || `Agent #${selectedToken.token_id}`}`
+                          : "Select an agent to register"}
                     </button>
-                  ))}
+                  </div>
                 </div>
               ) : (
                 <div className="py-8 text-center">

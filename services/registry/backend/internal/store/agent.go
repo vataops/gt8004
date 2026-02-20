@@ -309,7 +309,7 @@ func (s *Store) UpdateTier(ctx context.Context, id uuid.UUID, tier string) error
 
 // GetAgentsByEVMAddress returns all agents linked to a given EVM wallet address.
 func (s *Store) GetAgentsByEVMAddress(ctx context.Context, evmAddress string) ([]Agent, error) {
-	rows, err := s.pool.Query(ctx, `SELECT `+agentSelectCols+` FROM agents WHERE LOWER(evm_address) = LOWER($1) AND status = 'active'`, evmAddress)
+	rows, err := s.pool.Query(ctx, `SELECT `+agentSelectCols+` FROM agents WHERE LOWER(evm_address) = LOWER($1) AND status IN ('active', 'deregistered')`, evmAddress)
 	if err != nil {
 		return nil, fmt.Errorf("get agents by evm address: %w", err)
 	}
