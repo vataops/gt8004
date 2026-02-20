@@ -48,6 +48,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+if settings.x402_pay_to:
+    # Fix: Base mainnet USDC contract name() returns "USD Coin", not "USDC"
+    from fastapi_x402.networks import NETWORK_CONFIGS
+    if "base" in NETWORK_CONFIGS and "usdc" in NETWORK_CONFIGS["base"].assets:
+        NETWORK_CONFIGS["base"].assets["usdc"].eip712_name = "USD Coin"
+    from fastapi_x402 import init_x402
+    init_x402(app, pay_to=settings.x402_pay_to, network=settings.x402_network)
+    logging.info(f"x402 payment enabled: {settings.x402_price} USDC to {settings.x402_pay_to}")
+
+# GT8004 must be added AFTER x402 so it is the outermost middleware.
+# This ensures the response already has X-PAYMENT-RESPONSE set by x402
+# when GT8004 reads it to capture the settlement tx hash.
 if settings.gt8004_agent_id and settings.gt8004_api_key:
     from gt8004 import GT8004Logger
     from gt8004.middleware.fastapi import GT8004Middleware
@@ -58,15 +70,6 @@ if settings.gt8004_agent_id and settings.gt8004_api_key:
         protocol="a2a",
     )
     app.add_middleware(GT8004Middleware, logger=_a2a_logger)
-
-if settings.x402_pay_to:
-    # Fix: Base mainnet USDC contract name() returns "USD Coin", not "USDC"
-    from fastapi_x402.networks import NETWORK_CONFIGS
-    if "base" in NETWORK_CONFIGS and "usdc" in NETWORK_CONFIGS["base"].assets:
-        NETWORK_CONFIGS["base"].assets["usdc"].eip712_name = "USD Coin"
-    from fastapi_x402 import init_x402
-    init_x402(app, pay_to=settings.x402_pay_to, network=settings.x402_network)
-    logging.info(f"x402 payment enabled: {settings.x402_price} USDC to {settings.x402_pay_to}")
 
 app.include_router(a2a_router)
 
