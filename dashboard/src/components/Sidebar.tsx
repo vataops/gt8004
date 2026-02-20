@@ -5,7 +5,8 @@ import { useAuth } from "@/lib/auth";
 
 const navItems = [
   { href: "/explorer", label: "Explorer" },
-  { href: "/create", label: "Create Agent" },
+  { href: "/create", label: "Mint Agent" },
+  { href: "/register", label: "Connect Agent" },
   { href: "/dashboard", label: "Dashboard" },
 ];
 
@@ -54,12 +55,6 @@ export function Navbar() {
             </>
           ) : (
             <>
-              <Link
-                href="/register"
-                className="text-sm text-zinc-400 hover:text-white transition-colors"
-              >
-                Register
-              </Link>
               <Link
                 href="/login"
                 className="px-4 py-1.5 rounded-md text-sm font-medium bg-[#00FFE0] text-black hover:shadow-[0_0_20px_rgba(0,255,224,0.4)] transition-all"

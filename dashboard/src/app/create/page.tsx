@@ -241,8 +241,8 @@ export default function CreateAgentPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
           </svg>
         </div>
-        <h1 className="text-xl font-bold">Create Agent</h1>
-        <p className="text-sm text-zinc-400">Register your autonomous agent on the ERC-8004 registry</p>
+        <h1 className="text-xl font-bold">Mint Agent</h1>
+        <p className="text-sm text-zinc-400">Mint your autonomous agent on the ERC-8004 registry</p>
       </div>
 
       {/* Step Indicator */}

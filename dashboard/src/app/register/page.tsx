@@ -315,7 +315,7 @@ app.wsgi_app = GT8004FlaskMiddleware(app.wsgi_app, logger)`,
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold mb-2">Agent Registered Successfully!</h2>
+            <h2 className="text-2xl font-bold mb-2">Agent Connected!</h2>
             <p className="text-sm text-zinc-400">
               Your agent <span className="text-white font-mono">{registeredAgentId}</span> is ready to integrate.
             </p>
@@ -437,9 +437,9 @@ app.wsgi_app = GT8004FlaskMiddleware(app.wsgi_app, logger)`,
             </div>
           ) : (
             <>
-              <h2 className="text-xl font-bold mb-2">Register New Agent</h2>
+              <h2 className="text-xl font-bold mb-2">Connect Agent</h2>
               <p className="text-sm text-zinc-400 mb-4">
-                Connect your wallet to register your ERC-8004 agents to GT8004.
+                Connect your wallet to link your ERC-8004 agents to GT8004.
               </p>
 
           {/* Network Selector */}
