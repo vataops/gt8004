@@ -326,7 +326,7 @@ function MyAgentsContent() {
   const todayRequests = todayEntry?.requests ?? 0;
   const todayRevenue = todayEntry?.revenue ?? 0;
   // Chart data: each agent as a segment in the stacked bar
-  const chartAgents = agents.map((a, i) => ({
+  const chartAgents = agents.filter((a) => a.registered).map((a, i) => ({
     key: `a${i}`,
     label:
       a.token_id !== null && !a.name.startsWith("Agent #")
@@ -582,7 +582,11 @@ function MyAgentsContent() {
 
                     {/* Status */}
                     <td className="p-3">
-                      <StatusBadge status={agent.status} />
+                      {agent.registered ? (
+                        <StatusBadge status={agent.status} />
+                      ) : (
+                        <span className="text-zinc-700 text-xs">—</span>
+                      )}
                     </td>
 
                     {/* Health (per-service) */}
