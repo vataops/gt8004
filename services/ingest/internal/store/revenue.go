@@ -45,6 +45,21 @@ func (s *Store) InsertRevenueEntryReturningID(ctx context.Context, entry Revenue
 	return id, nil
 }
 
+// IsTxHashAlreadyVerified returns true if the given tx_hash has already been
+// verified in another revenue_entry. This prevents the same on-chain transaction
+// from being counted multiple times.
+func (s *Store) IsTxHashAlreadyVerified(ctx context.Context, txHash string, excludeEntryID int64) (bool, error) {
+	var count int
+	err := s.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM revenue_entries
+		WHERE tx_hash = $1 AND verified = TRUE AND id != $2
+	`, txHash, excludeEntryID).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("check tx_hash already verified: %w", err)
+	}
+	return count > 0, nil
+}
+
 // UpdateRevenueVerified updates the verification status of a revenue entry.
 func (s *Store) UpdateRevenueVerified(ctx context.Context, entryID int64, verified bool, chainID int, verifiedAt time.Time) error {
 	_, err := s.pool.Exec(ctx, `

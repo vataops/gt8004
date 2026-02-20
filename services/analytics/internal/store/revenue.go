@@ -61,7 +61,7 @@ func (s *Store) GetRevenueByPeriod(ctx context.Context, agentDBID uuid.UUID, per
 			COALESCE(SUM(amount), 0) AS amount,
 			COUNT(*) AS count
 		FROM revenue_entries
-		WHERE agent_id = $1
+		WHERE agent_id = $1 AND verified = TRUE
 		GROUP BY date_trunc('%s', created_at)
 		ORDER BY date_trunc('%s', created_at) DESC
 	`, truncUnit, dateFormat, truncUnit, truncUnit)
@@ -95,7 +95,7 @@ func (s *Store) GetRevenueByTool(ctx context.Context, agentDBID uuid.UUID) ([]Re
 			COALESCE(SUM(amount), 0) AS amount,
 			COUNT(*) AS count
 		FROM revenue_entries
-		WHERE agent_id = $1
+		WHERE agent_id = $1 AND verified = TRUE
 		GROUP BY tool_name
 		ORDER BY amount DESC
 	`, agentDBID)
@@ -154,7 +154,7 @@ func (s *Store) GetARPU(ctx context.Context, agentDBID uuid.UUID) (float64, erro
 			ELSE 0
 		END AS arpu
 		FROM revenue_entries
-		WHERE agent_id = $1 AND customer_id IS NOT NULL
+		WHERE agent_id = $1 AND customer_id IS NOT NULL AND verified = TRUE
 	`, agentDBID).Scan(&arpu)
 	if err != nil {
 		return 0, fmt.Errorf("get arpu: %w", err)

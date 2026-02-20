@@ -67,6 +67,20 @@ func NewVerifier(s *store.Store, logger *zap.Logger) *Verifier {
 // VerifyPayment checks a tx_hash on-chain and updates the revenue entry.
 // This is called asynchronously from the enricher.
 func (v *Verifier) VerifyPayment(ctx context.Context, entryID int64, txHash string, expectedAmount float64, expectedPayer string, chainID int) {
+	// Reject if this tx_hash was already verified for another entry.
+	// Prevents the same on-chain transaction from being counted multiple times.
+	alreadyVerified, err := v.store.IsTxHashAlreadyVerified(ctx, txHash, entryID)
+	if err != nil {
+		v.logger.Warn("failed to check tx_hash deduplication",
+			zap.String("tx_hash", txHash), zap.Int64("entry_id", entryID), zap.Error(err))
+		return
+	}
+	if alreadyVerified {
+		v.logger.Warn("tx_hash already verified for another entry, skipping",
+			zap.String("tx_hash", txHash), zap.Int64("entry_id", entryID))
+		return
+	}
+
 	client, ok := v.clients[chainID]
 	if !ok {
 		v.logger.Warn("no RPC client for chain, skipping verification",
