@@ -104,38 +104,30 @@ func (h *Handler) ListTokensByOwner(c *gin.Context) {
 		return
 	}
 
-	// Fast path: query discovery-synced DB
+	// Primary: on-chain RPC (source of truth for ownership)
+	// The 5-minute cache above protects against excessive RPC calls.
+	if h.erc8004Registry != nil {
+		if client, err := h.erc8004Registry.GetClient(chainID); err == nil {
+			if tokens, err := client.GetTokensByOwner(c.Request.Context(), address); err == nil {
+				resp := gin.H{"tokens": tokens}
+				data, _ := json.Marshal(resp)
+				h.cache.Set(c.Request.Context(), cacheKey, data, 5*time.Minute)
+				c.Data(http.StatusOK, "application/json", data)
+				return
+			}
+			h.logger.Warn("RPC token lookup failed, falling back to DB", zap.Error(err))
+		}
+	}
+
+	// Fallback: discovery-synced DB (when RPC is unavailable)
 	dbTokens, err := h.store.GetNetworkTokensByOwner(c.Request.Context(), address, chainID)
 	if err != nil {
-		h.logger.Warn("DB token lookup failed, falling back to RPC", zap.Error(err))
-	}
-
-	if len(dbTokens) > 0 {
-		resp := gin.H{"tokens": dbTokens}
-		data, _ := json.Marshal(resp)
-		h.cache.Set(c.Request.Context(), cacheKey, data, 5*time.Minute)
-		c.Data(http.StatusOK, "application/json", data)
-		return
-	}
-
-	// Slow path: on-chain RPC fallback (for tokens not yet synced by discovery)
-	if h.erc8004Registry == nil {
-		c.JSON(http.StatusOK, gin.H{"tokens": []any{}})
-		return
-	}
-	client, err := h.erc8004Registry.GetClient(chainID)
-	if err != nil {
+		h.logger.Warn("DB token lookup also failed", zap.Error(err))
 		c.JSON(http.StatusOK, gin.H{"tokens": []any{}})
 		return
 	}
 
-	tokens, err := client.GetTokensByOwner(c.Request.Context(), address)
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"tokens": []any{}})
-		return
-	}
-
-	resp := gin.H{"tokens": tokens}
+	resp := gin.H{"tokens": dbTokens}
 	data, _ := json.Marshal(resp)
 	h.cache.Set(c.Request.Context(), cacheKey, data, 5*time.Minute)
 	c.Data(http.StatusOK, "application/json", data)
