@@ -106,12 +106,17 @@ func (s *Store) GetAgentStats(ctx context.Context, agentDBID uuid.UUID) (*AgentS
 	stats := &AgentStats{}
 
 	err := s.pool.QueryRow(ctx, `
+		WITH rev AS (
+			SELECT COALESCE(SUM(amount), 0) AS total_revenue
+			FROM revenue_entries
+			WHERE agent_id = $1 AND verified = TRUE
+		)
 		SELECT
 			COUNT(*) AS total_requests,
 			COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE) AS today_requests,
 			COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE - INTERVAL '7 days') AS week_requests,
 			COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE - INTERVAL '30 days') AS month_requests,
-			COALESCE(SUM(x402_amount), 0) AS total_revenue_usdc,
+			(SELECT total_revenue FROM rev) AS total_revenue_usdc,
 			COUNT(*) FILTER (WHERE x402_amount IS NOT NULL AND x402_amount > 0) AS paid_count,
 			COUNT(*) FILTER (WHERE status_code = 402) AS required_count,
 			COALESCE(AVG(response_ms), 0) AS avg_response_ms,
