@@ -350,7 +350,7 @@ function ExplorerContent() {
         <input
           type="text"
           name="search"
-          placeholder="Search by name, owner, or token ID\u2026"
+          placeholder="Search by name, owner, or token ID…"
           aria-label="Search agents"
           value={search}
           onChange={(e) => handleSearch(e.target.value)}

@@ -26,7 +26,7 @@ var usdcContracts = map[int]common.Address{
 // RPC endpoints per chain.
 var chainRPCs = map[int]string{
 	1:        "https://ethereum-rpc.publicnode.com",
-	8453:     "https://base-mainnet.g.allthatnode.com/full/evm/06d54f74f4224ec8bf89101ed0046d5f",
+	8453:     "https://base-rpc.publicnode.com",
 	84532:    "https://base-sepolia-rpc.publicnode.com",
 	11155111: "https://ethereum-sepolia-rpc.publicnode.com",
 }
