@@ -1,39 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
 import { StatCard } from "@/components/StatCard";
-import { useOverview, useNetworkStats } from "@/lib/hooks";
+import { useOverview } from "@/lib/hooks";
 import { NETWORK_LIST } from "@/lib/networks";
-
-const CHAIN_NAMES: Record<number, string> = Object.fromEntries(
-  NETWORK_LIST.map((n) => [n.chainId, n.shortName])
-);
-
-const CHAIN_COLORS: Record<number, { bg: string; text: string; bar: string }> = {
-  1:     { bg: "bg-purple-900/30", text: "text-purple-400", bar: "bg-purple-500" },
-  8453:  { bg: "bg-[#00FFE0]/10", text: "text-[#00FFE0]", bar: "bg-[#00FFE0]" },
-  84532: { bg: "bg-[#00FFE0]/10", text: "text-[#00FFE0]", bar: "bg-[#00FFE0]" },
-  11155111: { bg: "bg-purple-900/30", text: "text-purple-400", bar: "bg-purple-500" },
-};
 
 export function NetworkOverview() {
   const { data: overview, loading: overviewLoading } = useOverview();
-  const { data: stats } = useNetworkStats();
-
-  const chains = useMemo(() => {
-    if (!stats?.by_chain) return [];
-    const total = Object.values(stats.by_chain).reduce((s, c) => s + c, 0);
-    return Object.entries(stats.by_chain)
-      .map(([id, count]) => ({
-        chainId: Number(id),
-        name: CHAIN_NAMES[Number(id)] || `Chain ${id}`,
-        count,
-        pct: total > 0 ? (count / total) * 100 : 0,
-        colors: CHAIN_COLORS[Number(id)] || { bg: "bg-zinc-800", text: "text-zinc-400", bar: "bg-zinc-500" },
-      }))
-      .sort((a, b) => b.count - a.count);
-  }, [stats]);
 
   return (
     <div>
@@ -122,39 +95,6 @@ export function NetworkOverview() {
         </div>
       )}
 
-      {/* Chain Breakdown */}
-      {chains.length > 0 && (
-        <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-zinc-400 mb-4">Agents by Chain</h3>
-
-          {/* Stacked bar */}
-          <div className="flex rounded-md overflow-hidden h-3 mb-4">
-            {chains.map((c) => (
-              <div
-                key={c.chainId}
-                className={`${c.colors.bar} transition-all`}
-                style={{ width: `${c.pct}%` }}
-              />
-            ))}
-          </div>
-
-          {/* Legend */}
-          <div className="flex flex-wrap gap-x-6 gap-y-2">
-            {chains.map((c) => (
-              <div key={c.chainId} className="flex items-center gap-2">
-                <div className={`w-2.5 h-2.5 rounded-sm ${c.colors.bar}`} />
-                <span className={`text-sm ${c.colors.text}`}>{c.name}</span>
-                <span className="text-sm text-zinc-500 tabular-nums">
-                  {c.count.toLocaleString()}
-                </span>
-                <span className="text-xs text-zinc-600">
-                  ({c.pct.toFixed(1)}%)
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
