@@ -80,6 +80,15 @@ func WalletOwnerAuthMiddleware(h *handler.Handler) gin.HandlerFunc {
 				hash := sha256.Sum256([]byte(parts[1]))
 				keyHash := hex.EncodeToString(hash[:])
 				if agentAuth, err := h.Store().ValidateAPIKey(c.Request.Context(), keyHash); err == nil {
+					// If the route has an :agent_id param, the API key must belong to that agent.
+					// This prevents any agent from accessing or modifying another agent's resources.
+					if paramAgentID := c.Param("agent_id"); paramAgentID != "" && agentAuth.AgentID != paramAgentID {
+						h.Logger().Warn("WalletOwnerAuth - API key does not belong to requested agent",
+							zap.String("key_agent", agentAuth.AgentID),
+							zap.String("requested_agent", paramAgentID))
+						c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "api key does not belong to this agent"})
+						return
+					}
 					h.Logger().Info("WalletOwnerAuth - API key auth SUCCESS")
 					c.Set(ContextKeyAgentDBID, agentAuth.AgentDBID)
 					c.Set(ContextKeyAgentID, agentAuth.AgentID)

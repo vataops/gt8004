@@ -26,6 +26,12 @@ func OwnerAuthMiddleware(s *store.Store) gin.HandlerFunc {
 				hash := sha256.Sum256([]byte(parts[1]))
 				keyHash := hex.EncodeToString(hash[:])
 				if agentAuth, err := s.ValidateAPIKey(c.Request.Context(), keyHash); err == nil {
+					// If the route has an :agent_id param, the API key must belong to that agent.
+					// This prevents any agent from accessing another agent's analytics data.
+					if agentID := c.Param("agent_id"); agentID != "" && agentAuth.AgentID != agentID {
+						c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "api key does not belong to this agent"})
+						return
+					}
 					// Look up the agent's EVM address for ownership verification
 					if agent, err := s.GetAgentByDBID(c.Request.Context(), agentAuth.AgentDBID); err == nil {
 						c.Set("auth_evm_address", agent.EVMAddress)
