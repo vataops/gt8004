@@ -334,7 +334,6 @@ function ExplorerContent() {
                 <th className="text-left p-3">Network</th>
                 <th className="text-left p-3">Services</th>
                 <th className="text-center p-3">x402</th>
-                <th className="text-left p-3">GT8004</th>
                 <th className="text-right p-3">Requests</th>
                 <th className="text-right p-3">Revenue</th>
                 <th className="text-left p-3">Owner</th>
@@ -367,6 +366,11 @@ function ExplorerContent() {
                                 #{agent.token_id}
                               </span>
                             )}
+                            {platform && (
+                              <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#00FFE0]/10 text-[#00FFE0]">
+                                GT8004
+                              </span>
+                            )}
                           </div>
                           {agent.description && (
                             <p className="text-xs text-zinc-600 truncate max-w-[280px] mt-0.5">
@@ -392,17 +396,6 @@ function ExplorerContent() {
                       {agent.metadata?.x402Support || agent.metadata?.x402support ? (
                         <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-900/30 text-amber-400">
                           x402
-                        </span>
-                      ) : (
-                        <span className="text-zinc-700 text-xs">—</span>
-                      )}
-                    </td>
-
-                    {/* Platform */}
-                    <td className="p-3">
-                      {platform ? (
-                        <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-[#00FFE0]/10 text-[#00FFE0]">
-                          {platform.status === "active" ? "Active" : platform.status}
                         </span>
                       ) : (
                         <span className="text-zinc-700 text-xs">—</span>
@@ -444,7 +437,7 @@ function ExplorerContent() {
               })}
               {displayAgents.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="p-6 text-center text-zinc-600">
+                  <td colSpan={7} className="p-6 text-center text-zinc-600">
                     No agents found.
                   </td>
                 </tr>
