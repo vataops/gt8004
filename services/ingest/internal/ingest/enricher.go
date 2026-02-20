@@ -192,34 +192,46 @@ func (e *Enricher) Process(ctx context.Context, agentDBID uuid.UUID, chainID int
 		}
 	}
 
-	// Insert revenue entries for x402 payments
+	// Insert revenue entries for x402 payments.
+	// Require both amount AND tx_hash: without a tx_hash the on-chain
+	// payment cannot be verified, so we refuse to record revenue at all.
+	// This makes the ingest service resilient to SDK middleware-ordering
+	// bugs (where X-PAYMENT-RESPONSE is read before x402 sets it).
 	for _, entry := range batch.Entries {
-		if entry.X402Amount != nil && *entry.X402Amount > 0 {
-			re := store.RevenueEntry{
-				AgentID:      agentDBID,
-				CustomerID:   entry.IPAddress,
-				ToolName:     entry.ToolName,
-				Amount:       *entry.X402Amount,
-				Currency:     "USDC",
-				TxHash:       entry.X402TxHash,
-				PayerAddress: entry.X402Payer,
+		if entry.X402Amount == nil || *entry.X402Amount <= 0 {
+			continue
+		}
+		if entry.X402TxHash == nil || *entry.X402TxHash == "" {
+			e.logger.Warn("x402 payment missing tx_hash — skipping revenue entry (check SDK middleware order)",
+				zap.String("batch_id", batch.BatchID),
+				zap.Float64("amount", *entry.X402Amount))
+			continue
+		}
+
+		re := store.RevenueEntry{
+			AgentID:      agentDBID,
+			CustomerID:   entry.IPAddress,
+			ToolName:     entry.ToolName,
+			Amount:       *entry.X402Amount,
+			Currency:     "USDC",
+			TxHash:       entry.X402TxHash,
+			PayerAddress: entry.X402Payer,
+		}
+		entryID, err := e.store.InsertRevenueEntryReturningID(ctx, re)
+		if err != nil {
+			e.logger.Error("failed to insert revenue entry",
+				zap.Error(err), zap.String("batch_id", batch.BatchID))
+			continue
+		}
+		// Async on-chain verification
+		if e.verifier != nil && chainID > 0 {
+			txHash := *entry.X402TxHash
+			amount := *entry.X402Amount
+			var payer string
+			if entry.X402Payer != nil {
+				payer = *entry.X402Payer
 			}
-			entryID, err := e.store.InsertRevenueEntryReturningID(ctx, re)
-			if err != nil {
-				e.logger.Error("failed to insert revenue entry",
-					zap.Error(err), zap.String("batch_id", batch.BatchID))
-				continue
-			}
-			// Async on-chain verification
-			if e.verifier != nil && entry.X402TxHash != nil && *entry.X402TxHash != "" && chainID > 0 {
-				txHash := *entry.X402TxHash
-				amount := *entry.X402Amount
-				var payer string
-				if entry.X402Payer != nil {
-					payer = *entry.X402Payer
-				}
-				go e.verifier.VerifyPayment(context.Background(), entryID, txHash, amount, payer, chainID)
-			}
+			go e.verifier.VerifyPayment(context.Background(), entryID, txHash, amount, payer, chainID)
 		}
 	}
 
