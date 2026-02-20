@@ -159,8 +159,51 @@ func (j *Job) BackfillAll() {
 	for chainID, client := range j.registry.Clients() {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 		j.backfillAgentURIs(ctx, chainID, client)
+		j.backfillMissingNames(ctx, chainID)
 		cancel()
 	}
+}
+
+// backfillMissingNames parses metadata for tokens that have an agent_uri but empty name.
+// This covers cases where initial metadata fetch failed (e.g. RPC timeout at mint time).
+func (j *Job) backfillMissingNames(ctx context.Context, chainID int) {
+	tokens, err := j.store.ListTokensMissingName(ctx, chainID, j.backfillBatchSize)
+	if err != nil {
+		j.logger.Error("failed to list tokens missing name", zap.Int("chain_id", chainID), zap.Error(err))
+		return
+	}
+	if len(tokens) == 0 {
+		return
+	}
+
+	j.logger.Info("backfilling missing names",
+		zap.Int("chain_id", chainID),
+		zap.Int("count", len(tokens)),
+	)
+
+	filled := int64(0)
+	for _, t := range tokens {
+		agent := &store.NetworkAgent{
+			ChainID:  chainID,
+			TokenID:  t.TokenID,
+			AgentURI: t.AgentURI,
+		}
+		j.fetchMetadata(agent)
+		if agent.Name == "" {
+			continue
+		}
+		if err := j.store.UpdateAgentURI(ctx, chainID, t.TokenID, t.AgentURI, agent.Name, agent.Description, agent.ImageURL, agent.Metadata, ""); err != nil {
+			j.logger.Warn("failed to update name", zap.Int64("token_id", t.TokenID), zap.Error(err))
+			continue
+		}
+		atomic.AddInt64(&filled, 1)
+	}
+
+	j.logger.Info("name backfill complete",
+		zap.Int("chain_id", chainID),
+		zap.Int64("filled", filled),
+		zap.Int("total", len(tokens)),
+	)
 }
 
 // RefreshAllReputation refreshes reputation scores for all configured chains.

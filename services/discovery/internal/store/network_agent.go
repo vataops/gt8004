@@ -290,6 +290,36 @@ func (s *Store) ListTokenIDsByChain(ctx context.Context, chainID int) ([]int64, 
 	return ids, nil
 }
 
+// TokenWithURI holds a token ID and its agent URI for name-backfill use.
+type TokenWithURI struct {
+	TokenID  int64
+	AgentURI string
+}
+
+// ListTokensMissingName returns tokens that have an agent_uri but an empty name column.
+// These are tokens whose metadata was not parsed successfully during the initial sync.
+func (s *Store) ListTokensMissingName(ctx context.Context, chainID int, limit int) ([]TokenWithURI, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT token_id, agent_uri FROM network_agents
+		 WHERE chain_id = $1 AND agent_uri <> '' AND (name = '' OR name IS NULL)
+		 ORDER BY token_id LIMIT $2`,
+		chainID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list tokens missing name: %w", err)
+	}
+	defer rows.Close()
+
+	var tokens []TokenWithURI
+	for rows.Next() {
+		var t TokenWithURI
+		if err := rows.Scan(&t.TokenID, &t.AgentURI); err != nil {
+			return nil, fmt.Errorf("scan token with uri: %w", err)
+		}
+		tokens = append(tokens, t)
+	}
+	return tokens, nil
+}
+
 // ListTokensMissingURI returns token IDs that have an empty agent_uri, limited to `limit` rows.
 func (s *Store) ListTokensMissingURI(ctx context.Context, chainID int, limit int) ([]int64, error) {
 	rows, err := s.pool.Query(ctx,
