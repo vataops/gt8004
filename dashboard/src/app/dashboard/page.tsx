@@ -481,6 +481,7 @@ function MyAgentsContent() {
                   <th className="text-left p-3">Chain</th>
                   <th className="text-left p-3">Requests</th>
                   <th className="text-left p-3">Customers</th>
+                  <th className="text-left p-3">Revenue</th>
                   <th className="text-left p-3">Status</th>
                   <th className="text-left p-3">
                     <div className="flex items-center gap-1.5">
@@ -573,6 +574,11 @@ function MyAgentsContent() {
 
                     {/* Customers */}
                     <td className="p-3 text-gray-300" style={{ fontVariantNumeric: "tabular-nums" }}>{agent.total_customers.toLocaleString()}</td>
+
+                    {/* Revenue */}
+                    <td className="p-3 text-emerald-400" style={{ fontVariantNumeric: "tabular-nums" }}>
+                      {agent.total_revenue > 0 ? `$${agent.total_revenue.toFixed(2)}` : "—"}
+                    </td>
 
                     {/* Status */}
                     <td className="p-3">
