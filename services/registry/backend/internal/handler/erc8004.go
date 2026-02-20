@@ -104,30 +104,59 @@ func (h *Handler) ListTokensByOwner(c *gin.Context) {
 		return
 	}
 
-	// Primary: on-chain RPC (source of truth for ownership)
-	// The 5-minute cache above protects against excessive RPC calls.
-	if h.erc8004Registry != nil {
-		if client, err := h.erc8004Registry.GetClient(chainID); err == nil {
-			if tokens, err := client.GetTokensByOwner(c.Request.Context(), address); err == nil {
-				resp := gin.H{"tokens": tokens}
-				data, _ := json.Marshal(resp)
-				h.cache.Set(c.Request.Context(), cacheKey, data, 5*time.Minute)
-				c.Data(http.StatusOK, "application/json", data)
-				return
-			}
-			h.logger.Warn("RPC token lookup failed, falling back to DB", zap.Error(err))
-		}
-	}
-
-	// Fallback: discovery-synced DB (when RPC is unavailable)
+	// Fast path: query discovery-synced DB
 	dbTokens, err := h.store.GetNetworkTokensByOwner(c.Request.Context(), address, chainID)
 	if err != nil {
-		h.logger.Warn("DB token lookup also failed", zap.Error(err))
-		c.JSON(http.StatusOK, gin.H{"tokens": []any{}})
+		h.logger.Warn("DB token lookup failed", zap.Error(err))
+	}
+
+	// If DB has results, verify against on-chain balanceOf (1 cheap RPC call).
+	// When on-chain balance exceeds DB count, a new token was minted but not
+	// yet synced — fall through to full RPC scan. Otherwise return DB results.
+	if len(dbTokens) > 0 && h.erc8004Registry != nil {
+		if client, err := h.erc8004Registry.GetClient(chainID); err == nil {
+			if balance, err := client.BalanceOf(c.Request.Context(), address); err == nil {
+				if balance <= int64(len(dbTokens)) {
+					// DB is up-to-date, return fast
+					resp := gin.H{"tokens": dbTokens}
+					data, _ := json.Marshal(resp)
+					h.cache.Set(c.Request.Context(), cacheKey, data, 5*time.Minute)
+					c.Data(http.StatusOK, "application/json", data)
+					return
+				}
+				h.logger.Info("on-chain balance exceeds DB count, falling through to RPC scan",
+					zap.Int64("balance", balance), zap.Int("db_count", len(dbTokens)))
+			}
+		}
+	} else if len(dbTokens) > 0 {
+		// No RPC available, return DB results
+		resp := gin.H{"tokens": dbTokens}
+		data, _ := json.Marshal(resp)
+		h.cache.Set(c.Request.Context(), cacheKey, data, 5*time.Minute)
+		c.Data(http.StatusOK, "application/json", data)
 		return
 	}
 
-	resp := gin.H{"tokens": dbTokens}
+	// Slow path: full on-chain RPC scan (DB empty or stale)
+	if h.erc8004Registry == nil {
+		c.JSON(http.StatusOK, gin.H{"tokens": []any{}})
+		return
+	}
+	client, err := h.erc8004Registry.GetClient(chainID)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"tokens": dbTokens})
+		return
+	}
+
+	tokens, err := client.GetTokensByOwner(c.Request.Context(), address)
+	if err != nil {
+		h.logger.Warn("RPC token scan failed", zap.Error(err))
+		// Return whatever DB had
+		c.JSON(http.StatusOK, gin.H{"tokens": dbTokens})
+		return
+	}
+
+	resp := gin.H{"tokens": tokens}
 	data, _ := json.Marshal(resp)
 	h.cache.Set(c.Request.Context(), cacheKey, data, 5*time.Minute)
 	c.Data(http.StatusOK, "application/json", data)

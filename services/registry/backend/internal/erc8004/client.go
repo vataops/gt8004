@@ -46,8 +46,9 @@ type OwnedToken struct {
 
 // Function selectors (first 4 bytes of keccak256 of function signature)
 var (
-	selectorOwnerOf     = crypto.Keccak256([]byte("ownerOf(uint256)"))[:4]
+	selectorOwnerOf  = crypto.Keccak256([]byte("ownerOf(uint256)"))[:4]
 	selectorTokenURI = crypto.Keccak256([]byte("tokenURI(uint256)"))[:4]
+	selectorBalanceOf = crypto.Keccak256([]byte("balanceOf(address)"))[:4]
 
 	// Transfer(address indexed from, address indexed to, uint256 indexed tokenId)
 	topicTransfer = crypto.Keccak256Hash([]byte("Transfer(address,address,uint256)"))
@@ -86,6 +87,29 @@ func NewClient(cfg Config, logger *zap.Logger) *Client {
 
 // RegistryAddr returns the configured registry contract address.
 func (c *Client) RegistryAddr() string { return c.registryAddr }
+
+// BalanceOf calls balanceOf(address) and returns the number of tokens owned.
+func (c *Client) BalanceOf(ctx context.Context, ownerAddr string) (int64, error) {
+	if c.ethClient == nil {
+		return 0, fmt.Errorf("ethclient not initialised")
+	}
+
+	addr := common.HexToAddress(ownerAddr)
+	paddedAddr := common.LeftPadBytes(addr.Bytes(), 32)
+	data := append(selectorBalanceOf, paddedAddr...)
+
+	msg := ethereum.CallMsg{To: &c.contractAddr, Data: data}
+	result, err := c.ethClient.CallContract(ctx, msg, nil)
+	if err != nil {
+		return 0, fmt.Errorf("balanceOf call failed: %w", err)
+	}
+	if len(result) < 32 {
+		return 0, fmt.Errorf("balanceOf returned invalid data")
+	}
+
+	balance := new(big.Int).SetBytes(result)
+	return balance.Int64(), nil
+}
 
 // VerifyOwnership calls ownerOf(tokenId) on the ERC-8004 registry contract
 // and returns the owner address as a hex string.
